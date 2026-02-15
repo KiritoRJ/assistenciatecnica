@@ -177,109 +177,147 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings }) => {
     }
   };
 
-  // FUNÇÃO OTIMIZADA PARA GERAR IMAGEM (JPEG) EM VEZ DE PDF
+  // GERAÇÃO DE IMAGEM DO RECIBO OTIMIZADA PARA WHATSAPP
   const generateReceiptImage = (order: ServiceOrder) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Configurações do Recibo (Escala 2x para nitidez)
-    const scale = 2;
-    const width = 400 * scale;
-    const height = 750 * scale; 
+    const scale = 2; // Alta densidade de pixels para nitidez no celular
+    const width = 450 * scale;
+    
+    // Calculamos a altura dinamicamente com base no texto da garantia
+    const warrantyText = settings.pdfWarrantyText || 'Garantia de 90 dias.';
+    const canvasTemp = document.createElement('canvas');
+    const ctxTemp = canvasTemp.getContext('2d')!;
+    ctxTemp.font = `${10 * scale}px Arial`;
+    const warrantyLines = wrapText(ctxTemp, warrantyText, width - (40 * scale));
+    const dynamicHeight = (350 + (warrantyLines.length * 15)) * scale;
+
     canvas.width = width;
-    canvas.height = height;
+    canvas.height = dynamicHeight;
 
-    // Fundo
+    // Fundo branco limpo
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, 0, width, height);
+    ctx.fillRect(0, 0, width, dynamicHeight);
 
-    // Texto Centralizado
-    const drawText = (text: string, y: number, fontSize: number, bold: boolean = false) => {
+    // Funções auxiliares de desenho
+    const drawText = (text: string, y: number, fontSize: number, bold: boolean = false, align: 'center' | 'left' | 'right' = 'center') => {
       ctx.fillStyle = '#000000';
       ctx.font = `${bold ? '900' : '500'} ${fontSize * scale}px Arial`;
-      ctx.textAlign = 'center';
-      ctx.fillText(text, width / 2, y * scale);
+      ctx.textAlign = align;
+      const x = align === 'center' ? width / 2 : align === 'left' ? 20 * scale : width - 20 * scale;
+      ctx.fillText(text.toUpperCase(), x, y * scale);
     };
 
-    // Texto Alinhado Esquerda/Direita
-    const drawRow = (left: string, right: string, y: number, fontSize: number, bold: boolean = false) => {
-      ctx.fillStyle = '#000000';
-      ctx.font = `${bold ? '800' : '400'} ${fontSize * scale}px Arial`;
-      ctx.textAlign = 'left';
-      ctx.fillText(left, 20 * scale, y * scale);
-      ctx.textAlign = 'right';
-      ctx.fillText(right, (width - 20 * scale), y * scale);
+    const drawLine = (y: number) => {
+      ctx.strokeStyle = '#E2E8F0';
+      ctx.lineWidth = 1 * scale;
+      ctx.beginPath();
+      ctx.moveTo(20 * scale, y * scale);
+      ctx.lineTo((width - 20 * scale), y * scale);
+      ctx.stroke();
     };
 
-    // Cabeçalho
-    drawText(settings.storeName.toUpperCase(), 40, 18, true);
-    drawText(`RECIBO DE SERVIÇO #${order.id}`, 65, 12, true);
+    // Cabeçalho Profissional
+    drawText(settings.storeName, 40, 22, true);
+    drawText(`ORDEM DE SERVIÇO #${order.id}`, 65, 14, true);
+    drawLine(75);
+
+    // Bloco Cliente/Data
+    let currentY = 100;
+    drawText('DADOS DO CLIENTE', currentY, 10, true, 'left');
+    currentY += 15;
+    drawText(`CLIENTE: ${order.customerName}`, currentY, 11, false, 'left');
+    currentY += 15;
+    drawText(`CONTATO: ${order.phoneNumber || 'NÃO INFORMADO'}`, currentY, 11, false, 'left');
+    currentY += 15;
+    drawText(`DATA: ${formatDate(order.date)}`, currentY, 11, false, 'left');
+
+    // Bloco Equipamento
+    currentY += 25;
+    drawText('EQUIPAMENTO', currentY, 10, true, 'left');
+    currentY += 15;
+    drawText(`${order.deviceBrand} ${order.deviceModel}`, currentY, 12, true, 'left');
     
-    ctx.strokeStyle = '#EEEEEE';
-    ctx.lineWidth = 1 * scale;
-    ctx.beginPath();
-    ctx.moveTo(20 * scale, 75 * scale);
-    ctx.lineTo((width - 20 * scale), 75 * scale);
-    ctx.stroke();
-
-    // Dados do Cliente
-    ctx.textAlign = 'left';
-    ctx.font = `bold ${10 * scale}px Arial`;
-    ctx.fillText('CLIENTE:', 20 * scale, 95 * scale);
-    ctx.font = `${10 * scale}px Arial`;
-    ctx.fillText(order.customerName.toUpperCase(), 20 * scale, 110 * scale);
-    ctx.fillText(`FONE: ${order.phoneNumber || 'N/A'}`, 20 * scale, 125 * scale);
-    ctx.fillText(`DATA: ${formatDate(order.date)}`, 20 * scale, 140 * scale);
-
-    // Equipamento
-    ctx.font = `bold ${10 * scale}px Arial`;
-    ctx.fillText('EQUIPAMENTO:', 20 * scale, 170 * scale);
-    ctx.font = `${10 * scale}px Arial`;
-    ctx.fillText(`${order.deviceBrand} ${order.deviceModel}`.toUpperCase(), 20 * scale, 185 * scale);
-
-    // Detalhes Financeiros
-    let y = 230;
-    ctx.beginPath();
-    ctx.moveTo(20 * scale, (y - 15) * scale);
-    ctx.lineTo((width - 20 * scale), (y - 15) * scale);
-    ctx.stroke();
-
-    drawRow('CUSTO DE PEÇAS', formatCurrency(order.partsCost || 0), y, 11);
-    y += 15;
-    drawRow('MÃO DE OBRA', formatCurrency(order.serviceCost || 0), y, 11);
+    // Bloco Financeiro
+    currentY += 35;
+    drawLine(currentY - 10);
+    drawText('DETALHAMENTO FINANCEIRO', currentY, 10, true, 'left');
+    currentY += 20;
     
-    y += 25;
-    ctx.fillStyle = '#F8FAFC';
-    ctx.fillRect(15 * scale, (y - 15) * scale, (width - 30 * scale), 30 * scale);
-    drawRow('VALOR TOTAL', formatCurrency(order.total), y + 5, 14, true);
+    // Tabela de Custos
+    const drawRow = (label: string, value: number, y: number, isTotal: boolean = false) => {
+        ctx.textAlign = 'left';
+        ctx.font = `${isTotal ? '900' : '500'} ${isTotal ? 16 : 12} * ${scale}px Arial`;
+        ctx.fillText(label, 20 * scale, y * scale);
+        ctx.textAlign = 'right';
+        ctx.fillText(formatCurrency(value), (width - 20 * scale), y * scale);
+    };
 
-    // Garantia
-    y += 60;
-    drawText('TERMOS DE GARANTIA', y, 9, true);
-    y += 15;
+    drawRow('PEÇAS E COMPONENTES:', order.partsCost || 0, currentY);
+    currentY += 18;
+    drawRow('MÃO DE OBRA / SERVIÇO:', order.serviceCost || 0, currentY);
+    
+    currentY += 25;
+    ctx.fillStyle = '#F8FAFC'; // Fundo leve para o total
+    ctx.fillRect(15 * scale, (currentY - 20) * scale, width - 30 * scale, 35 * scale);
+    ctx.fillStyle = '#000000';
+    drawRow('VALOR TOTAL:', order.total, currentY + 5, true);
+
+    // Bloco Garantia
+    currentY += 60;
+    drawText('TERMOS E CONDIÇÕES DE GARANTIA', currentY, 10, true, 'center');
+    currentY += 15;
     ctx.textAlign = 'left';
-    ctx.font = `${8 * scale}px Arial`;
-    const lines = settings.pdfWarrantyText.split('\n').slice(0, 10); // Pega as primeiras linhas para não estourar
-    lines.forEach(line => {
-      ctx.fillText(line, 20 * scale, y * scale);
-      y += 10;
+    ctx.font = `${9 * scale}px Arial`;
+    ctx.fillStyle = '#475569';
+    warrantyLines.forEach(line => {
+        ctx.fillText(line, 20 * scale, currentY * scale);
+        currentY += 12;
     });
 
-    // Converter para Base64 JPEG (Qualidade 0.8 para compressão)
-    const jpegData = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
-    const fileName = `Recibo_${order.id}.jpg`;
+    // Rodapé
+    currentY += 20;
+    ctx.textAlign = 'center';
+    ctx.font = `italic ${8 * scale}px Arial`;
+    ctx.fillText('Gerado via Assistência Técnica Pro - Offline System', width / 2, currentY * scale);
 
+    // Extração do JPEG Comprimido (0.8 é o sweet spot entre peso e qualidade)
+    const jpegBase64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+    const fileName = `Recibo_${order.id}_${order.customerName.replace(/\s+/g, '_')}.jpg`;
+
+    // Chamada para a Ponte Android
     if ((window as any).AndroidBridge) {
-      (window as any).AndroidBridge.shareFile(jpegData, fileName, 'image/jpeg');
+        (window as any).AndroidBridge.shareFile(jpegBase64, fileName, 'image/jpeg');
     } else {
-      // Fallback para navegador desktop
-      const link = document.createElement('a');
-      link.download = fileName;
-      link.href = `data:image/jpeg;base64,${jpegData}`;
-      link.click();
+        // Fallback para navegador comum
+        const link = document.createElement('a');
+        link.download = fileName;
+        link.href = `data:image/jpeg;base64,${jpegBase64}`;
+        link.click();
     }
   };
+
+  // Função para quebra automática de texto no canvas
+  function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
+    const words = text.split(' ');
+    const lines = [];
+    let currentLine = words[0];
+
+    for (let i = 1; i < words.length; i++) {
+        const word = words[i];
+        const width = ctx.measureText(currentLine + ' ' + word).width;
+        if (width < maxWidth) {
+            currentLine += ' ' + word;
+        } else {
+            lines.push(currentLine);
+            currentLine = word;
+        }
+    }
+    lines.push(currentLine);
+    return lines;
+  }
 
   const filteredOrders = orders.filter(o => 
     o.customerName.toLowerCase().includes(searchTerm.toLowerCase()) || 

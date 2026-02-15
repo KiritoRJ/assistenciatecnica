@@ -61,6 +61,7 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
     }
   };
 
+  // GERAÇÃO DE CUPOM DE VENDA EM IMAGEM JPEG
   const generateSalesReceiptImage = (items: CartItem[], total: number, payment: string, seller: string) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -68,7 +69,8 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
 
     const scale = 2;
     const width = 400 * scale;
-    const height = (180 + items.length * 25) * scale;
+    // Altura baseada no número de itens vendidos
+    const height = (200 + items.length * 30) * scale;
     canvas.width = width;
     canvas.height = height;
 
@@ -81,48 +83,55 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
     ctx.fillText(settings.storeName.toUpperCase(), width / 2, 40 * scale);
     
     ctx.font = `bold ${10 * scale}px Arial`;
-    ctx.fillText('CUPOM DE VENDA', width / 2, 65 * scale);
+    ctx.fillText('CUPOM DE VENDA (BALCÃO)', width / 2, 65 * scale);
     
-    ctx.strokeStyle = '#EEEEEE';
+    ctx.strokeStyle = '#F1F5F9';
+    ctx.lineWidth = 1 * scale;
     ctx.beginPath(); ctx.moveTo(20*scale, 75*scale); ctx.lineTo((width-20*scale), 75*scale); ctx.stroke();
 
     ctx.textAlign = 'left';
     ctx.font = `${10 * scale}px Arial`;
     ctx.fillText(`DATA: ${new Date().toLocaleDateString()}`, 20 * scale, 95 * scale);
     ctx.fillText(`VENDEDOR: ${seller}`, 20 * scale, 110 * scale);
+    ctx.fillText(`PAGAMENTO: ${payment}`, 20 * scale, 125 * scale);
 
-    let y = 140;
+    let y = 160;
+    ctx.font = `bold ${9 * scale}px Arial`;
+    ctx.fillText('PRODUTO / QTD', 20 * scale, (y - 20) * scale);
+    ctx.textAlign = 'right';
+    ctx.fillText('TOTAL ITEM', (width - 20 * scale), (y - 20) * scale);
+
     items.forEach(item => {
-      ctx.font = `bold ${10 * scale}px Arial`;
+      ctx.font = `${10 * scale}px Arial`;
       ctx.textAlign = 'left';
-      ctx.fillText(`${item.quantity}x ${item.product.name.substring(0, 20).toUpperCase()}`, 20 * scale, y * scale);
+      ctx.fillText(`${item.quantity}x ${item.product.name.substring(0, 22).toUpperCase()}`, 20 * scale, y * scale);
       ctx.textAlign = 'right';
       ctx.fillText(formatCurrency(item.product.salePrice * item.quantity), (width - 20 * scale), y * scale);
-      y += 15;
+      y += 20;
     });
 
     y += 10;
     ctx.beginPath(); ctx.moveTo(20*scale, (y-10)*scale); ctx.lineTo((width-20*scale), (y-10)*scale); ctx.stroke();
     
-    ctx.font = `bold ${14 * scale}px Arial`;
+    ctx.font = `bold ${16 * scale}px Arial`;
     ctx.textAlign = 'left';
-    ctx.fillText('TOTAL', 20 * scale, (y + 10) * scale);
+    ctx.fillText('TOTAL PAGO', 20 * scale, (y + 15) * scale);
     ctx.textAlign = 'right';
-    ctx.fillText(formatCurrency(total), (width - 20 * scale), (y + 10) * scale);
+    ctx.fillText(formatCurrency(total), (width - 20 * scale), (y + 15) * scale);
 
-    y += 40;
+    y += 45;
     ctx.textAlign = 'center';
-    ctx.font = `${9 * scale}px Arial`;
-    ctx.fillText('OBRIGADO PELA PREFERÊNCIA!', width / 2, y * scale);
+    ctx.font = `italic ${9 * scale}px Arial`;
+    ctx.fillText('AGRADECEMOS A SUA PREFERÊNCIA!', width / 2, y * scale);
 
-    const jpegData = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+    const jpegBase64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
     const fileName = `Venda_${Date.now()}.jpg`;
 
     if ((window as any).AndroidBridge) {
-      (window as any).AndroidBridge.shareFile(jpegData, fileName, 'image/jpeg');
+      (window as any).AndroidBridge.shareFile(jpegBase64, fileName, 'image/jpeg');
     } else {
       const link = document.createElement('a');
-      link.download = fileName; link.href = `data:image/jpeg;base64,${jpegData}`; link.click();
+      link.download = fileName; link.href = `data:image/jpeg;base64,${jpegBase64}`; link.click();
     }
   };
 
@@ -285,7 +294,7 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
             <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce"><CheckCircle2 size={40} /></div>
             <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight mb-4">Sucesso!</h3>
             <div className="space-y-2">
-              <button onClick={handleViewReceipt} className="w-full py-3 bg-blue-600 text-white font-black rounded-xl text-[10px] uppercase tracking-widest flex items-center justify-center gap-2"><Eye size={16} /> Ver Recibo</button>
+              <button onClick={handleViewReceipt} className="w-full py-3 bg-blue-600 text-white font-black rounded-xl text-[10px] uppercase tracking-widest flex items-center justify-center gap-2"><Eye size={16} /> Enviar Recibo</button>
               <button onClick={() => setShowSuccess(false)} className="w-full py-3 bg-slate-900 text-white font-black rounded-xl text-[10px] uppercase tracking-widest">Concluído</button>
             </div>
           </div>

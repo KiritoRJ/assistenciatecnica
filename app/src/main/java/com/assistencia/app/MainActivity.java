@@ -111,7 +111,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public class WebAppInterface {
-        // Novo método genérico para compartilhar arquivos (PDF ou Imagens)
         @JavascriptInterface
         public void shareFile(String base64Data, String fileName, String mimeType) {
             runOnUiThread(() -> {
@@ -119,7 +118,6 @@ public class MainActivity extends AppCompatActivity {
             });
         }
         
-        // Mantido para compatibilidade se o JS antigo ainda chamar
         @JavascriptInterface
         public void downloadPdf(String base64Data) {
             runOnUiThread(() -> {
@@ -137,14 +135,16 @@ public class MainActivity extends AppCompatActivity {
             fos.close();
 
             Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".provider", file);
-            Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setDataAndType(uri, mimeType);
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             
-            // Abre o seletor de compartilhamento/visualização do sistema
-            startActivity(Intent.createChooser(intent, "Abrir ou Enviar Recibo"));
+            // Usamos ACTION_SEND para que o WhatsApp e outros apps apareçam como opção direta
+            Intent shareIntent = new Intent(Intent.ACTION_SEND);
+            shareIntent.setType(mimeType);
+            shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
+            shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            
+            startActivity(Intent.createChooser(shareIntent, "Enviar Recibo via..."));
         } catch (Exception e) {
-            Toast.makeText(this, "Erro ao processar arquivo", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Erro ao processar arquivo: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             Log.e("SHARE", "Erro", e);
         }
     }
