@@ -2,6 +2,7 @@
 package com.assistencia.app;
 
 import android.annotation.SuppressLint;
+import android.os.Build;
 import android.os.Bundle;
 import android.webkit.CookieManager;
 import android.webkit.WebChromeClient;
@@ -12,8 +13,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 public class MainActivity extends AppCompatActivity {
 
-    // COLOQUE AQUI A URL DO SEU GITHUB PAGES APÓS FAZER O DEPLOY
-    // Exemplo: "https://seu-usuario.github.io/nome-do-repositorio/"
+    // Se estiver vazio, o app carrega os arquivos da pasta 'assets'
     private static final String APP_URL = ""; 
 
     private WebView webView;
@@ -27,34 +27,45 @@ public class MainActivity extends AppCompatActivity {
         webView = findViewById(R.id.webview);
         WebSettings webSettings = webView.getSettings();
         
-        // Configurações essenciais para React e Apps Online
+        // Ativa depuração remota via Chrome (chrome://inspect)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            WebView.setWebContentsDebuggingEnabled(true);
+        }
+
+        // Configurações críticas para React/ES6
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
         webSettings.setDatabaseEnabled(true);
+        
+        // PERMISSÕES PARA ES MODULES (Essencial para index.tsx funcionar como módulo)
         webSettings.setAllowFileAccess(true);
         webSettings.setAllowContentAccess(true);
+        webSettings.setAllowFileAccessFromFileURLs(true);
+        webSettings.setAllowUniversalAccessFromFileURLs(true);
+        
         webSettings.setLoadWithOverviewMode(true);
         webSettings.setUseWideViewPort(true);
+        webSettings.setSupportZoom(false);
         
-        // Otimização para funcionamento Online
+        // Performance
         webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
+        webSettings.setRenderPriority(WebSettings.RenderPriority.HIGH);
         
-        // Habilitar Cookies
+        // Cookies
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
-        cookieManager.setAcceptThirdPartyCookies(webView, true);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            cookieManager.setAcceptThirdPartyCookies(webView, true);
+        }
 
-        // Cliente para lidar com gallery/camera e elementos de interface
         webView.setWebChromeClient(new WebChromeClient());
-        
-        // Mantém a navegação dentro do WebView
         webView.setWebViewClient(new WebViewClient());
 
-        // Lógica de carregamento: Prioriza URL remota, senão usa asset local
-        if (APP_URL != null && !APP_URL.isEmpty() && APP_URL.startsWith("http")) {
+        // Carregamento
+        if (APP_URL != null && !APP_URL.isEmpty()) {
             webView.loadUrl(APP_URL);
         } else {
+            // O caminho oficial para arquivos dentro de app/src/main/assets/
             webView.loadUrl("file:///android_asset/index.html");
         }
     }
