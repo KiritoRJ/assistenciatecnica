@@ -7,6 +7,8 @@
     <title>Assistência Técnica Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Babel Standalone para permitir execução de .tsx diretamente no WebView -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
         #app-loader {
@@ -36,12 +38,13 @@
 <body class="bg-slate-50 text-slate-900">
     <div id="app-loader">
         <div class="spinner"></div>
-        <p style="color: #64748b; font-size: 10px; font-weight: 800; text-transform: uppercase; margin-top: 15px; letter-spacing: 0.1em;">Iniciando Sistema...</p>
+        <p style="color: #64748b; font-size: 10px; font-weight: 800; text-transform: uppercase; margin-top: 15px; letter-spacing: 0.1em;">Carregando Interface...</p>
     </div>
     
     <div id="root"></div>
 
-    <script type="module" src="./index.tsx"></script>
+    <!-- type="text/babel" instrui o Babel a processar este arquivo como TypeScript/JSX -->
+    <script type="text/babel" data-type="module" src="./index.tsx"></script>
 
     <script>
         window.addEventListener('load', () => {
@@ -49,7 +52,7 @@
                 const loader = document.getElementById('app-loader');
                 if(loader) loader.style.opacity = '0';
                 setTimeout(() => loader?.remove(), 500);
-            }, 1000);
+            }, 2000);
         });
     </script>
 </body>
