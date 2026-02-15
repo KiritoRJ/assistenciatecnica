@@ -3,17 +3,15 @@ package com.assistencia.app;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.content.ContentValues;
+import android.app.DownloadManager;
 import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.provider.MediaStore;
 import android.util.Base64;
-import android.webkit.JavascriptInterface;
+import android.webkit.DownloadListener;
+import android.webkit.URLUtil;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -24,14 +22,15 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import java.io.OutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 
 public class MainActivity extends AppCompatActivity {
 
     private WebView webView;
     private static final int PERMISSION_REQUEST_CODE = 1001;
 
-    @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface"})
+    @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -41,75 +40,73 @@ public class MainActivity extends AppCompatActivity {
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
+        settings.setDatabaseEnabled(true);
         settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(true);
 
         webView.setWebChromeClient(new WebChromeClient());
         webView.setWebViewClient(new WebViewClient());
 
-        // Interface para comunicação JS -> Android
-        webView.addJavascriptInterface(new AndroidBridge(), "AndroidBridge");
+        // Suporte para Downloads no Android WebView
+        webView.setDownloadListener(new DownloadListener() {
+            @Override
+            public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimetype, long contentLength) {
+                if (checkPermissions()) {
+                    handleDownload(url, mimetype, contentDisposition);
+                } else {
+                    requestPermissions();
+                }
+            }
+        });
 
         webView.loadUrl("file:///android_asset/index.html");
     }
 
-    public class AndroidBridge {
-        @JavascriptInterface
-        public void saveImageToGallery(String base64Data, String fileName) {
-            runOnUiThread(() -> {
-                if (checkPermissions()) {
-                    performSave(base64Data, fileName);
-                } else {
-                    requestPermissions();
-                }
-            });
-        }
-
-        @JavascriptInterface
-        public void showToast(String message) {
-            runOnUiThread(() -> Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show());
+    private void handleDownload(String url, String mimetype, String contentDisposition) {
+        try {
+            if (url.startsWith("data:")) {
+                // Tratamento para data URIs (comum em PDFs gerados via JS)
+                String base64Data = url.substring(url.indexOf(",") + 1);
+                byte[] decodedBytes = Base64.decode(base64Data, Base64.DEFAULT);
+                String fileName = "OS_Gerada_" + System.currentTimeMillis() + ".pdf";
+                
+                File path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                File file = new File(path, fileName);
+                
+                FileOutputStream fos = new FileOutputStream(file);
+                fos.write(decodedBytes);
+                fos.close();
+                
+                Toast.makeText(this, "PDF salvo na pasta Downloads!", Toast.LENGTH_LONG).show();
+            } else {
+                // Download padrão para URLs HTTP/HTTPS
+                DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
+                request.setMimeType(mimetype);
+                String fileName = URLUtil.guessFileName(url, contentDisposition, mimetype);
+                request.setTitle(fileName);
+                request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName);
+                
+                DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+                dm.enqueue(request);
+                Toast.makeText(getApplicationContext(), "Baixando arquivo...", Toast.LENGTH_SHORT).show();
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "Erro ao baixar: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 
     private boolean checkPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            return ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED;
+            return true; // Android 13+ não precisa de WRITE_EXTERNAL_STORAGE para Downloads
         } else {
             return ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
         }
     }
 
     private void requestPermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_MEDIA_IMAGES}, PERMISSION_REQUEST_CODE);
-        } else {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE}, PERMISSION_REQUEST_CODE);
-        }
-    }
-
-    private void performSave(String base64Data, String fileName) {
-        try {
-            // Remove o prefixo data:image/jpeg;base64,
-            String pureBase64 = base64Data.substring(base64Data.indexOf(",") + 1);
-            byte[] decodedString = Base64.decode(pureBase64, Base64.DEFAULT);
-            Bitmap bitmap = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
-
-            ContentValues values = new ContentValues();
-            values.put(MediaStore.Images.Media.DISPLAY_NAME, fileName);
-            values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                values.put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/AssistenciaPro");
-            }
-
-            Uri uri = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
-            if (uri != null) {
-                OutputStream outputStream = getContentResolver().openOutputStream(uri);
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream);
-                outputStream.close();
-                Toast.makeText(this, "Salvo na Galeria!", Toast.LENGTH_LONG).show();
-            }
-        } catch (Exception e) {
-            Toast.makeText(this, "Erro ao salvar: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, PERMISSION_REQUEST_CODE);
         }
     }
 
@@ -118,9 +115,7 @@ public class MainActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_REQUEST_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(this, "Permissão concedida! Tente salvar novamente.", Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(this, "Permissão necessária para salvar a imagem.", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "Permissão concedida! Tente baixar novamente.", Toast.LENGTH_SHORT).show();
             }
         }
     }

@@ -19,16 +19,6 @@
             border-left-color: #2563eb; border-radius: 50%; animate: spin 1s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-        /* Estilo para o elemento de captura (invisível na tela, mas visível para o html2canvas) */
-        #os-capture-area {
-            position: absolute;
-            left: -9999px;
-            top: -9999px;
-            width: 320px; /* Largura padrão de impressora térmica 80mm */
-            background: white;
-            color: black;
-            padding: 20px;
-        }
     </style>
 <script type="importmap">
 {
@@ -38,8 +28,7 @@
     "react/": "https://esm.sh/react@^19.2.4/",
     "recharts": "https://esm.sh/recharts@^3.7.0",
     "lucide-react": "https://esm.sh/lucide-react@^0.564.0",
-    "jspdf": "https://esm.sh/jspdf@2.5.1",
-    "html2canvas": "https://esm.sh/html2canvas@1.4.1"
+    "jspdf": "https://esm.sh/jspdf@2.5.1"
   }
 }
 </script>
@@ -51,8 +40,6 @@
     </div>
     
     <div id="root"></div>
-    <!-- Área de captura para o JPEG -->
-    <div id="os-capture-area"></div>
 
     <script type="module" src="./index.tsx"></script>
 
