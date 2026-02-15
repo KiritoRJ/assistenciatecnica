@@ -6,10 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Assistência Técnica Pro</title>
     
-    <script async src="https://ga.jspm.io/npm:es-module-shims@1.10.1/dist/es-module-shims.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Adicionado crossorigin para evitar "Script Error at 0:0" -->
+    <script async src="https://ga.jspm.io/npm:es-module-shims@1.10.1/dist/es-module-shims.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin="anonymous"></script>
     
     <style>
         body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
@@ -24,10 +25,10 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
         #debug-console {
-            position: fixed; bottom: 0; left: 0; right: 0; max-height: 150px; 
-            background: rgba(0,0,0,0.8); color: #00ff00; font-family: monospace; 
-            font-size: 8px; overflow-y: auto; z-index: 10000; padding: 5px;
-            display: none; pointer-events: none;
+            position: fixed; top: 0; left: 0; right: 0; max-height: 50%; 
+            background: rgba(0,0,0,0.9); color: #ff3333; font-family: monospace; 
+            font-size: 10px; overflow-y: auto; z-index: 10000; padding: 10px;
+            display: none; border-bottom: 2px solid red;
         }
     </style>
 
@@ -45,24 +46,41 @@
 </script>
 </head>
 <body class="bg-slate-50 text-slate-900">
-    <div id="app-loader">
-        <div class="spinner"></div>
-        <p id="loader-text" style="color: #64748b; font-size: 10px; font-weight: 800; text-transform: uppercase; margin-top: 15px; letter-spacing: 0.1em;">Iniciando Sistema...</p>
+    <div id="debug-console">
+        <div style="font-weight: bold; margin-bottom: 5px; color: white;">DEBUG CONSOLE (ERROS):</div>
     </div>
 
-    <div id="debug-console"></div>
+    <div id="app-loader">
+        <div class="spinner"></div>
+        <p id="loader-text" style="color: #64748b; font-size: 10px; font-weight: 800; text-transform: uppercase; margin-top: 15px; letter-spacing: 0.1em;">Carregando do Netlify...</p>
+    </div>
     
     <div id="root"></div>
 
     <script>
-        // Capturador de erros para ajudar no debug via celular
-        window.onerror = function(msg, url, lineNo, columnNo, error) {
-            const debug = document.getElementById('debug-console');
+        // Sistema de debug robusto para WebView
+        const debug = document.getElementById('debug-console');
+        
+        function logError(msg, source, line, col, error) {
             debug.style.display = 'block';
-            debug.innerHTML += `<div>ERROR: ${msg} at ${lineNo}:${columnNo}</div>`;
-            console.error(msg, url, lineNo, columnNo, error);
-            return false;
-        };
+            const div = document.createElement('div');
+            div.style.marginBottom = '5px';
+            div.innerHTML = `<strong>Erro:</strong> ${msg}<br><small>${source}:${line}:${col}</small>`;
+            debug.appendChild(div);
+            // Se houver erro de script 0:0, provavelmente é CORS ou falta de internet
+            if (msg.toLowerCase().includes('script error')) {
+                const hint = document.createElement('div');
+                hint.style.color = 'yellow';
+                hint.style.fontSize = '9px';
+                hint.innerText = 'Dica: Verifique a conexão ou se o Netlify permite acesso externo.';
+                debug.appendChild(hint);
+            }
+        }
+
+        window.onerror = logError;
+        window.addEventListener('unhandledrejection', function(event) {
+            logError('Promessa Rejeitada: ' + event.reason, '', '', '', '');
+        });
 
         window.hideAppLoader = () => {
             const loader = document.getElementById('app-loader');
@@ -73,7 +91,7 @@
         };
     </script>
 
-    <!-- Importante: data-presets para garantir que o Babel saiba o que fazer -->
-    <script type="text/babel" data-type="module" data-presets="react,typescript" src="./index.tsx"></script>
+    <!-- Adicionado crossorigin aqui também -->
+    <script type="text/babel" data-type="module" data-presets="react,typescript" src="./index.tsx" crossorigin="anonymous"></script>
 </body>
 </html>
