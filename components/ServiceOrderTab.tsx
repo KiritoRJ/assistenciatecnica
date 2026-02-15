@@ -182,17 +182,70 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings }) => {
     const doc = new jsPDF({
       orientation: 'p',
       unit: 'mm',
-      format: [80, 150]
+      format: [80, 180] // Ajustado para ser um pouco mais longo para caber tudo
     });
+    
+    const margin = 5;
+    const width = 80;
+    const centerX = width / 2;
+
     doc.setFontSize(10);
-    doc.text(settings.storeName.toUpperCase(), 40, 10, { align: 'center' });
-    doc.text(`O.S. #${order.id}`, 40, 15, { align: 'center' });
-    doc.line(5, 18, 75, 18);
+    doc.setFont('helvetica', 'bold');
+    doc.text(settings.storeName.toUpperCase(), centerX, 10, { align: 'center' });
+    
     doc.setFontSize(8);
-    doc.text(`Cliente: ${order.customerName}`, 5, 25);
-    doc.text(`Aparelho: ${order.deviceBrand} ${order.deviceModel}`, 5, 30);
-    doc.text(`Total: ${formatCurrency(order.total)}`, 5, 40);
-    doc.save(`OS_${order.id}.pdf`);
+    doc.text(`COMPROVANTE DE SERVIÇO #${order.id}`, centerX, 15, { align: 'center' });
+    doc.line(margin, 18, width - margin, 18);
+    
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Data: ${formatDate(order.date)}`, margin, 25);
+    doc.text(`Cliente: ${order.customerName}`, margin, 30);
+    doc.text(`Fone: ${order.phoneNumber || 'N/A'}`, margin, 35);
+    
+    doc.setFont('helvetica', 'bold');
+    doc.text(`EQUIPAMENTO:`, margin, 45);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`${order.deviceBrand} ${order.deviceModel}`, margin, 50);
+    
+    doc.setFont('helvetica', 'bold');
+    doc.text(`RELATÓRIO:`, margin, 60);
+    doc.setFont('helvetica', 'normal');
+    const defectLines = doc.splitTextToSize(`Defeito: ${order.defect}`, width - 10);
+    doc.text(defectLines, margin, 65);
+    
+    let y = 65 + (defectLines.length * 4);
+    const repairLines = doc.splitTextToSize(`Serviço: ${order.repairDetails || 'Em análise'}`, width - 10);
+    doc.text(repairLines, margin, y);
+    
+    y += (repairLines.length * 4) + 10;
+    doc.line(margin, y - 5, width - margin, y - 5);
+    
+    doc.text(`Peças:`, margin, y);
+    doc.text(formatCurrency(order.partsCost), width - margin, y, { align: 'right' });
+    
+    y += 5;
+    doc.text(`Mão de Obra:`, margin, y);
+    doc.text(formatCurrency(order.serviceCost), width - margin, y, { align: 'right' });
+    
+    y += 8;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`TOTAL:`, margin, y);
+    doc.text(formatCurrency(order.total), width - margin, y, { align: 'right' });
+    
+    y += 15;
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TERMOS DE GARANTIA:', centerX, y, { align: 'center' });
+    y += 4;
+    doc.setFont('helvetica', 'normal');
+    const warrantyLines = doc.splitTextToSize(settings.pdfWarrantyText || 'Garantia de 90 dias conforme CDC.', width - 10);
+    doc.text(warrantyLines, margin, y);
+
+    // IMPORTANTE PARA ANDROID WEBVIEW:
+    // Em vez de doc.save(), usamos doc.output('datauristring') para o MainActivity capturar o download.
+    const dataUri = doc.output('datauristring');
+    window.location.href = dataUri;
   };
 
   const filteredOrders = orders.filter(o => 
