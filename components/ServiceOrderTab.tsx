@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { Plus, Search, Trash2, Printer, ChevronRight, ClipboardList, Camera, X, FileText, Download, CheckCircle, Eye } from 'lucide-react';
+import { Plus, Search, Trash2, ChevronRight, Camera, X, Eye } from 'lucide-react';
 import { ServiceOrder, AppSettings } from '../types';
 import { formatCurrency, parseCurrencyString, formatDate } from '../utils';
 import { jsPDF } from 'jspdf';
@@ -99,151 +99,31 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings }) => {
     }
   };
 
-  const getDoc = (order: ServiceOrder) => {
-    const baseFontSize = settings.pdfFontSize || 8;
-    const fontFamily = settings.pdfFontFamily || 'helvetica';
-    const width = settings.pdfPaperWidth || 80;
-    const margin = 5;
-    const centerX = width / 2;
-    const textColor = settings.pdfTextColor || '#000000';
-    const bgColor = settings.pdfBgColor || '#FFFFFF';
-
-    const tempDoc = new jsPDF();
-    const textWidth = width - 2 * margin;
-    const estimateLines = (text: string) => tempDoc.splitTextToSize(text || "", textWidth).length;
-
-    let estimatedHeight = 50;
-    estimatedHeight += 30; // Cliente
-    estimatedHeight += 30; // Aparelho
-    estimatedHeight += estimateLines(order.repairDetails) * (baseFontSize * 0.6) + 15;
-    
-    // Altura para fotos de entrada
-    if (order.photos && order.photos.length > 0) {
-      estimatedHeight += Math.ceil(order.photos.length / 2) * 35 + 10;
-    }
-    
-    // Altura para fotos de saída
-    if (order.finishedPhotos && order.finishedPhotos.length > 0) {
-      estimatedHeight += Math.ceil(order.finishedPhotos.length / 2) * 35 + 10;
-    }
-
-    estimatedHeight += 20; // Totais
-    estimatedHeight += estimateLines(settings.pdfWarrantyText) * (baseFontSize * 0.5) + 30;
-
+  const generatePDF = (order: ServiceOrder) => {
     const doc = new jsPDF({
       orientation: 'p',
       unit: 'mm',
-      format: [width, estimatedHeight]
+      format: [80, 150] // Formato bobina 80mm
     });
 
-    doc.setFillColor(bgColor);
-    doc.rect(0, 0, width, estimatedHeight, 'F');
-    doc.setTextColor(textColor);
-    doc.setFont(fontFamily, 'normal');
-
-    let y = 10;
-    doc.setFontSize(baseFontSize + 4);
-    doc.setFont(fontFamily, 'bold');
-    doc.text(settings.storeName.toUpperCase(), centerX, y, { align: 'center' });
-    y += 8;
+    doc.setFontSize(10);
+    doc.text(settings.storeName.toUpperCase(), 40, 10, { align: 'center' });
+    doc.text(`ORDEM DE SERVIÇO #${order.id}`, 40, 15, { align: 'center' });
+    doc.line(5, 18, 75, 18);
     
-    doc.setFontSize(baseFontSize);
-    doc.setFont(fontFamily, 'normal');
-    doc.text(`ORDEM DE SERVIÇO #${order.id.toUpperCase()}`, centerX, y, { align: 'center' });
-    y += 5;
-    doc.text(`Data: ${formatDate(order.date)}`, centerX, y, { align: 'center' });
-    y += 7;
-
-    doc.line(margin, y, width - margin, y);
-    y += 7;
-
-    const drawCenteredBlock = (title: string, lines: string[]) => {
-      doc.setFont(fontFamily, 'bold');
-      doc.text(title, centerX, y, { align: 'center' });
-      y += 5;
-      doc.setFont(fontFamily, 'normal');
-      lines.forEach(line => {
-        const splitText = doc.splitTextToSize(line, textWidth);
-        doc.text(splitText, centerX, y, { align: 'center' });
-        y += (splitText.length * (baseFontSize * 0.5));
-      });
-      y += 4;
-    };
-
-    drawCenteredBlock('DADOS DO CLIENTE', [
-      `Nome: ${order.customerName}`,
-      `Telefone: ${order.phoneNumber}`,
-      `Endereço: ${order.address}`
-    ]);
-
-    drawCenteredBlock('DADOS DO APARELHO', [
-      `Marca: ${order.deviceBrand}`,
-      `Modelo: ${order.deviceModel}`,
-      `Defeito: ${order.defect}`
-    ]);
-
-    drawCenteredBlock('REPARO EXECUTADO', [order.repairDetails || 'Em análise']);
-
-    doc.line(margin, y, width - margin, y);
-    y += 8;
-
-    // Fotos de Entrada
-    if (order.photos && order.photos.length > 0) {
-      doc.setFont(fontFamily, 'bold');
-      doc.text('FOTOS DE ENTRADA', centerX, y, { align: 'center' });
-      y += 5;
-      const thumbWidth = (width - 2 * margin - 5) / 2;
-      const thumbHeight = 30;
-      order.photos.forEach((photo, index) => {
-        const col = index % 2;
-        const xPos = margin + (col * (thumbWidth + 5));
-        try { doc.addImage(photo, 'JPEG', xPos, y, thumbWidth, thumbHeight); } catch(e){}
-        if (col === 1 || index === order.photos.length - 1) y += thumbHeight + 2;
-      });
-      y += 5;
-    }
-
-    // Fotos de Saída
-    if (order.finishedPhotos && order.finishedPhotos.length > 0) {
-      doc.setFont(fontFamily, 'bold');
-      doc.text('FOTOS DE SAÍDA (PRONTO)', centerX, y, { align: 'center' });
-      y += 5;
-      const thumbWidth = (width - 2 * margin - 5) / 2;
-      const thumbHeight = 30;
-      order.finishedPhotos.forEach((photo, index) => {
-        const col = index % 2;
-        const xPos = margin + (col * (thumbWidth + 5));
-        try { doc.addImage(photo, 'JPEG', xPos, y, thumbWidth, thumbHeight); } catch(e){}
-        if (col === 1 || index === order.finishedPhotos.length - 1) y += thumbHeight + 2;
-      });
-      y += 5;
-    }
-
-    doc.setFontSize(baseFontSize + 2);
-    doc.setFont(fontFamily, 'bold');
-    doc.text(`VALOR TOTAL: ${formatCurrency(order.total)}`, centerX, y, { align: 'center' });
-    y += 10;
-
-    doc.setFontSize(baseFontSize - 1);
-    doc.text('TERMOS DE GARANTIA', centerX, y, { align: 'center' });
-    y += 5;
-    doc.setFont(fontFamily, 'normal');
-    const warranty = doc.splitTextToSize(settings.pdfWarrantyText, textWidth);
-    doc.text(warranty, centerX, y, { align: 'center' });
-
-    return doc;
-  };
-
-  const handleViewPDF = (order: ServiceOrder) => {
-    try {
-      const doc = getDoc(order);
-      const fileName = `OS_${order.id}.pdf`;
-      // Em APKs, o doc.save dispara o DownloadListener que salva e permite abrir o arquivo
-      doc.save(fileName);
-    } catch (error) {
-      console.error('Erro ao gerar PDF:', error);
-      alert('Houve um erro ao visualizar o PDF.');
-    }
+    doc.setFontSize(8);
+    doc.text(`Cliente: ${order.customerName}`, 5, 25);
+    doc.text(`Aparelho: ${order.deviceBrand} ${order.deviceModel}`, 5, 30);
+    doc.text(`Status: ${order.status}`, 5, 35);
+    
+    doc.text(`Defeito: ${order.defect}`, 5, 45);
+    doc.text(`Reparo: ${order.repairDetails || 'Em análise'}`, 5, 50);
+    
+    doc.setFontSize(10);
+    doc.text(`TOTAL: ${formatCurrency(order.total)}`, 40, 70, { align: 'center' });
+    
+    // Dispara download que o Android MainActivity irá interceptar
+    doc.save(`OS_${order.id}.pdf`);
   };
 
   const filteredOrders = orders.filter(o => 
@@ -276,8 +156,8 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings }) => {
             </div>
             
             <div className="flex gap-2">
-              <button onClick={() => handleEdit(order)} className="flex-[2] bg-slate-50 text-slate-600 py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform"><ChevronRight size={16} /> Detalhes</button>
-              <button onClick={() => handleViewPDF(order)} className="flex-[3] bg-blue-600 text-white py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-blue-100 active:scale-95 transition-all"><Eye size={16} /> Visualizar PDF</button>
+              <button onClick={() => handleEdit(order)} className="flex-1 bg-slate-50 text-slate-600 py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1 active:scale-95"><ChevronRight size={16} /> Detalhes</button>
+              <button onClick={() => generatePDF(order)} className="flex-[2] bg-blue-600 text-white py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg active:scale-95"><Eye size={16} /> Visualizar Saída</button>
               <button onClick={() => handleDelete(order.id)} className="p-3 text-red-500 bg-red-50 rounded-xl active:scale-90"><Trash2 size={16} /></button>
             </div>
           </div>
@@ -299,27 +179,18 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings }) => {
                 <input name="deviceModel" value={formData.deviceModel} onChange={handleInputChange} className="w-full p-2 border rounded-xl" placeholder="Modelo" />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase ml-1">Status do Serviço</label>
-                <select name="status" value={formData.status} onChange={handleInputChange} className="w-full p-2 border rounded-xl">
-                  <option value="Pendente">Pendente</option>
-                  <option value="Concluído">Concluído</option>
-                  <option value="Entregue">Entregue</option>
-                </select>
-              </div>
+              <select name="status" value={formData.status} onChange={handleInputChange} className="w-full p-2 border rounded-xl">
+                <option value="Pendente">Pendente</option>
+                <option value="Concluído">Concluído</option>
+                <option value="Entregue">Entregue</option>
+              </select>
 
               <textarea name="defect" value={formData.defect} onChange={handleInputChange} className="w-full p-2 border rounded-xl" placeholder="Defeito" rows={2} />
               <textarea name="repairDetails" value={formData.repairDetails} onChange={handleInputChange} className="w-full p-2 border rounded-xl" placeholder="Reparo" rows={2} />
               
               <div className="grid grid-cols-2 gap-2">
-                <div>
-                   <label className="text-[10px] font-bold uppercase ml-1">Custo Peça</label>
-                   <input name="partsCost" value={formatCurrency(formData.partsCost || 0).replace('R$', '')} onChange={handleInputChange} className="w-full p-2 border rounded-xl" />
-                </div>
-                <div>
-                   <label className="text-[10px] font-bold uppercase ml-1">Serviço</label>
-                   <input name="serviceCost" value={formatCurrency(formData.serviceCost || 0).replace('R$', '')} onChange={handleInputChange} className="w-full p-2 border rounded-xl" />
-                </div>
+                <input name="partsCost" value={formatCurrency(formData.partsCost || 0).replace('R$', '')} onChange={handleInputChange} className="w-full p-2 border rounded-xl" placeholder="Custo Peça" />
+                <input name="serviceCost" value={formatCurrency(formData.serviceCost || 0).replace('R$', '')} onChange={handleInputChange} className="w-full p-2 border rounded-xl" placeholder="Serviço" />
               </div>
 
               <div className="bg-blue-50 p-4 rounded-2xl flex justify-between items-center font-bold text-blue-700">
@@ -327,9 +198,8 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings }) => {
                 <span className="text-xl">{formatCurrency((formData.partsCost || 0) + (formData.serviceCost || 0))}</span>
               </div>
 
-              {/* Seção de Fotos de Entrada */}
               <div className="space-y-2">
-                <p className="text-xs font-black uppercase text-slate-400">Fotos de Entrada</p>
+                <p className="text-xs font-bold text-slate-400">Fotos Entrada</p>
                 <div className="grid grid-cols-4 gap-2">
                   <button onClick={() => fileInputRef.current?.click()} className="aspect-square border-2 border-dashed rounded-xl flex items-center justify-center text-slate-300">
                     <Camera size={24} />
@@ -343,32 +213,10 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings }) => {
                   ))}
                 </div>
               </div>
-
-              {/* Seção de Fotos de Saída (Pronto) - Condicional */}
-              {(formData.status === 'Concluído' || formData.status === 'Entregue') && (
-                <div className="space-y-2 p-3 bg-green-50 rounded-2xl border border-green-100 animate-in fade-in slide-in-from-top-2">
-                  <p className="text-xs font-black uppercase text-green-600 flex items-center gap-1">
-                    <CheckCircle size={14} /> Fotos do Aparelho Pronto
-                  </p>
-                  <div className="grid grid-cols-4 gap-2">
-                    <button onClick={() => finishedFileInputRef.current?.click()} className="aspect-square border-2 border-dashed border-green-200 rounded-xl flex items-center justify-center text-green-300">
-                      <Camera size={24} />
-                    </button>
-                    <input type="file" ref={finishedFileInputRef} hidden multiple accept="image/*" onChange={(e) => handlePhotoUpload(e, 'finishedPhotos')} />
-                    {formData.finishedPhotos?.map((p, i) => (
-                      <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-green-200">
-                        <img src={p} className="w-full h-full object-cover" />
-                        <button onClick={() => removePhoto(i, 'finishedPhotos')} className="absolute top-0 right-0 bg-red-500 text-white p-0.5"><X size={10} /></button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
             </div>
             <div className="p-6 border-t bg-slate-50 flex gap-2">
               <button onClick={closeModal} className="flex-1 bg-white border py-3 rounded-2xl font-bold">Cancelar</button>
-              <button onClick={handleSave} className="flex-1 bg-blue-600 text-white py-3 rounded-2xl font-bold shadow-lg shadow-blue-200">Salvar O.S.</button>
+              <button onClick={handleSave} className="flex-1 bg-blue-600 text-white py-3 rounded-2xl font-bold">Salvar O.S.</button>
             </div>
           </div>
         </div>

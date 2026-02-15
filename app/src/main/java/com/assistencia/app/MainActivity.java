@@ -3,24 +3,26 @@ package com.assistencia.app;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.app.DownloadManager;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Base64;
-import android.webkit.DownloadListener;
-import android.webkit.URLUtil;
+import android.util.Log;
+import android.webkit.ConsoleMessage;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.content.FileProvider;
+import androidx.webkit.WebViewAssetLoader;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -38,70 +40,93 @@ public class MainActivity extends AppCompatActivity {
 
         webView = findViewById(R.id.webview);
         WebSettings settings = webView.getSettings();
+        
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
         settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(true);
+        
+        // Permite carregar módulos e scripts de origens cruzadas em ambiente local
+        settings.setAllowFileAccessFromFileURLs(true);
+        settings.setAllowUniversalAccessFromFileURLs(true);
 
-        webView.setWebChromeClient(new WebChromeClient());
-        webView.setWebViewClient(new WebViewClient());
+        // AssetLoader permite rodar como HTTPS mesmo sendo local (evita erros de módulo)
+        final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
+                .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
+                .build();
 
-        // Suporte para Downloads no Android WebView
-        webView.setDownloadListener(new DownloadListener() {
+        webView.setWebViewClient(new WebViewClient() {
             @Override
-            public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimetype, long contentLength) {
-                if (checkPermissions()) {
-                    handleDownload(url, mimetype, contentDisposition);
-                } else {
-                    requestPermissions();
-                }
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                return assetLoader.shouldInterceptRequest(request.getUrl());
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                return false; 
             }
         });
 
-        webView.loadUrl("file:///android_asset/index.html");
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
+                Log.d("JS_CONSOLE", consoleMessage.message());
+                return true;
+            }
+        });
+
+        webView.setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) -> {
+            if (checkPermissions()) {
+                handleDownload(url);
+            } else {
+                requestPermissions();
+            }
+        });
+
+        // Carrega via https://appassets.androidplatform.net para evitar erros de CORS/Scripts
+        webView.loadUrl("https://appassets.androidplatform.net/assets/index.html");
     }
 
-    private void handleDownload(String url, String mimetype, String contentDisposition) {
+    private void handleDownload(String url) {
         try {
-            if (url.startsWith("data:")) {
-                // Tratamento para data URIs (comum em PDFs gerados via JS)
+            if (url.startsWith("data:application/pdf;base64,")) {
                 String base64Data = url.substring(url.indexOf(",") + 1);
                 byte[] decodedBytes = Base64.decode(base64Data, Base64.DEFAULT);
-                String fileName = "OS_Gerada_" + System.currentTimeMillis() + ".pdf";
                 
-                File path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                String fileName = "Recibo_" + System.currentTimeMillis() + ".pdf";
+                File path = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
                 File file = new File(path, fileName);
                 
                 FileOutputStream fos = new FileOutputStream(file);
                 fos.write(decodedBytes);
                 fos.close();
-                
-                Toast.makeText(this, "PDF salvo na pasta Downloads!", Toast.LENGTH_LONG).show();
-            } else {
-                // Download padrão para URLs HTTP/HTTPS
-                DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
-                request.setMimeType(mimetype);
-                String fileName = URLUtil.guessFileName(url, contentDisposition, mimetype);
-                request.setTitle(fileName);
-                request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-                request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName);
-                
-                DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
-                dm.enqueue(request);
-                Toast.makeText(getApplicationContext(), "Baixando arquivo...", Toast.LENGTH_SHORT).show();
+
+                openPDF(file);
             }
         } catch (Exception e) {
-            Toast.makeText(this, "Erro ao baixar: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            Log.e("PDF_ERROR", e.getMessage());
+            Toast.makeText(this, "Erro ao processar PDF", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void openPDF(File file) {
+        Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".provider", file);
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setDataAndType(uri, "application/pdf");
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY);
+        
+        try {
+            startActivity(intent);
+        } catch (Exception e) {
+            Toast.makeText(this, "Nenhum visualizador de PDF encontrado. Instale o Google Chrome ou Drive.", Toast.LENGTH_LONG).show();
         }
     }
 
     private boolean checkPermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            return true; // Android 13+ não precisa de WRITE_EXTERNAL_STORAGE para Downloads
-        } else {
-            return ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
-        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return true;
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
     }
 
     private void requestPermissions() {
@@ -111,21 +136,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == PERMISSION_REQUEST_CODE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(this, "Permissão concedida! Tente baixar novamente.", Toast.LENGTH_SHORT).show();
-            }
-        }
-    }
-
-    @Override
     public void onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack();
-        } else {
-            super.onBackPressed();
-        }
+        if (webView.canGoBack()) webView.goBack();
+        else super.onBackPressed();
     }
 }
