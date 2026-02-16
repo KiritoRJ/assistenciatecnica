@@ -14,7 +14,7 @@ export class OnlineDB {
     const cleanUser = username.trim().toLowerCase();
     const cleanPass = passwordPlain.trim();
 
-    // Bypass Local para Desenvolvedor
+    // Bypass Local para Desenvolvedor (Wandev)
     if (cleanUser === 'wandev' && (cleanPass === '123' || cleanPass === 'wan123')) {
       return { success: true, type: 'super' };
     }
@@ -48,11 +48,13 @@ export class OnlineDB {
   }
 
   /**
-   * Criação de nova Empresa e Usuário Admin
+   * Criação de nova Empresa e Usuário Admin no Supabase
    */
   static async createTenant(tenantData: any) {
     try {
-      // 1. Criar a Loja na tabela 'tenants'
+      console.log("Tentando criar empresa no Supabase...", tenantData);
+
+      // 1. Inserir na tabela 'tenants'
       const { error: tError } = await supabase
         .from('tenants')
         .insert([{
@@ -62,10 +64,11 @@ export class OnlineDB {
         }]);
 
       if (tError) {
-        return { success: false, message: "Erro ao criar loja: " + tError.message };
+        console.error("Erro Tenants:", tError);
+        return { success: false, message: `Erro ao criar loja: ${tError.message}. Verifique se a tabela 'tenants' tem a coluna 'store_name'.` };
       }
 
-      // 2. Criar o Usuário na tabela 'users'
+      // 2. Inserir na tabela 'users' o administrador da nova loja
       const { error: uError } = await supabase
         .from('users')
         .insert([{
@@ -77,19 +80,21 @@ export class OnlineDB {
         }]);
 
       if (uError) {
-        // Se falhar o usuário, removemos a loja para evitar inconsistência
+        console.error("Erro Users:", uError);
+        // Rollback manual (opcional)
         await supabase.from('tenants').delete().eq('id', tenantData.id);
-        return { success: false, message: "Erro ao criar usuário: " + uError.message };
+        return { success: false, message: `Erro ao criar usuário: ${uError.message}. Verifique se a tabela 'users' tem as colunas 'username', 'password' e 'tenant_id'.` };
       }
 
       return { success: true };
     } catch (e: any) {
-      return { success: false, message: "Falha crítica: " + e.message };
+      console.error("Erro Crítico:", e);
+      return { success: false, message: "Falha de comunicação: " + e.message };
     }
   }
 
   /**
-   * Listar todas as lojas (Painel Wandev)
+   * Listar todas as lojas para o Painel Wandev
    */
   static async getTenants() {
     try {
@@ -107,7 +112,7 @@ export class OnlineDB {
   }
 
   /**
-   * Sincronização Push
+   * Sincronização Push (Upload)
    */
   static async syncPush(tenantId: string, storeKey: string, data: any) {
     if (!tenantId) return { success: false };
@@ -128,7 +133,7 @@ export class OnlineDB {
   }
 
   /**
-   * Sincronização Pull
+   * Sincronização Pull (Download)
    */
   static async syncPull(tenantId: string, storeKey: string) {
     if (!tenantId) return null;
