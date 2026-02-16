@@ -124,7 +124,7 @@ const StockTab: React.FC<Props> = ({ products, setProducts }) => {
               <div className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Descrição do Produto</label>
-                  <input value={formData.name} onChange={(e)=>setFormData(f=>({...f,name:e.target.value}))} placeholder="Ex: Tela iPhone 11 Incell" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold uppercase text-sm" />
+                  <input value={formData.name} onChange={(e)=>setFormData(f=>({...f,name:e.target.value}))} placeholder="Ex: Tela iPhone 11 Incell" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                    <div className="p-3 bg-slate-50 rounded-2xl">

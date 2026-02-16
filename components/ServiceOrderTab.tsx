@@ -224,13 +224,13 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings }) => {
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cliente</label>
-                  <input name="customerName" value={formData.customerName} onChange={handleInputChange} placeholder="Nome Completo" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold uppercase text-sm" />
+                  <input name="customerName" value={formData.customerName} onChange={handleInputChange} placeholder="Nome Completo" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <input name="deviceBrand" value={formData.deviceBrand} onChange={handleInputChange} placeholder="Marca" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold uppercase text-sm" />
-                  <input name="deviceModel" value={formData.deviceModel} onChange={handleInputChange} placeholder="Modelo" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold uppercase text-sm" />
+                  <input name="deviceBrand" value={formData.deviceBrand} onChange={handleInputChange} placeholder="Marca" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" />
+                  <input name="deviceModel" value={formData.deviceModel} onChange={handleInputChange} placeholder="Modelo" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" />
                 </div>
-                <textarea name="defect" value={formData.defect} onChange={handleInputChange} placeholder="Defeito Relatado" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold uppercase text-sm h-24 resize-none" />
+                <textarea name="defect" value={formData.defect} onChange={handleInputChange} placeholder="Defeito Relatado" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm h-24 resize-none" />
                 
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fotos do Aparelho (Evidências)</label>
