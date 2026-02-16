@@ -1,4 +1,20 @@
 
+export interface Tenant {
+  id: string;
+  storeName: string;
+  adminUsername: string;
+  adminPasswordHash: string;
+  createdAt: string;
+}
+
+export interface User {
+  id: string;
+  name: string;
+  role: 'admin' | 'vendedor' | 'tecnico';
+  password?: string;
+  photo: string | null;
+}
+
 export interface ServiceOrder {
   id: string;
   date: string;
@@ -15,14 +31,6 @@ export interface ServiceOrder {
   status: 'Pendente' | 'Concluído' | 'Entregue';
   photos: string[];
   finishedPhotos?: string[];
-}
-
-export interface User {
-  id: string;
-  name: string;
-  role: 'admin' | 'vendedor' | 'tecnico';
-  password?: string;
-  photo: string | null;
 }
 
 export interface Product {
@@ -54,7 +62,6 @@ export interface AppSettings {
   logoUrl: string | null;
   users: User[];
   isConfigured: boolean;
-  // Configurações de PDF
   pdfWarrantyText: string;
   pdfFontSize: number;
   pdfFontFamily: 'helvetica' | 'courier' | 'times';
