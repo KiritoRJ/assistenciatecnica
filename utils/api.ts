@@ -77,10 +77,6 @@ export class OnlineDB {
     }
   }
 
-  /**
-   * MÉTODOS GRANULARES PARA ORDENS DE SERVIÇO (SQL Direto)
-   */
-  
   static async upsertOS(tenantId: string, os: any) {
     try {
       const { error } = await supabase
@@ -121,6 +117,7 @@ export class OnlineDB {
   }
 
   static async fetchOrders(tenantId: string) {
+    if (!tenantId) return null;
     try {
       const { data, error } = await supabase
         .from('service_orders')
@@ -129,31 +126,31 @@ export class OnlineDB {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
+      if (!data) return [];
       
-      // Mapear de volta para o formato do App
       return data.map(d => ({
         id: d.id,
-        customerName: d.customer_name,
-        phoneNumber: d.phone_number,
-        address: d.address,
-        deviceBrand: d.device_brand,
-        deviceModel: d.device_model,
-        defect: d.defect,
-        repairDetails: d.repair_details,
-        partsCost: d.parts_cost,
-        serviceCost: d.service_cost,
-        total: d.total,
-        status: d.status,
-        photos: d.photos,
-        finishedPhotos: d.finished_photos,
+        customerName: d.customer_name || '',
+        phoneNumber: d.phone_number || '',
+        address: d.address || '',
+        deviceBrand: d.device_brand || '',
+        deviceModel: d.device_model || '',
+        defect: d.defect || '',
+        repairDetails: d.repair_details || '',
+        partsCost: Number(d.parts_cost) || 0,
+        serviceCost: Number(d.service_cost) || 0,
+        total: Number(d.total) || 0,
+        status: d.status || 'Pendente',
+        photos: d.photos || [],
+        finishedPhotos: d.finished_photos || [],
         date: d.created_at
       }));
     } catch (e) {
+      console.error("Erro fetchOrders:", e);
       return null;
     }
   }
 
-  // Sincronização Genérica para outras tabelas (Estoque/Vendas)
   static async syncPush(tenantId: string, storeKey: string, data: any) {
     if (!tenantId) return { success: false };
     try {

@@ -1,13 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { LayoutGrid, ClipboardList, Wallet, Settings as SettingsIcon, Package, ShoppingCart, User as UserIcon, LogOut, ShieldAlert, Lock, X, ShieldCheck, RefreshCw, Globe, Loader2 } from 'lucide-react';
-import { ServiceOrder, AppSettings, Product, Sale, User, Tenant } from './types';
+import { ClipboardList, Wallet, Settings as SettingsIcon, Package, ShoppingCart, LogOut, RefreshCw, Globe, Loader2 } from 'lucide-react';
+import { ServiceOrder, AppSettings, Product, Sale, User } from './types';
 import ServiceOrderTab from './components/ServiceOrderTab';
 import FinanceTab from './components/FinanceTab';
 import SettingsTab from './components/SettingsTab';
 import StockTab from './components/StockTab';
 import SalesTab from './components/SalesTab';
-import UserManagementTab from './components/UserManagementTab';
 import SuperAdminDashboard from './components/SuperAdminDashboard';
 import { getData, saveData } from './utils/db';
 import { OnlineDB } from './utils/api';
@@ -29,22 +28,36 @@ const App: React.FC = () => {
   const [settings, setSettings] = useState<AppSettings | null>(null);
 
   useEffect(() => {
-    if (session.type === 'admin' && session.tenantId) {
+    if (isLogged && session.type === 'admin' && session.tenantId) {
       fullSync(session.tenantId);
     }
-  }, [session]);
+  }, [isLogged, session]);
 
   const fullSync = async (tid: string) => {
     setIsSyncing(true);
     try {
-      // 1. Puxar Ordens da tabela dedicada
+      // 1. Carregar do IndexedDB primeiro (Imediato)
+      const localOrders = await getData('orders', `${tid}_orders`);
+      const localProducts = await getData('products', `${tid}_products`);
+      const localSales = await getData('sales', `${tid}_sales`);
+      const localConfig = await getData('settings', `${tid}_config`);
+
+      if (localOrders) setOrders(localOrders);
+      if (localProducts) setProducts(localProducts);
+      if (localSales) setSales(localSales);
+      if (localConfig) {
+        setSettings(localConfig);
+        setCurrentUser(localConfig.users[0]);
+      }
+
+      // 2. Buscar Ordens da tabela SQL (Cloud)
       const remoteOrders = await OnlineDB.fetchOrders(tid);
-      if (remoteOrders) {
+      if (remoteOrders !== null) {
         setOrders(remoteOrders);
         await saveData('orders', `${tid}_orders`, remoteOrders);
       }
 
-      // 2. Outros dados continuam via JSON blob por enquanto
+      // 3. Buscar outros dados via JSON blob
       const remoteProducts = await OnlineDB.syncPull(tid, 'products');
       const remoteSales = await OnlineDB.syncPull(tid, 'sales');
       const remoteConfig = await OnlineDB.syncPull(tid, 'settings');
@@ -56,23 +69,18 @@ const App: React.FC = () => {
         setSettings(remoteConfig);
         await saveData('settings', `${tid}_config`, remoteConfig);
         setCurrentUser(remoteConfig.users[0]);
-      } else {
-        const localSettings = await getData('settings', `${tid}_config`);
-        if (localSettings) {
-          setSettings(localSettings);
-          setCurrentUser(localSettings.users[0]);
-        } else {
-          const defaultSettings: AppSettings = {
-            storeName: 'Minha Loja', logoUrl: null, users: [{id:'adm_1', name: 'Administrador', role: 'admin', photo: null}], isConfigured: true,
-            pdfWarrantyText: "Garantia de 90 dias...", pdfFontSize: 8, pdfFontFamily: 'helvetica',
-            pdfPaperWidth: 80, pdfTextColor: '#000000', pdfBgColor: '#FFFFFF'
-          };
-          setSettings(defaultSettings);
-          setCurrentUser(defaultSettings.users[0]);
-        }
+      } else if (!localConfig) {
+        // Fallback para configurações padrão se nada existir
+        const defaultSettings: AppSettings = {
+          storeName: 'Minha Loja', logoUrl: null, users: [{id:'adm_1', name: 'Administrador', role: 'admin', photo: null}], isConfigured: true,
+          pdfWarrantyText: "Garantia de 90 dias...", pdfFontSize: 8, pdfFontFamily: 'helvetica',
+          pdfPaperWidth: 80, pdfTextColor: '#000000', pdfBgColor: '#FFFFFF'
+        };
+        setSettings(defaultSettings);
+        setCurrentUser(defaultSettings.users[0]);
       }
     } catch (e) {
-      console.error("Erro na sincronização", e);
+      console.error("Erro na sincronização:", e);
     } finally {
       setIsSyncing(false);
     }
@@ -116,40 +124,28 @@ const App: React.FC = () => {
     setLoginPass('');
   };
 
-  /**
-   * SALVAR ORDEM (Individual no Cloud)
-   */
   const saveOrders = async (newOrders: ServiceOrder[]) => {
     const oldOrders = [...orders];
     setOrders(newOrders);
     await saveData('orders', `${session.tenantId}_orders`, newOrders);
 
     if (session.tenantId) {
-      // Identificar qual ordem foi alterada/criada
       const changedOrder = newOrders.find(no => {
         const old = oldOrders.find(oo => oo.id === no.id);
         return !old || JSON.stringify(old) !== JSON.stringify(no);
       });
-
       if (changedOrder) {
         await OnlineDB.upsertOS(session.tenantId, changedOrder);
       }
     }
   };
 
-  /**
-   * APAGAR ORDEM (Individual no Cloud)
-   */
   const removeOrder = async (orderId: string) => {
-    if (!confirm('Deseja realmente excluir esta O.S.? Esta ação é irreversível no banco de dados.')) return;
-    
+    if (!confirm('Deseja realmente excluir esta O.S.?')) return;
     const newOrders = orders.filter(o => o.id !== orderId);
     setOrders(newOrders);
     await saveData('orders', `${session.tenantId}_orders`, newOrders);
-    
-    if (session.tenantId) {
-      await OnlineDB.deleteOS(orderId);
-    }
+    if (session.tenantId) await OnlineDB.deleteOS(orderId);
   };
 
   const saveProducts = (newProducts: Product[]) => {
@@ -196,6 +192,7 @@ const App: React.FC = () => {
   }
 
   if (session.type === 'super') return <SuperAdminDashboard onLogout={handleLogout} />;
+  
   if (session.type === 'admin' && settings) {
     return (
       <div className="min-h-screen flex flex-col pb-20 md:pb-0 md:pl-64 bg-slate-50">
