@@ -135,46 +135,19 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
       const width = (settings.pdfPaperWidth || 80) * 4.75 * scale; 
       const thermalFont = (sz: number, bold: boolean = false) => `${bold ? '900' : '400'} ${sz * scale}px "Courier New", Courier, monospace`;
       
-      // Etiquetas dinâmicas totais das configurações
-      const lblSubtitle = settings.receiptHeaderSubtitle || '';
-      const lblProtocol = settings.receiptLabelProtocol || '';
-      const lblDate = settings.receiptLabelDate || '';
-      const lblClientSection = settings.receiptLabelClientSection || '';
-      const lblClientName = settings.receiptLabelClientName || '';
-      const lblClientPhone = settings.receiptLabelClientPhone || '';
-      const lblClientAddress = settings.receiptLabelClientAddress || '';
-      const lblServiceSection = settings.receiptLabelServiceSection || '';
-      const lblDevice = settings.receiptLabelDevice || '';
-      const lblDefect = settings.receiptLabelDefect || '';
-      const lblRepair = settings.receiptLabelRepair || '';
-      const lblTotal = settings.receiptLabelTotal || '';
-      const lblEntry = settings.receiptLabelEntryPhotos || '';
-      const lblExit = settings.receiptLabelExitPhotos || '';
-
-      // Helper for wrapping text
-      const drawWrappedText = (text: string, y: number, sz: number, maxWidth: number, al: 'left' | 'center' = 'left', b: boolean = false) => {
-        const words = (text || '').split(' ');
-        let line = '';
-        const lineHeight = (sz + 2) * scale;
-        let linesCount = 0;
-        ctx.font = thermalFont(sz, b);
-        ctx.textAlign = al;
-        let startX = al === 'center' ? width / 2 : 20 * scale;
-
-        for (let n = 0; n < words.length; n++) {
-          const testLine = line + words[n] + ' ';
-          const metrics = ctx.measureText(testLine);
-          if (metrics.width > maxWidth && n > 0) {
-            ctx.fillText(line.toUpperCase(), startX, y + linesCount * lineHeight);
-            line = words[n] + ' ';
-            linesCount++;
-          } else {
-            line = testLine;
-          }
-        }
-        ctx.fillText(line.toUpperCase(), startX, y + linesCount * lineHeight);
-        return (linesCount + 1) * lineHeight;
-      };
+      // Labels dinâmicas com fallbacks
+      const lblProtocol = settings.receiptLabelProtocol || 'PROTOCOLO';
+      const lblDate = settings.receiptLabelDate || 'DATA';
+      const lblClientSection = settings.receiptLabelClientSection || 'DADOS DO CLIENTE';
+      const lblClientName = settings.receiptLabelClientName || 'NOME';
+      const lblClientPhone = settings.receiptLabelClientPhone || 'FONE';
+      const lblServiceSection = settings.receiptLabelServiceSection || 'INFORMAÇÕES DO SERVIÇO';
+      const lblDevice = settings.receiptLabelDevice || 'APARELHO';
+      const lblDefect = settings.receiptLabelDefect || 'DEFEITO';
+      const lblRepair = settings.receiptLabelRepair || 'REPARO';
+      const lblTotal = settings.receiptLabelTotal || 'TOTAL GERAL';
+      const lblEntry = settings.receiptLabelEntryPhotos || 'FOTOS DE ENTRADA';
+      const lblExit = settings.receiptLabelExitPhotos || 'FOTOS DE SAÍDA';
 
       const thumbSize = 65 * scale;
       const thumbGap = 8 * scale;
@@ -184,7 +157,8 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
       const entryRows = Math.ceil(entryCount / imagesPerRow);
       const finishedRows = Math.ceil(finishedCount / imagesPerRow);
       
-      const dynamicHeightEstimate = (1500 + (entryRows + finishedRows) * 100) * scale;
+      // Estimativa dinâmica de altura baseada no conteúdo
+      const dynamicHeightEstimate = (2000 + (entryRows + finishedRows) * 100) * scale;
       canvas.width = width;
       canvas.height = dynamicHeightEstimate;
       ctx.fillStyle = '#FFFFFF';
@@ -209,85 +183,96 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
         ctx.setLineDash([]);
       };
 
+      const drawWrappedText = (text: string, y: number, sz: number, maxWidth: number, al: 'left' | 'center' = 'left', b: boolean = false) => {
+        const words = (text || '').split(' ');
+        let line = '';
+        const lineHeight = (sz + 2) * scale;
+        let linesCount = 0;
+        ctx.font = thermalFont(sz, b);
+        ctx.textAlign = al;
+        let startX = al === 'center' ? width / 2 : 20 * scale;
+
+        for (let n = 0; n < words.length; n++) {
+          const testLine = line + words[n] + ' ';
+          const metrics = ctx.measureText(testLine);
+          if (metrics.width > maxWidth && n > 0) {
+            ctx.fillText(line.toUpperCase(), startX, y + linesCount * lineHeight);
+            line = words[n] + ' ';
+            linesCount++;
+          } else {
+            line = testLine;
+          }
+        }
+        ctx.fillText(line.toUpperCase(), startX, y + linesCount * lineHeight);
+        return (linesCount + 1) * lineHeight;
+      };
+
       let currentY = 40 * scale;
 
-      // Header
+      // Cabeçalho da Loja
       drawText(settings.storeName, currentY, 18, true);
-      if(lblSubtitle) {
-        currentY += 22 * scale;
-        drawText(lblSubtitle, currentY, 9, false);
-      }
       currentY += 25 * scale;
-      
-      drawDashedLine(currentY);
-      currentY += 25 * scale;
-      
-      if(lblProtocol) {
-        drawText(`${lblProtocol}: #${order.id}`, currentY, 12, true);
-        currentY += 18 * scale;
-      }
-      if(lblDate) {
-        drawText(`${lblDate}: ${new Date(order.date).toLocaleDateString()} ${new Date(order.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`, currentY, 9);
+      if(settings.receiptHeaderSubtitle) {
+        drawText(settings.receiptHeaderSubtitle, currentY, 9, false);
         currentY += 25 * scale;
       }
       
       drawDashedLine(currentY);
       currentY += 25 * scale;
+      
+      drawText(`${lblProtocol}: #${order.id}`, currentY, 12, true);
+      currentY += 18 * scale;
+      drawText(`${lblDate}: ${new Date(order.date).toLocaleDateString()} ${new Date(order.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`, currentY, 9);
+      currentY += 18 * scale;
+      drawText(`STATUS: ${order.status}`, currentY, 10, true);
+      currentY += 25 * scale;
+      
+      drawDashedLine(currentY);
+      currentY += 25 * scale;
 
-      // Client Data
-      if(lblClientSection) {
-        drawText(lblClientSection, currentY, 10, true, 'left');
-        currentY += 18 * scale;
-      }
-      if(lblClientName) {
-        currentY += drawWrappedText(`${lblClientName}: ${order.customerName}`, currentY, 9, width - 40 * scale, 'left', false);
-      }
-      if(lblClientPhone && order.phoneNumber) {
+      // Seção Cliente
+      drawText(lblClientSection, currentY, 10, true, 'left');
+      currentY += 18 * scale;
+      currentY += drawWrappedText(`${lblClientName}: ${order.customerName}`, currentY, 9, width - 40 * scale, 'left', false);
+      if(order.phoneNumber) {
         drawText(`${lblClientPhone}: ${order.phoneNumber}`, currentY, 9, false, 'left');
         currentY += 15 * scale;
       }
-      if(lblClientAddress && order.address) {
-        currentY += drawWrappedText(`${lblClientAddress}: ${order.address}`, currentY, 9, width - 40 * scale, 'left', false);
+      if(order.address) {
+        currentY += drawWrappedText(`END: ${order.address}`, currentY, 9, width - 40 * scale, 'left', false);
       }
 
       currentY += 10 * scale;
       drawDashedLine(currentY);
       currentY += 25 * scale;
 
-      // Device Section
-      if(lblServiceSection) {
-        drawText(lblServiceSection, currentY, 10, true, 'left');
-        currentY += 18 * scale;
-      }
-      if(lblDevice) {
-        currentY += drawWrappedText(`${lblDevice}: ${order.deviceBrand} ${order.deviceModel}`, currentY, 10, width - 40 * scale, 'left', false);
-      }
-      if(lblDefect) {
-        currentY += drawWrappedText(`${lblDefect}: ${order.defect}`, currentY, 9, width - 40 * scale, 'left', false);
-      }
-      if(lblRepair && order.repairDetails) {
+      // Seção Serviço
+      drawText(lblServiceSection, currentY, 10, true, 'left');
+      currentY += 18 * scale;
+      currentY += drawWrappedText(`${lblDevice}: ${order.deviceBrand} ${order.deviceModel}`, currentY, 10, width - 40 * scale, 'left', false);
+      currentY += drawWrappedText(`${lblDefect}: ${order.defect}`, currentY, 9, width - 40 * scale, 'left', false);
+      if(order.repairDetails) {
         currentY += drawWrappedText(`${lblRepair}: ${order.repairDetails}`, currentY, 9, width - 40 * scale, 'left', false);
       }
+      
+      currentY += 15 * scale;
+      drawDashedLine(currentY);
       currentY += 25 * scale;
+
+      // Total com destaque
+      ctx.fillStyle = '#F1F5F9';
+      ctx.fillRect(15 * scale, currentY - 20 * scale, width - 30 * scale, 50 * scale);
+      drawText(lblTotal, currentY + 12 * scale, 11, true, 'left', '#1E293B');
+      drawText(formatCurrency(order.total), currentY + 12 * scale, 16, true, 'right', '#1E293B');
+      currentY += 60 * scale;
 
       drawDashedLine(currentY);
       currentY += 30 * scale;
 
-      // Total Only Section
-      if(lblTotal) {
-        ctx.fillStyle = settings.pdfTextColor || '#000000';
-        ctx.fillRect(15 * scale, currentY - 20 * scale, width - 30 * scale, 45 * scale);
-        drawText(lblTotal, currentY + 8 * scale, 10, true, 'left', '#FFFFFF');
-        drawText(formatCurrency(order.total), currentY + 8 * scale, 15, true, 'right', '#FFFFFF');
-        currentY += 50 * scale;
-        drawDashedLine(currentY);
-        currentY += 30 * scale;
-      }
-
-      // Entry Photos
-      if (entryCount > 0 && lblEntry) {
-        drawText(lblEntry, currentY, 8, true, 'left', settings.pdfTextColor || '#64748B');
-        currentY += 12 * scale;
+      // Galeria de Fotos de Entrada
+      if (entryCount > 0) {
+        drawText(lblEntry, currentY, 8, true, 'left', '#64748B');
+        currentY += 15 * scale;
         for (let i = 0; i < entryCount; i++) {
           const img = await loadImage(order.photos[i]);
           const row = Math.floor(i / imagesPerRow);
@@ -296,13 +281,13 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
           const yPos = currentY + (row * (65 + 8)) * scale;
           ctx.drawImage(img, x, yPos, thumbSize, thumbSize);
         }
-        currentY += entryRows * (65 + 8) * scale + 15 * scale;
+        currentY += entryRows * (65 + 8) * scale + 25 * scale;
       }
 
-      // Exit Photos
-      if (finishedCount > 0 && lblExit) {
-        drawText(lblExit, currentY, 8, true, 'left', settings.pdfTextColor || '#059669');
-        currentY += 12 * scale;
+      // Galeria de Fotos de Saída (se houver)
+      if (finishedCount > 0) {
+        drawText(lblExit, currentY, 8, true, 'left', '#059669');
+        currentY += 15 * scale;
         for (let i = 0; i < finishedCount; i++) {
           const img = await loadImage(order.finishedPhotos![i]);
           const row = Math.floor(i / imagesPerRow);
@@ -311,11 +296,10 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
           const yPos = currentY + (row * (65 + 8)) * scale;
           ctx.drawImage(img, x, yPos, thumbSize, thumbSize);
         }
-        currentY += finishedRows * (65 + 8) * scale + 15 * scale;
+        currentY += finishedRows * (65 + 8) * scale + 25 * scale;
       }
 
-      // Footer
-      currentY += 15 * scale;
+      // Rodapé e Termos
       drawDashedLine(currentY);
       currentY += 25 * scale;
       if(settings.pdfWarrantyText) {
@@ -324,14 +308,14 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
       }
       drawText("SISTEMA ASSISTÊNCIA PRO", currentY, 7, false, 'center', '#94A3B8');
 
-      // Final crop
+      // Corte final do canvas
       const finalCanvas = document.createElement('canvas');
       finalCanvas.width = width;
-      finalCanvas.height = currentY + 40 * scale;
+      finalCanvas.height = currentY + 50 * scale;
       const finalCtx = finalCanvas.getContext('2d');
       if (finalCtx) {
         finalCtx.drawImage(canvas, 0, 0);
-        const jpeg = finalCanvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+        const jpeg = finalCanvas.toDataURL('image/jpeg', 0.85).split(',')[1];
         if ((window as any).AndroidBridge) {
           (window as any).AndroidBridge.shareFile(jpeg, `RECIBO_OS_${order.id}.jpg`, 'image/jpeg');
         } else {
@@ -342,8 +326,8 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
         }
       }
     } catch (err) {
-      console.error("Erro ao gerar recibo:", err);
-      alert("Falha ao gerar o cupom fiscal.");
+      console.error("Erro ao gerar cupom:", err);
+      alert("Falha ao processar o cupom fiscal com fotos.");
     } finally {
       setIsGeneratingReceipt(false);
     }
@@ -387,6 +371,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
               <button 
                 onClick={(e) => { e.stopPropagation(); generateReceiptImage(order); }} 
                 disabled={isGeneratingReceipt}
+                title="Visualizar Cupom"
                 className="p-2.5 bg-blue-600 text-white rounded-xl shadow-md active:scale-90 disabled:opacity-50"
               >
                 {isGeneratingReceipt ? <Loader2 className="animate-spin" size={18} /> : <Eye size={18} />}

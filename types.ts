@@ -7,9 +7,11 @@ export interface Tenant {
   createdAt: string;
 }
 
+// Fix: Added optional username property to User interface to match database schema and resolve type error in App.tsx line 119
 export interface User {
   id: string;
   name: string;
+  username?: string;
   role: 'admin' | 'vendedor' | 'tecnico';
   password?: string;
   photo: string | null;

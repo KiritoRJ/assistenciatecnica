@@ -1,7 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
-import { Store, Image as ImageIcon, Camera, FileText, Type, Palette, MoveHorizontal, MoreVertical, ArrowLeft, Check, Layout, Pipette, Tags, X, AlertCircle, Users, Shield, UserPlus, Trash2, User as UserIcon, Loader2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Store, Image as ImageIcon, Camera, FileText, Type, Palette, MoveHorizontal, MoreVertical, ArrowLeft, Check, Layout, Pipette, X, AlertCircle, Users, Shield, UserPlus, Trash2, User as UserIcon, Loader2, Lock } from 'lucide-react';
 import { AppSettings, User } from '../types';
+import { OnlineDB } from '../utils/api';
 
 interface Props {
   settings: AppSettings;
@@ -9,11 +10,11 @@ interface Props {
   isCloudConnected?: boolean;
   currentUser: User;
   onSwitchProfile: (user: User) => void;
+  tenantId?: string; // TenantId passado do App.tsx
 }
 
-const SettingsTab: React.FC<Props> = ({ settings, setSettings, isCloudConnected = true, currentUser, onSwitchProfile }) => {
+const SettingsTab: React.FC<Props> = ({ settings, setSettings, isCloudConnected = true, currentUser, onSwitchProfile, tenantId }) => {
   const isAdmin = currentUser.role === 'admin';
-  // Se não for admin, a única visão disponível é a de seleção de usuários
   const [view, setView] = useState<'main' | 'print' | 'theme' | 'users'>(isAdmin ? 'main' : 'users');
   const [showMenu, setShowMenu] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -22,6 +23,7 @@ const SettingsTab: React.FC<Props> = ({ settings, setSettings, isCloudConnected 
   // User Management Local State
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [newUserName, setNewUserName] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserRole, setNewUserRole] = useState<'tecnico' | 'vendedor'>('tecnico');
   const [newUserPhoto, setNewUserPhoto] = useState<string | null>(null);
 
@@ -35,7 +37,7 @@ const SettingsTab: React.FC<Props> = ({ settings, setSettings, isCloudConnected 
   };
 
   const updateSetting = async (key: keyof AppSettings, value: any) => {
-    if (!isAdmin && key !== 'users') return; // Segurança extra
+    if (!isAdmin && key !== 'users') return;
     const updated = { ...settings, [key]: value };
     setSettings(updated);
     triggerSaveFeedback();
@@ -72,30 +74,63 @@ const SettingsTab: React.FC<Props> = ({ settings, setSettings, isCloudConnected 
     input.click();
   };
 
-  const handleCreateUser = () => {
-    if (!newUserName) return;
+  const handleCreateUser = async () => {
+    if (!newUserName || !newUserPassword) return alert('Nome e Senha são obrigatórios.');
+    
+    setIsSaving(true);
+    const userId = 'USR_' + Math.random().toString(36).substr(2, 6).toUpperCase();
+    
+    // Objeto do novo usuário
     const newUser: User = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: userId,
       name: newUserName,
       role: newUserRole,
+      password: newUserPassword,
       photo: newUserPhoto
     };
-    const updatedUsers = [...settings.users, newUser];
-    updateSetting('users', updatedUsers);
-    setIsUserModalOpen(false);
-    setNewUserName('');
-    setNewUserPhoto(null);
-    triggerSaveFeedback("Novo Perfil Salvo no SQL!");
+
+    try {
+      // 1. Salvar no Supabase (Tabela users)
+      if (tenantId) {
+        const res = await OnlineDB.upsertUser(tenantId, settings.storeName, newUser);
+        if (!res.success) throw new Error(res.message);
+        
+        // Se salvou com sucesso no SQL, informa o login gerado
+        triggerSaveFeedback(`Acesso SQL Criado! Login: ${res.username}`);
+      }
+
+      // 2. Atualizar lista local de perfis
+      const updatedUsers = [...settings.users, newUser];
+      const updatedSettings = { ...settings, users: updatedUsers };
+      setSettings(updatedSettings);
+
+      setIsUserModalOpen(false);
+      setNewUserName('');
+      setNewUserPassword('');
+      setNewUserPhoto(null);
+    } catch (e: any) {
+      alert("Erro ao criar usuário na nuvem: " + e.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleDeleteUser = (id: string, e: React.MouseEvent) => {
+  const handleDeleteUser = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isAdmin) return;
     if (id === 'adm_1') return alert('O administrador master não pode ser excluído.');
+    
     if (confirm('Deseja excluir este perfil permanentemente da nuvem?')) {
-      const updatedUsers = settings.users.filter(u => u.id !== id);
-      updateSetting('users', updatedUsers);
-      triggerSaveFeedback("Perfil Removido!");
+      setIsSaving(true);
+      const res = await OnlineDB.deleteRemoteUser(id);
+      if (res.success) {
+        const updatedUsers = settings.users.filter(u => u.id !== id);
+        updateSetting('users', updatedUsers);
+        triggerSaveFeedback("Perfil Removido!");
+      } else {
+        alert("Erro ao remover usuário do SQL.");
+      }
+      setIsSaving(false);
     }
   };
 
@@ -155,26 +190,40 @@ const SettingsTab: React.FC<Props> = ({ settings, setSettings, isCloudConnected 
           <div className="fixed inset-0 bg-slate-950/80 z-[100] flex flex-col justify-end md:justify-center p-4 backdrop-blur-md">
             <div className="bg-white w-full max-w-sm mx-auto rounded-[3rem] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-10">
               <div className="p-8 border-b border-slate-50 flex items-center justify-between">
-                <h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter">Novo Membro</h3>
+                <h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter">Novo Acesso SQL</h3>
                 <button onClick={() => setIsUserModalOpen(false)} className="text-slate-400 p-2 bg-slate-50 rounded-full"><X size={20} /></button>
               </div>
-              <div className="p-8 space-y-8">
+              <div className="p-8 space-y-6 max-h-[75vh] overflow-y-auto pb-12">
                 <div className="flex flex-col items-center gap-3">
                   <button onClick={triggerUserPhotoUpload} className="relative active:scale-95 transition-transform group">
-                    <div className="w-28 h-28 bg-slate-50 rounded-[2rem] border-4 border-dashed border-slate-200 flex items-center justify-center overflow-hidden">
-                      {newUserPhoto ? <img src={newUserPhoto} className="w-full h-full object-cover" /> : <Camera className="text-slate-200" size={40} />}
+                    <div className="w-24 h-24 bg-slate-50 rounded-[2rem] border-4 border-dashed border-slate-200 flex items-center justify-center overflow-hidden">
+                      {newUserPhoto ? <img src={newUserPhoto} className="w-full h-full object-cover" /> : <Camera className="text-slate-200" size={32} />}
                     </div>
-                    <div className="absolute bottom-0 right-0 bg-blue-600 text-white p-2.5 rounded-2xl border-4 border-white shadow-xl"><Camera size={14} /></div>
                   </button>
                 </div>
-                <div className="space-y-5">
-                  <input value={newUserName} onChange={(e) => setNewUserName(e.target.value)} placeholder="NOME DO COLABORADOR" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black uppercase text-xs" />
-                  <div className="flex gap-2">
-                    <button onClick={() => setNewUserRole('tecnico')} className={`flex-1 py-4 rounded-2xl font-black text-[10px] tracking-widest ${newUserRole === 'tecnico' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}>TÉCNICO</button>
-                    <button onClick={() => setNewUserRole('vendedor')} className={`flex-1 py-4 rounded-2xl font-black text-[10px] tracking-widest ${newUserRole === 'vendedor' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}>VENDEDOR</button>
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Completo</label>
+                    <input value={newUserName} onChange={(e) => setNewUserName(e.target.value)} placeholder="NOME DO COLABORADOR" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black uppercase text-xs" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Senha de Login</label>
+                    <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-2xl px-5">
+                      <Lock size={14} className="text-slate-300" />
+                      <input type="text" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} placeholder="DEFINIR SENHA" className="w-full py-4 bg-transparent outline-none font-black text-xs" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Função</label>
+                    <div className="flex gap-2">
+                      <button onClick={() => setNewUserRole('tecnico')} className={`flex-1 py-4 rounded-2xl font-black text-[9px] tracking-widest uppercase transition-all ${newUserRole === 'tecnico' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}>TÉCNICO</button>
+                      <button onClick={() => setNewUserRole('vendedor')} className={`flex-1 py-4 rounded-2xl font-black text-[9px] tracking-widest uppercase transition-all ${newUserRole === 'vendedor' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}>VENDEDOR</button>
+                    </div>
                   </div>
                 </div>
-                <button onClick={handleCreateUser} disabled={!newUserName} className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase text-[10px] tracking-widest disabled:opacity-30">Criar no SQL Cloud</button>
+                <button onClick={handleCreateUser} disabled={!newUserName || !newUserPassword || isSaving} className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase text-[10px] tracking-widest disabled:opacity-30 flex items-center justify-center gap-3">
+                  {isSaving ? <Loader2 className="animate-spin" size={18} /> : 'Salvar no SQL Cloud'}
+                </button>
               </div>
             </div>
           </div>
@@ -183,7 +232,6 @@ const SettingsTab: React.FC<Props> = ({ settings, setSettings, isCloudConnected 
     );
   }
 
-  // Views administrativas abaixo só renderizam se isAdmin for true
   if (!isAdmin) return null;
 
   if (view === 'theme') {
