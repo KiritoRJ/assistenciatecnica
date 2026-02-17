@@ -7,7 +7,6 @@ export interface Tenant {
   createdAt: string;
 }
 
-// Fix: Added optional username property to User interface to match database schema and resolve type error in App.tsx line 119
 export interface User {
   id: string;
   name: string;
@@ -61,6 +60,8 @@ export interface Sale {
 
 export interface AppSettings {
   storeName: string;
+  storeAddress?: string;
+  storePhone?: string;
   logoUrl: string | null;
   users: User[];
   isConfigured: boolean;

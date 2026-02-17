@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Store, Image as ImageIcon, Camera, FileText, Type, Palette, MoveHorizontal, MoreVertical, ArrowLeft, Check, Layout, Pipette, X, AlertCircle, Users, Shield, UserPlus, Trash2, User as UserIcon, Loader2, Lock } from 'lucide-react';
+import { Store, Image as ImageIcon, Camera, FileText, Type, Palette, MoveHorizontal, MoreVertical, ArrowLeft, Check, Layout, Pipette, X, AlertCircle, Users, Shield, UserPlus, Trash2, User as UserIcon, Loader2, Lock, MapPin, Phone } from 'lucide-react';
 import { AppSettings, User } from '../types';
 import { OnlineDB } from '../utils/api';
 
@@ -10,7 +10,7 @@ interface Props {
   isCloudConnected?: boolean;
   currentUser: User;
   onSwitchProfile: (user: User) => void;
-  tenantId?: string; // TenantId passado do App.tsx
+  tenantId?: string; 
 }
 
 const SettingsTab: React.FC<Props> = ({ settings, setSettings, isCloudConnected = true, currentUser, onSwitchProfile, tenantId }) => {
@@ -20,7 +20,6 @@ const SettingsTab: React.FC<Props> = ({ settings, setSettings, isCloudConnected 
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
-  // User Management Local State
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [newUserName, setNewUserName] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
@@ -52,7 +51,10 @@ const SettingsTab: React.FC<Props> = ({ settings, setSettings, isCloudConnected 
       const file = e.target.files?.[0];
       if (file) {
         const reader = new FileReader();
-        reader.onloadend = () => updateSetting('logoUrl', reader.result as string);
+        reader.onloadend = () => {
+          updateSetting('logoUrl', reader.result as string);
+          input.value = '';
+        };
         reader.readAsDataURL(file);
       }
     };
@@ -67,7 +69,10 @@ const SettingsTab: React.FC<Props> = ({ settings, setSettings, isCloudConnected 
       const file = e.target.files?.[0];
       if (file) {
         const reader = new FileReader();
-        reader.onloadend = () => setNewUserPhoto(reader.result as string);
+        reader.onloadend = () => {
+          setNewUserPhoto(reader.result as string);
+          input.value = '';
+        };
         reader.readAsDataURL(file);
       }
     };
@@ -80,7 +85,6 @@ const SettingsTab: React.FC<Props> = ({ settings, setSettings, isCloudConnected 
     setIsSaving(true);
     const userId = 'USR_' + Math.random().toString(36).substr(2, 6).toUpperCase();
     
-    // Objeto do novo usuário
     const newUser: User = {
       id: userId,
       name: newUserName,
@@ -90,16 +94,12 @@ const SettingsTab: React.FC<Props> = ({ settings, setSettings, isCloudConnected 
     };
 
     try {
-      // 1. Salvar no Supabase (Tabela users)
       if (tenantId) {
         const res = await OnlineDB.upsertUser(tenantId, settings.storeName, newUser);
         if (!res.success) throw new Error(res.message);
-        
-        // Se salvou com sucesso no SQL, informa o login gerado
         triggerSaveFeedback(`Acesso SQL Criado! Login: ${res.username}`);
       }
 
-      // 2. Atualizar lista local de perfis
       const updatedUsers = [...settings.users, newUser];
       const updatedSettings = { ...settings, users: updatedUsers };
       setSettings(updatedSettings);
@@ -318,21 +318,34 @@ const SettingsTab: React.FC<Props> = ({ settings, setSettings, isCloudConnected 
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto space-y-12 py-10">
-        <div className="flex flex-col items-center gap-6">
+      <div className="max-w-2xl mx-auto space-y-6 py-10">
+        <div className="flex flex-col items-center gap-6 mb-4">
           <button onClick={triggerUpload} className="relative group">
             <div className="w-44 h-44 bg-white rounded-[3rem] border-[8px] border-white shadow-2xl flex items-center justify-center overflow-hidden ring-1 ring-slate-100">
               {settings.logoUrl ? <img src={settings.logoUrl} className="w-full h-full object-cover" /> : <ImageIcon size={64} className="text-slate-200" />}
             </div>
             <div className="absolute -bottom-3 -right-3 bg-blue-600 text-white p-4 rounded-3xl border-4 border-white shadow-xl group-hover:scale-110 transition-all"><Camera size={20} /></div>
           </button>
-          <div className="w-full text-center space-y-4">
+        </div>
+
+        <div className="grid grid-cols-1 gap-4">
+          <div className="w-full text-center space-y-2">
              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nome da Assistência</label>
-             <input type="text" value={settings.storeName} onChange={(e) => updateSetting('storeName', e.target.value)} className="w-full px-8 py-6 bg-white border-none rounded-[2.5rem] font-black text-3xl text-slate-800 text-center shadow-sm outline-none" />
+             <input type="text" value={settings.storeName} onChange={(e) => updateSetting('storeName', e.target.value)} className="w-full px-8 py-5 bg-white border-none rounded-[2rem] font-black text-xl text-slate-800 text-center shadow-sm outline-none" />
+          </div>
+
+          <div className="w-full space-y-2">
+             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 flex items-center gap-1.5"><MapPin size={12}/> Endereço da Loja</label>
+             <input type="text" value={settings.storeAddress || ''} onChange={(e) => updateSetting('storeAddress', e.target.value)} placeholder="Rua, Número, Bairro, Cidade - UF" className="w-full px-6 py-4 bg-white border-none rounded-2xl font-bold text-sm text-slate-800 shadow-sm outline-none" />
+          </div>
+
+          <div className="w-full space-y-2">
+             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 flex items-center gap-1.5"><Phone size={12}/> Telefone da Loja</label>
+             <input type="text" value={settings.storePhone || ''} onChange={(e) => updateSetting('storePhone', e.target.value)} placeholder="(00) 00000-0000" className="w-full px-6 py-4 bg-white border-none rounded-2xl font-bold text-sm text-slate-800 shadow-sm outline-none" />
           </div>
         </div>
 
-        <div className={`p-8 rounded-[2.5rem] border flex items-center gap-5 transition-colors duration-300 ${isCloudConnected ? 'bg-emerald-50/50 border-emerald-100' : 'bg-red-50/50 border-red-100'}`}>
+        <div className={`p-8 rounded-[2.5rem] border flex items-center gap-5 transition-colors duration-300 ${isCloudConnected ? 'bg-emerald-50/50 border-emerald-100' : 'bg-red-50/50 border-red-100'} mt-8`}>
             <div className={`w-14 h-14 text-white rounded-2xl flex items-center justify-center shadow-lg shrink-0 ${isCloudConnected ? 'bg-emerald-500' : 'bg-red-500'}`}>
               {isCloudConnected ? <Check size={28} /> : <AlertCircle size={28} />}
             </div>

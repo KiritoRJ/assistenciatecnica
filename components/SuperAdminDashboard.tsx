@@ -41,7 +41,6 @@ const SuperAdminDashboard: React.FC<Props> = ({ onLogout }) => {
     setIsSaving(true);
     try {
       const tenantId = 'LOJA_' + Math.random().toString(36).substr(2, 5).toUpperCase();
-      
       const result = await OnlineDB.createTenant({
         id: tenantId,
         storeName: formData.storeName,
@@ -67,7 +66,6 @@ const SuperAdminDashboard: React.FC<Props> = ({ onLogout }) => {
     if (!tenantToDelete) return;
     setIsDeleting(true);
     setErrorMsg(null);
-
     try {
       const result = await OnlineDB.deleteTenant(tenantToDelete.id);
       if (result.success) {
@@ -160,7 +158,6 @@ const SuperAdminDashboard: React.FC<Props> = ({ onLogout }) => {
             <Plus size={32} />
           </div>
           <h2 className="text-2xl font-black tracking-tighter">Cadastrar Loja</h2>
-          
           <div className="space-y-5">
             <div className="space-y-2">
               <label className="text-[9px] font-black uppercase tracking-widest text-blue-200 ml-4">Nome da Loja</label>
@@ -201,7 +198,6 @@ const SuperAdminDashboard: React.FC<Props> = ({ onLogout }) => {
         </div>
       </main>
 
-      {/* Modal de Confirmação de Exclusão */}
       {tenantToDelete && (
         <div className="fixed inset-0 bg-slate-950/80 z-[100] flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-sm rounded-[3rem] overflow-hidden shadow-2xl animate-in zoom-in-95 border border-slate-100">
@@ -218,7 +214,6 @@ const SuperAdminDashboard: React.FC<Props> = ({ onLogout }) => {
                   Isso apagará todos os usuários, OS e estoque vinculados!
                 </p>
               </div>
-              
               <div className="flex flex-col gap-3 pt-4">
                 <button 
                   onClick={handleDeleteTenant} 

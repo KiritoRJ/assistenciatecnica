@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { UserPlus, Trash2, Shield, Camera, X, User as UserIcon, Check, Image as ImageIcon } from 'lucide-react';
-import { AppSettings, User } from '../types';
+import { AppSettings, User } from './types';
 
 interface Props {
   settings: AppSettings;
@@ -20,17 +20,18 @@ const UserManagementTab: React.FC<Props> = ({ settings, setSettings, currentUser
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    input.onchange = (e: any) => handlePhotoUpload(e);
+    input.onchange = (e: any) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setNewPhoto(reader.result as string);
+          input.value = ''; // Reset do valor
+        };
+        reader.readAsDataURL(file);
+      }
+    };
     input.click();
-  };
-
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setNewPhoto(reader.result as string);
-      reader.readAsDataURL(file);
-    }
   };
 
   const handleCreateUser = () => {

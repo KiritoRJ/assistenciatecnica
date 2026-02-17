@@ -153,13 +153,13 @@ export class OnlineDB {
         deviceBrand: d.device_brand,
         deviceModel: d.device_model,
         defect: d.defect,
-        repair_details: d.repair_details,
+        repairDetails: d.repair_details || '', // Mapeado corretamente para o camelCase
         partsCost: Number(d.parts_cost),
         serviceCost: Number(d.service_cost),
         total: Number(d.total),
         status: d.status,
-        photos: d.photos,
-        finished_photos: d.finished_photos,
+        photos: d.photos || [],
+        finishedPhotos: d.finished_photos || [], // Mapeado corretamente para o camelCase
         date: d.created_at
       }));
     } catch (e) { return []; }
@@ -197,13 +197,13 @@ export class OnlineDB {
         device_brand: os.deviceBrand,
         device_model: os.deviceModel,
         defect: os.defect,
-        repair_details: os.repairDetails,
+        repair_details: os.repairDetails, // CamelCase to snake_case
         parts_cost: os.partsCost,
         service_cost: os.serviceCost,
         total: os.total,
         status: os.status,
         photos: os.photos,
-        finished_photos: os.finishedPhotos,
+        finished_photos: os.finishedPhotos || [], // CamelCase to snake_case
         created_at: os.date || new Date().toISOString()
       }));
       const { error } = await supabase.from('service_orders').upsert(payload, { onConflict: 'id' });

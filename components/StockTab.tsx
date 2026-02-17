@@ -28,7 +28,7 @@ const StockTab: React.FC<Props> = ({ products, setProducts, onDeleteProduct }) =
       img.src = base64Str;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_DIM = 600; // Reduzindo um pouco mais para garantir performance em DB
+        const MAX_DIM = 600; 
         let width = img.width;
         let height = img.height;
         if (width > height) {
@@ -45,24 +45,19 @@ const StockTab: React.FC<Props> = ({ products, setProducts, onDeleteProduct }) =
     });
   };
 
-  const triggerUpload = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = (e: any) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        setIsCompressing(true);
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          const compressed = await compressImage(reader.result as string);
-          setFormData(prev => ({ ...prev, photo: compressed }));
-          setIsCompressing(false);
-        };
-        reader.readAsDataURL(file);
-      }
-    };
-    input.click();
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setIsCompressing(true);
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const compressed = await compressImage(reader.result as string);
+        setFormData(prev => ({ ...prev, photo: compressed }));
+        setIsCompressing(false);
+        e.target.value = ''; // Reset do valor
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSave = async () => {
@@ -194,12 +189,13 @@ const StockTab: React.FC<Props> = ({ products, setProducts, onDeleteProduct }) =
             
             <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
               <div className="flex flex-col items-center gap-3">
-                <button onClick={triggerUpload} className="relative active:scale-95 transition-all">
+                <label className="relative active:scale-95 transition-all cursor-pointer">
                   <div className="w-24 h-24 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden">
                     {isCompressing ? <Loader2 className="animate-spin text-blue-500" /> : formData.photo ? <img src={formData.photo} className="w-full h-full object-cover" /> : <PackageOpen className="text-slate-200" size={32} />}
                   </div>
                   <div className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-2 rounded-full border-4 border-white shadow-lg"><Camera size={14} /></div>
-                </button>
+                  <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+                </label>
                 <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Toque para foto</p>
               </div>
 

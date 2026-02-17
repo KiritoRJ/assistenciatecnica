@@ -15,6 +15,8 @@ type Tab = 'os' | 'estoque' | 'vendas' | 'financeiro' | 'config';
 
 const DEFAULT_SETTINGS: AppSettings = {
   storeName: 'Minha Assistência',
+  storeAddress: '',
+  storePhone: '',
   logoUrl: null,
   users: [
     { id: 'admin_1', name: 'Administrador', role: 'admin', photo: null }
@@ -92,7 +94,6 @@ const App: React.FC = () => {
       } else if (localSettings) {
         setSettings(localSettings);
       } else {
-        // LOJA NOVA: Aplica configurações padrão e salva na nuvem imediatamente
         setSettings(DEFAULT_SETTINGS);
         await saveData('settings', tenantId, DEFAULT_SETTINGS);
         await OnlineDB.syncPush(tenantId, 'settings', DEFAULT_SETTINGS);
@@ -105,16 +106,11 @@ const App: React.FC = () => {
     } catch (e) {
       console.error("Erro no carregamento de dados:", e);
       setIsCloudConnected(false);
-      
       const localSettings = await getData('settings', tenantId);
-      const localOrders = await getData('orders', tenantId) || [];
-      const localProducts = await getData('products', tenantId) || [];
-      const localSales = await getData('sales', tenantId) || [];
-
       setSettings(localSettings || DEFAULT_SETTINGS);
-      setOrders(localOrders);
-      setProducts(localProducts);
-      setSales(localSales);
+      setOrders(await getData('orders', tenantId) || []);
+      setProducts(await getData('products', tenantId) || []);
+      setSales(await getData('sales', tenantId) || []);
     }
   }, []);
 
@@ -139,24 +135,20 @@ const App: React.FC = () => {
           setSession(superSession as any);
         } else {
           const tenantId = result.tenant?.id;
-          
           const newSession = { 
             isLoggedIn: true, 
             type: result.type as any, 
             tenantId: tenantId,
             isSuper: false
           };
-
           const finalUser = { 
             id: result.tenant?.id || 'temp', 
             name: result.tenant?.name || result.tenant?.username || 'Administrador', 
             role: result.type as any, 
             photo: null 
           };
-
           localStorage.setItem('session_pro', JSON.stringify(newSession));
           localStorage.setItem('currentUser_pro', JSON.stringify(finalUser));
-          
           setSession({ ...newSession, user: finalUser });
         }
       } else {
