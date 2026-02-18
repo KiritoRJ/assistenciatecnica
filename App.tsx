@@ -83,21 +83,19 @@ const App: React.FC = () => {
         OnlineDB.syncPull(tenantId, 'settings'),
         OnlineDB.fetchOrders(tenantId),
         OnlineDB.fetchProducts(tenantId),
-        OnlineDB.syncPull(tenantId, 'sales'),
+        OnlineDB.fetchSales(tenantId),
         OnlineDB.fetchUsers(tenantId)
       ]);
 
       let finalSettings = cloudSettings || await getData('settings', tenantId) || DEFAULT_SETTINGS;
       finalSettings = { ...finalSettings, users: cloudUsers || [] };
 
-      // Atualiza Estados do React
       setSettings(finalSettings);
       setOrders(cloudOrders || []);
       setProducts(cloudProducts || []);
       setSales(cloudSales || []);
       setIsCloudConnected(true);
 
-      // CRITICAL: Salva no banco local (IndexedDB) para garantir que outros dispositivos fiquem iguais
       await Promise.all([
         saveData('settings', tenantId, finalSettings),
         saveData('orders', tenantId, cloudOrders || []),
@@ -110,7 +108,6 @@ const App: React.FC = () => {
       console.error("Erro no carregamento de dados da nuvem:", e);
       setIsCloudConnected(false);
       
-      // Fallback para dados locais se falhar a conexão
       const localSettings = await getData('settings', tenantId);
       const localOrders = await getData('orders', tenantId);
       const localProducts = await getData('products', tenantId);
@@ -201,8 +198,12 @@ const App: React.FC = () => {
     const updated = orders.filter(o => o.id !== id);
     setOrders(updated);
     if (session?.tenantId) {
-      await saveData('orders', session.tenantId, updated);
-      await OnlineDB.deleteOS(id);
+      const dbResult = await OnlineDB.deleteOS(id);
+      if (dbResult.success) {
+        await saveData('orders', session.tenantId, updated);
+      } else {
+        alert("Não foi possível excluir do banco de dados SQL.");
+      }
     }
   };
 
@@ -215,11 +216,16 @@ const App: React.FC = () => {
   };
 
   const removeProduct = async (id: string) => {
+    console.log(`[APP] Removendo produto: ${id}`);
     const updated = products.filter(p => p.id !== id);
     setProducts(updated);
     if (session?.tenantId) {
-      await saveData('products', session.tenantId, updated);
-      await OnlineDB.deleteProduct(id);
+      const dbResult = await OnlineDB.deleteProduct(id);
+      if (dbResult.success) {
+        await saveData('products', session.tenantId, updated);
+      } else {
+        alert("Erro ao excluir produto no banco de dados.");
+      }
     }
   };
 
@@ -227,7 +233,46 @@ const App: React.FC = () => {
     setSales(newSales);
     if (session?.tenantId) {
       await saveData('sales', session.tenantId, newSales);
-      await OnlineDB.syncPush(session.tenantId, 'sales', newSales);
+      await OnlineDB.upsertSales(session.tenantId, newSales);
+    }
+  };
+
+  const removeSale = async (sale: Sale) => {
+    if (!session?.tenantId) return;
+    
+    console.log(`[APP] LOG DE EXCLUSÃO - Iniciando processo para venda ID: ${sale.id}`);
+    
+    // 1. Tentar deletar do SQL primeiro (Lógica igual a de produtos)
+    const dbResult = await OnlineDB.deleteSale(sale.id);
+
+    if (dbResult.success) {
+      console.log(`[APP] LOG DE EXCLUSÃO - Sucesso no Banco SQL para o ID: ${sale.id}`);
+      
+      // Atualiza localmente
+      const updatedSales = sales.filter(s => s.id !== sale.id);
+      setSales(updatedSales);
+
+      // Estorna estoque
+      const updatedProducts = products.map(p => {
+        if (p.id === sale.productId) {
+          console.log(`[APP] LOG DE EXCLUSÃO - Estornando estoque do produto: ${p.name}`);
+          return { ...p, quantity: p.quantity + sale.quantity };
+        }
+        return p;
+      });
+      setProducts(updatedProducts);
+
+      // Salva em background
+      await Promise.all([
+        saveData('sales', session.tenantId, updatedSales),
+        saveData('products', session.tenantId, updatedProducts),
+        OnlineDB.upsertProducts(session.tenantId, updatedProducts)
+      ]);
+      
+      console.log(`[APP] LOG DE EXCLUSÃO - Processo local finalizado.`);
+    } else {
+      console.error(`[APP] LOG DE EXCLUSÃO - FALHA NO BANCO SQL:`, dbResult);
+      throw new Error(dbResult.message || 'Falha na comunicação com o servidor Supabase.');
     }
   };
 
@@ -382,7 +427,7 @@ const App: React.FC = () => {
         {activeTab === 'os' && <ServiceOrderTab orders={orders} setOrders={saveOrders} settings={settings} onDeleteOrder={removeOrder} />}
         {activeTab === 'estoque' && <StockTab products={products} setProducts={saveProducts} onDeleteProduct={removeProduct} />}
         {activeTab === 'vendas' && <SalesTab products={products} setProducts={saveProducts} sales={sales} setSales={saveSales} settings={settings} currentUser={currentUser} />}
-        {activeTab === 'financeiro' && <FinanceTab orders={orders} sales={sales} />}
+        {activeTab === 'financeiro' && <FinanceTab orders={orders} sales={sales} products={products} onDeleteSale={removeSale} tenantId={session.tenantId || ''} />}
         {activeTab === 'config' && <SettingsTab settings={settings} setSettings={saveSettings} isCloudConnected={isCloudConnected} currentUser={currentUser} onSwitchProfile={handleSwitchProfile} tenantId={session.tenantId} />}
       </main>
 

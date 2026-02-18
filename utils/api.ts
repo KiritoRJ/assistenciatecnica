@@ -170,6 +170,7 @@ export class OnlineDB {
   static async deleteOS(osId: string) {
     try {
       const { error } = await supabase.from('service_orders').delete().eq('id', osId);
+      if (error) console.error("Erro ao deletar OS:", error);
       return { success: !error };
     } catch (e) { return { success: false }; }
   }
@@ -233,6 +234,37 @@ export class OnlineDB {
     }
   }
 
+  static async fetchSales(tenantId: string) {
+    if (!tenantId) return [];
+    try {
+      const { data, error } = await supabase
+        .from('sales')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('date', { ascending: false });
+      
+      if (error) throw error;
+      
+      return (data || []).map(d => ({
+        id: d.id,
+        productId: d.product_id,
+        productName: d.product_name,
+        date: d.date,
+        quantity: d.quantity,
+        originalPrice: Number(d.original_price || 0),
+        discount: Number(d.discount || 0),
+        finalPrice: Number(d.final_price || 0),
+        costAtSale: Number(d.cost_at_sale || 0),
+        paymentMethod: d.payment_method,
+        sellerName: d.seller_name,
+        transactionId: d.transaction_id
+      }));
+    } catch (e) {
+      console.error("Erro ao buscar vendas do Supabase:", e);
+      return [];
+    }
+  }
+
   static async upsertOrders(tenantId: string, orders: any[]) {
     if (!tenantId || !orders.length) return { success: true };
     try {
@@ -284,6 +316,33 @@ export class OnlineDB {
     }
   }
 
+  static async upsertSales(tenantId: string, sales: any[]) {
+    if (!tenantId || !sales.length) return { success: true };
+    try {
+      const payload = sales.map(s => ({
+        id: s.id,
+        tenant_id: tenantId,
+        product_id: s.productId,
+        product_name: s.productName,
+        date: s.date,
+        quantity: s.quantity,
+        original_price: s.originalPrice,
+        discount: s.discount,
+        final_price: s.finalPrice,
+        cost_at_sale: s.costAtSale,
+        payment_method: s.paymentMethod,
+        seller_name: s.sellerName,
+        transaction_id: s.transactionId
+      }));
+      const { error } = await supabase.from('sales').upsert(payload, { onConflict: 'id' });
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error("Erro ao salvar vendas no Supabase:", e);
+      return { success: false };
+    }
+  }
+
   static async syncPush(tenantId: string, storeKey: string, data: any) {
     if (!tenantId) return { success: false };
     try {
@@ -320,9 +379,34 @@ export class OnlineDB {
 
   static async deleteProduct(id: string) {
     try {
-      await supabase.from('products').delete().eq('id', id);
-      return { success: true };
+      console.log(`[SQL] Tentando deletar PRODUTO id: ${id}`);
+      const { error, status } = await supabase.from('products').delete().eq('id', id);
+      console.log(`[SQL] Resposta Produto: Status ${status}, Erro:`, error);
+      return { success: !error };
     } catch (e) { return { success: false }; }
+  }
+
+  static async deleteSale(id: string) {
+    console.log(`[SQL] Tentando deletar VENDA id: ${id}`);
+    try {
+      // Usamos a mesma sintaxe que funciona para produtos
+      const { error, status, statusText } = await supabase
+        .from('sales')
+        .delete()
+        .eq('id', id);
+      
+      console.log(`[SQL] Resposta Venda: Status ${status} (${statusText}), Erro:`, error);
+      
+      if (error) {
+        return { success: false, message: error.message };
+      }
+      
+      // Se o status for 204 ou 200, consideramos sucesso no Supabase
+      return { success: status >= 200 && status < 300 };
+    } catch (e: any) {
+      console.error(`[SQL FATAL] Exceção ao deletar venda:`, e);
+      return { success: false, message: e.message };
+    }
   }
 
   static async deleteRemoteUser(id: string) {
