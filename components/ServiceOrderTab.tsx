@@ -262,7 +262,8 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
       ctx.font = `900 ${9 * scale}px "Inter", sans-serif`;
       ctx.fillText("Defeito informado:", 25 * scale, currentY);
       currentY += 14 * scale;
-      currentY = wrapTextByChars(order.defect, 25 * scale, currentY, 32, 12 * scale);
+      // -- numero de caracteres por quebra de linha 60
+      currentY = wrapTextByChars(order.defect, 25 * scale, currentY, 60, 12 * scale);
       currentY += 10 * scale;
       currentY = drawSeparator(currentY);
 
@@ -270,7 +271,8 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
       ctx.font = `900 ${10 * scale}px "Inter", sans-serif`;
       ctx.fillText("REPARO EFETUADO", 25 * scale, currentY);
       currentY += 18 * scale;
-      currentY = wrapTextByChars(order.repairDetails || 'Serviço em andamento.', 25 * scale, currentY, 32, 12 * scale);
+      // -- numero de caracteres por quebra de linha 60
+      currentY = wrapTextByChars(order.repairDetails || 'Serviço em andamento.', 25 * scale, currentY, 60, 12 * scale);
       currentY += 10 * scale;
       currentY = drawSeparator(currentY);
 
