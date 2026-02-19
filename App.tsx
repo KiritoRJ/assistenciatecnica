@@ -40,6 +40,7 @@ const App: React.FC = () => {
   const [sales, setSales] = useState<Sale[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>('os');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // NOVO: Controle da barra lateral no PC
   const [isCloudConnected, setIsCloudConnected] = useState(true);
   const [isInitializing, setIsInitializing] = useState(true);
 
@@ -380,39 +381,67 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans flex flex-col md:flex-row">
-      <aside className="hidden md:flex flex-col w-72 bg-slate-900 text-white p-8 h-screen sticky top-0 overflow-y-auto">
-        <div className="flex items-center gap-4 mb-12">
-          <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
-            {settings.logoUrl ? <img src={settings.logoUrl} className="w-full h-full object-cover rounded-2xl" /> : <Smartphone size={24} />}
-          </div>
-          <h1 className="text-xl font-black tracking-tighter uppercase leading-tight truncate">{settings.storeName}</h1>
+      {/* BARRA LATERAL PC - ATUALIZADA PARA SER RETRÁTIL */}
+      <aside className={`hidden md:flex flex-col ${isSidebarCollapsed ? 'w-24' : 'w-72'} bg-slate-900 text-white p-6 h-screen sticky top-0 overflow-y-auto transition-all duration-300 ease-in-out`}>
+        {/* CABEÇALHO DA BARRA LATERAL COM BOTÃO DE TOGGLE */}
+        <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} mb-12`}>
+          {!isSidebarCollapsed && (
+            <div className="flex items-center gap-4 overflow-hidden animate-in fade-in">
+              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shrink-0">
+                {settings.logoUrl ? <img src={settings.logoUrl} className="w-full h-full object-cover rounded-xl" /> : <Smartphone size={20} />}
+              </div>
+              <h1 className="text-sm font-black tracking-tighter uppercase leading-tight truncate">{settings.storeName}</h1>
+            </div>
+          )}
+          <button 
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
+            className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+            title={isSidebarCollapsed ? "Expandir Menu" : "Recolher Menu"}
+          >
+            {isSidebarCollapsed ? <Menu size={24} /> : <X size={20} />}
+          </button>
         </div>
+
+        {/* NAVEGAÇÃO */}
         <nav className="flex-1 space-y-2">
           {visibleNavItems.map(item => (
-            <button key={item.id} onClick={() => setActiveTab(item.id as Tab)} className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === item.id ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
-              <item.icon size={20} />
-              {item.label}
+            <button 
+              key={item.id} 
+              onClick={() => setActiveTab(item.id as Tab)} 
+              title={isSidebarCollapsed ? item.label : ''}
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-4 px-6'} py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === item.id ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+            >
+              <item.icon size={20} className="shrink-0" />
+              {!isSidebarCollapsed && <span className="animate-in fade-in whitespace-nowrap">{item.label}</span>}
             </button>
           ))}
         </nav>
         
+        {/* RODAPÉ DA BARRA LATERAL COM PERFIL */}
         <div className="mt-8 pt-8 border-t border-white/5">
-          <div className="flex items-center gap-3 mb-6 px-4">
-            <div className="w-10 h-10 bg-slate-800 rounded-xl overflow-hidden border border-white/10">
+          <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-4'} mb-6`}>
+            <div className="w-10 h-10 bg-slate-800 rounded-xl overflow-hidden border border-white/10 shrink-0">
               {currentUser.photo ? <img src={currentUser.photo} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-600 font-black text-xs">?</div>}
             </div>
-            <div className="min-w-0">
-              <p className="text-[9px] font-black uppercase text-white truncate">{currentUser.name}</p>
-              <p className="text-[7px] font-bold uppercase text-slate-500">{currentUser.role}</p>
-            </div>
+            {!isSidebarCollapsed && (
+              <div className="min-w-0 animate-in fade-in">
+                <p className="text-[9px] font-black uppercase text-white truncate">{currentUser.name}</p>
+                <p className="text-[7px] font-bold uppercase text-slate-500">{currentUser.role}</p>
+              </div>
+            )}
           </div>
-          <button onClick={handleLogout} className="w-full flex items-center gap-4 px-6 py-4 text-slate-500 hover:text-red-400 font-black text-[10px] uppercase tracking-widest transition-colors">
-            <LogOut size={20} />
-            Sair
+          <button 
+            onClick={handleLogout} 
+            title={isSidebarCollapsed ? 'Sair do Sistema' : ''}
+            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-4 px-6'} py-4 text-slate-500 hover:text-red-400 font-black text-[10px] uppercase tracking-widest transition-colors`}
+          >
+            <LogOut size={20} className="shrink-0" />
+            {!isSidebarCollapsed && <span className="animate-in fade-in">Sair</span>}
           </button>
         </div>
       </aside>
 
+      {/* CABEÇALHO MOBILE (Permanece igual) */}
       <header className="md:hidden fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-md z-40 px-6 py-4 flex items-center justify-between border-b border-slate-100">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg">
@@ -423,6 +452,7 @@ const App: React.FC = () => {
         <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-slate-400"><Menu size={24} /></button>
       </header>
 
+      {/* ÁREA DE CONTEÚDO PRINCIPAL */}
       <main className="flex-1 p-4 pt-24 md:pt-10 max-w-7xl mx-auto w-full animate-in fade-in duration-700">
         {activeTab === 'os' && <ServiceOrderTab orders={orders} setOrders={saveOrders} settings={settings} onDeleteOrder={removeOrder} />}
         {activeTab === 'estoque' && <StockTab products={products} setProducts={saveProducts} onDeleteProduct={removeProduct} />}
@@ -431,6 +461,7 @@ const App: React.FC = () => {
         {activeTab === 'config' && <SettingsTab settings={settings} setSettings={saveSettings} isCloudConnected={isCloudConnected} currentUser={currentUser} onSwitchProfile={handleSwitchProfile} tenantId={session.tenantId} />}
       </main>
 
+      {/* NAVEGAÇÃO MOBILE (Permanece igual) */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-6 py-4 flex justify-between items-center z-40">
         {visibleNavItems.map(item => (
           <button key={item.id} onClick={() => setActiveTab(item.id as Tab)} className={`p-2 transition-all ${activeTab === item.id ? 'text-blue-600 scale-110' : 'text-slate-300'}`}>
@@ -439,6 +470,7 @@ const App: React.FC = () => {
         ))}
       </nav>
 
+      {/* MENU LATERAL MOBILE (Permanece igual) */}
       {isSidebarOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 animate-in fade-in">
           <div className="absolute right-0 top-0 bottom-0 w-72 bg-slate-900 p-8 flex flex-col animate-in slide-in-from-right">
