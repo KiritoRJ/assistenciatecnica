@@ -12,6 +12,7 @@ interface Props {
 }
 
 const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDeleteOrder }) => {
+  // --- ESTADOS DE CONTROLE DE INTERFACE ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -20,14 +21,17 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
   const [isGeneratingReceipt, setIsGeneratingReceipt] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
 
+  // --- ESTADO DO FORMULÁRIO (DADOS DA O.S.) ---
   const [formData, setFormData] = useState<Partial<ServiceOrder>>({
     customerName: '', phoneNumber: '', address: '', deviceBrand: '', deviceModel: '',
     defect: '', repairDetails: '', partsCost: 0, serviceCost: 0, status: 'Pendente',
     photos: [], finishedPhotos: [], entryDate: '', exitDate: ''
   });
 
+  // Manipula mudanças nos campos de texto e select
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    // Formatação de moeda em tempo real
     if (name === 'partsCost' || name === 'serviceCost' || name === 'total') {
       const numericValue = parseCurrencyString(value);
       setFormData(prev => {
@@ -41,6 +45,8 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
     }
   };
 
+  // --- PROCESSAMENTO DE IMAGENS ---
+  // Redimensiona e converte para WebP para otimizar o banco de dados SQL
   const compressImage = (base64Str: string, size: number = 800): Promise<string> => {
     return new Promise((resolve) => {
       const img = new Image();
@@ -63,6 +69,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
     });
   };
 
+  // Gerencia a seleção de arquivos de imagem
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: 'photos' | 'finishedPhotos') => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -77,12 +84,14 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
         console.error("Erro ao processar imagem", err);
       } finally {
         setIsCompressing(false);
-        e.target.value = '';
+        e.target.value = ''; 
       }
     };
     reader.readAsDataURL(file);
   };
 
+  // --- PERSISTÊNCIA ---
+  // Salva ou atualiza a O.S. na lista e sincroniza com o banco remoto
   const handleSave = () => {
     if (!formData.customerName || !formData.deviceModel) return alert('Campos obrigatórios faltando.');
     setIsSaving(true);
@@ -106,16 +115,20 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
     setIsSaving(false);
   };
 
+  // Limpa o formulário para uma nova entrada
   const resetForm = () => {
     const today = new Date().toLocaleDateString('pt-BR');
     setEditingOrder(null);
     setFormData({ 
       customerName: '', phoneNumber: '', address: '', deviceBrand: '', deviceModel: '', 
       defect: '', status: 'Pendente', photos: [], finishedPhotos: [], 
-      partsCost: 0, serviceCost: 0, total: 0, entryDate: today, exitDate: '' 
+      partsCost: 0, serviceCost: 0, total: 0, 
+      entryDate: today, 
+      exitDate: '' 
     });
   };
 
+  // --- GERADOR DE CUPOM TÉRMICO (CANVAS) ---
   const generateReceiptImage = async (order: ServiceOrder) => {
     setIsGeneratingReceipt(true);
     try {
@@ -125,13 +138,14 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
 
       const scale = 2;
       const width = 380 * scale; 
-      let dynamicHeight = 7500 * scale; 
+      let dynamicHeight = 7500 * scale; // Altura inicial grande para corte posterior
       canvas.width = width;
       canvas.height = dynamicHeight;
 
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, width, dynamicHeight);
 
+      // Função para quebra de texto por largura (maxWidth)
       const wrapText = (text: string, x: number, y: number, maxWidth: number, lineHeight: number, bold: boolean = false, color: string = '#000', align: 'left' | 'center' = 'left') => {
         ctx.font = `${bold ? '900' : '500'} ${9 * scale}px "Inter", sans-serif`;
         ctx.fillStyle = color;
@@ -158,6 +172,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
         return currentY + lineHeight;
       };
 
+      // Função para quebra de texto inteligente (32 caracteres sem cortar palavras)
       const wrapTextByChars = (text: string, x: number, y: number, charLimit: number, lineHeight: number, color: string = '#444') => {
         ctx.font = `500 ${9 * scale}px "Inter", sans-serif`;
         ctx.fillStyle = color;
@@ -182,10 +197,10 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
           ctx.fillText(currentLine, x, currentY);
           currentY += lineHeight;
         }
-        
         return currentY;
       };
 
+      // Desenha linhas tracejadas separadoras
       const drawSeparator = (y: number) => {
         ctx.strokeStyle = '#DDD';
         ctx.lineWidth = 1 * scale;
@@ -200,6 +215,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
 
       let currentY = 50 * scale;
 
+      // 1. Cabeçalho
       ctx.font = `900 ${16 * scale}px "Inter", sans-serif`;
       ctx.textAlign = 'center';
       ctx.fillStyle = '#000';
@@ -210,11 +226,12 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
       ctx.fillText(`ORDEM DE SERVIÇO: #${order.id}`, width / 2, currentY);
       currentY += 16 * scale;
       ctx.font = `500 ${9 * scale}px "Inter", sans-serif`;
-      ctx.fillText(`CRIADO EM: ${formatDate(order.date)}`, width / 2, currentY);
+      ctx.fillText(`REGISTRO: ${formatDate(order.date)}`, width / 2, currentY);
       currentY += 25 * scale;
 
       currentY = drawSeparator(currentY);
 
+      // 2. Dados do Cliente
       ctx.font = `900 ${10 * scale}px "Inter", sans-serif`;
       ctx.textAlign = 'left';
       ctx.fillText("DADOS DO CLIENTE", 25 * scale, currentY);
@@ -225,6 +242,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
       currentY += 10 * scale;
       currentY = drawSeparator(currentY);
 
+      // 3. Dados do Aparelho
       ctx.font = `900 ${10 * scale}px "Inter", sans-serif`;
       ctx.fillText("DADOS DO APARELHO", 25 * scale, currentY);
       currentY += 18 * scale;
@@ -232,7 +250,6 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
       currentY = wrapText(`Modelo: ${order.deviceModel}`, 25 * scale, currentY, width - 50 * scale, 14 * scale);
       currentY += 14 * scale;
       
-      // Adição das Datas no Cupom
       ctx.font = `700 ${9 * scale}px "Inter", sans-serif`;
       ctx.fillText(`DATA DE ENTRADA: ${order.entryDate || '-'}`, 25 * scale, currentY);
       currentY += 14 * scale;
@@ -249,6 +266,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
       currentY += 10 * scale;
       currentY = drawSeparator(currentY);
 
+      // 4. Reparo Efetuado
       ctx.font = `900 ${10 * scale}px "Inter", sans-serif`;
       ctx.fillText("REPARO EFETUADO", 25 * scale, currentY);
       currentY += 18 * scale;
@@ -256,6 +274,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
       currentY += 10 * scale;
       currentY = drawSeparator(currentY);
 
+      // --- RESTAURAÇÃO: MINIATURAS DAS FOTOS DE ENTRADA ---
       ctx.font = `900 ${10 * scale}px "Inter", sans-serif`;
       ctx.fillText("FOTOS DE ENTRADA", 25 * scale, currentY);
       currentY += 20 * scale;
@@ -275,6 +294,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
         currentY += 15 * scale;
       }
 
+      // --- RESTAURAÇÃO: MINIATURAS DAS FOTOS DE CONCLUSÃO ---
       if (order.status === 'Concluído' || order.status === 'Entregue') {
         currentY = drawSeparator(currentY);
         ctx.font = `900 ${10 * scale}px "Inter", sans-serif`;
@@ -297,6 +317,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
         }
       }
 
+      // 5. Totalizador
       currentY = drawSeparator(currentY);
       currentY += 10 * scale;
       ctx.font = `900 ${12 * scale}px "Inter", sans-serif`;
@@ -308,12 +329,12 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
       currentY += 40 * scale;
       currentY = drawSeparator(currentY);
 
+      // 6. Garantia e Rodapé
       ctx.font = `900 ${10 * scale}px "Inter", sans-serif`;
       ctx.textAlign = 'left';
       ctx.fillText("GARANTIA", 25 * scale, currentY);
       currentY += 18 * scale;
-      const warrantyText = settings.pdfWarrantyText || 'Garantia legal de 90 dias.';
-      const cleanWarranty = warrantyText.replace(/\[\/?(B|C|J|COLOR.*?|U)\]/g, '');
+      const cleanWarranty = settings.pdfWarrantyText.replace(/\[\/?(B|C|J|COLOR.*?|U)\]/g, '');
       currentY = wrapText(cleanWarranty, 25 * scale, currentY, width - 50 * scale, 12 * scale, false, '#666');
 
       currentY += 50 * scale;
@@ -321,6 +342,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
       ctx.textAlign = 'center';
       ctx.fillText("OBRIGADO PELA PREFERÊNCIA!", width / 2, currentY);
 
+      // Processamento final da imagem do cupom
       const finalCanvas = document.createElement('canvas');
       finalCanvas.width = width;
       finalCanvas.height = currentY + 100 * scale;
@@ -347,16 +369,19 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
 
   return (
     <div className="space-y-4 pb-4">
+      {/* CABEÇALHO DA TAB */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-black text-slate-800 tracking-tight text-custom-primary uppercase">ORDENS DE SERVIÇO</h2>
         <button onClick={() => { resetForm(); setIsModalOpen(true); }} className="bg-slate-900 text-white p-2.5 rounded-2xl shadow-lg active:scale-95"><Plus size={20} /></button>
       </div>
 
+      {/* BUSCA */}
       <div className="relative">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
         <input type="text" placeholder="Pesquisar..." className="w-full pl-11 pr-4 py-3.5 bg-white border-none rounded-2xl shadow-sm text-sm font-medium focus:ring-2 focus:ring-slate-900 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
       </div>
 
+      {/* LISTA DE ORDENS */}
       <div className="grid gap-3">
         {filtered.length > 0 ? filtered.map(order => (
           <div key={order.id} className="bg-white p-4 rounded-3xl shadow-sm border border-slate-50 flex items-center justify-between group animate-in fade-in">
@@ -373,7 +398,6 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
                 <p className="text-[10px] text-slate-400 font-bold uppercase truncate">{order.deviceBrand} {order.deviceModel}</p>
                 <div className="flex items-center gap-2 mt-1">
                    <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${order.status === 'Entregue' ? 'bg-emerald-50 text-emerald-500' : 'bg-blue-50 text-blue-500'} uppercase`}>{order.status}</span>
-                   {(order.photos?.length || 0) > 0 && <ImageIcon size={10} className="text-slate-300" />}
                 </div>
               </div>
             </div>
@@ -393,6 +417,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
         )}
       </div>
 
+      {/* MODAL DE EDIÇÃO / CRIAÇÃO */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 z-50 flex flex-col justify-end md:justify-center p-2 backdrop-blur-sm">
           <div className="bg-white w-full max-w-md mx-auto rounded-[2.5rem] overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10">
@@ -430,7 +455,6 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
                   </div>
                 </div>
 
-                {/* Campos de Data Adicionados */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Calendar size={12}/> Entrada</label>
@@ -461,6 +485,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
                   <textarea name="repairDetails" value={formData.repairDetails} onChange={handleInputChange} placeholder="Reparo..." className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm h-20 resize-none" />
                 </div>
                 
+                {/* FOTOS DE ENTRADA */}
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Camera size={12}/> Fotos de Entrada</label>
                   <div className="grid grid-cols-4 gap-2">
@@ -477,8 +502,9 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
                   </div>
                 </div>
 
+                {/* RESTAURAÇÃO: CAMPO DE FOTOS DE SAÍDA (VISÍVEL SE CONCLUÍDO/ENTREGUE) */}
                 {(formData.status === 'Concluído' || formData.status === 'Entregue') && (
-                   <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                  <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
                     <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest flex items-center gap-1.5"><CheckCircle size={12}/> Fotos do Serviço Pronto</label>
                     <div className="grid grid-cols-4 gap-2">
                       <label className="aspect-square bg-emerald-50 border-2 border-dashed border-emerald-100 rounded-2xl flex items-center justify-center text-emerald-400 cursor-pointer active:scale-95 transition-all">
@@ -495,50 +521,34 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
                   </div>
                 )}
 
+                {/* FINANCEIRO DA O.S. */}
                 <div className="space-y-3 pt-2">
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Valor da Peça</label>
                       <div className="p-4 bg-slate-50 rounded-2xl flex items-center gap-2 border border-slate-100">
                         <span className="text-[10px] font-black text-slate-400">R$</span>
-                        <input 
-                          name="partsCost" 
-                          value={formatCurrency(formData.partsCost || 0).replace('R$', '').trim()} 
-                          onChange={handleInputChange} 
-                          className="w-full bg-transparent font-bold text-sm outline-none"
-                          placeholder="0,00"
-                        />
+                        <input name="partsCost" value={formatCurrency(formData.partsCost || 0).replace('R$', '').trim()} onChange={handleInputChange} className="w-full bg-transparent font-bold text-sm outline-none" placeholder="0,00" />
                       </div>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Valor do Serviço</label>
                       <div className="p-4 bg-slate-50 rounded-2xl flex items-center gap-2 border border-slate-100">
                         <span className="text-[10px] font-black text-slate-400">R$</span>
-                        <input 
-                          name="serviceCost" 
-                          value={formatCurrency(formData.serviceCost || 0).replace('R$', '').trim()} 
-                          onChange={handleInputChange} 
-                          className="w-full bg-transparent font-bold text-sm outline-none"
-                          placeholder="0,00"
-                        />
+                        <input name="serviceCost" value={formatCurrency(formData.serviceCost || 0).replace('R$', '').trim()} onChange={handleInputChange} className="w-full bg-transparent font-bold text-sm outline-none" placeholder="0,00" />
                       </div>
                     </div>
                   </div>
 
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Calculator size={12}/> Total Geral</label>
                   <div className="p-5 bg-blue-600 rounded-[1.5rem] shadow-xl flex items-center justify-between border border-blue-500">
-                    <input 
-                      name="total" 
-                      value={formatCurrency(formData.total || 0).replace('R$', '').trim()} 
-                      onChange={handleInputChange} 
-                      className="w-full bg-transparent font-black text-white outline-none text-2xl"
-                      placeholder="0,00"
-                    />
+                    <input name="total" value={formatCurrency(formData.total || 0).replace('R$', '').trim()} onChange={handleInputChange} className="w-full bg-transparent font-black text-white outline-none text-2xl" placeholder="0,00" />
                   </div>
                 </div>
               </div>
             </div>
 
+            {/* BOTÕES DE AÇÃO DO MODAL */}
             <div className="p-6 border-t border-slate-50 bg-slate-50 flex gap-3">
               <button onClick={() => setIsModalOpen(false)} className="flex-1 py-4 font-black text-slate-400 uppercase text-[10px]">Sair</button>
               <button onClick={handleSave} disabled={isSaving} className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] shadow-xl active:scale-95">
@@ -549,6 +559,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onDelet
         </div>
       )}
 
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
       {orderToDelete && (
         <div className="fixed inset-0 bg-slate-950/80 z-[100] flex items-center justify-center p-6 backdrop-blur-sm">
           <div className="bg-white w-full max-w-xs rounded-[2rem] overflow-hidden shadow-2xl">

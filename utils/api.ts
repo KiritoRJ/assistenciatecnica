@@ -7,6 +7,7 @@ const SUPABASE_KEY = 'sb_publishable_c2wQfanSj96FRWqoCq9KIw_2FhxuRBv';
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 export class OnlineDB {
+  // Realiza o login do usuário verificando no banco SQL
   static async login(username: string, passwordPlain: string) {
     const cleanUser = username.trim().toLowerCase();
     const cleanPass = passwordPlain.trim();
@@ -37,6 +38,7 @@ export class OnlineDB {
     }
   }
 
+  // Verifica a senha do administrador para ações sensíveis
   static async verifyAdminPassword(tenantId: string, passwordPlain: string) {
     if (!tenantId) return { success: false, message: "ID da loja não encontrado." };
     try {
@@ -57,6 +59,7 @@ export class OnlineDB {
     }
   }
 
+  // Busca todos os usuários vinculados a uma loja
   static async fetchUsers(tenantId: string) {
     if (!tenantId) return [];
     try {
@@ -81,6 +84,7 @@ export class OnlineDB {
     }
   }
 
+  // Cria uma nova loja e seu usuário administrador
   static async createTenant(tenantData: any) {
     try {
       const { error: tError } = await supabase
@@ -111,6 +115,7 @@ export class OnlineDB {
     }
   }
 
+  // Remove uma loja do sistema
   static async deleteTenant(tenantId: string) {
     try {
       const { error } = await supabase
@@ -125,6 +130,7 @@ export class OnlineDB {
     }
   }
 
+  // Salva ou atualiza dados de um usuário
   static async upsertUser(tenantId: string, storeName: string, user: any) {
     if (!tenantId) return { success: false, message: "ID da Loja ausente." };
     try {
@@ -154,6 +160,7 @@ export class OnlineDB {
     }
   }
 
+  // Lista todas as lojas cadastradas
   static async getTenants() {
     try {
       const { data, error } = await supabase
@@ -167,6 +174,7 @@ export class OnlineDB {
     }
   }
 
+  // Remove uma O.S. pelo ID
   static async deleteOS(osId: string) {
     try {
       const { error } = await supabase.from('service_orders').delete().eq('id', osId);
@@ -175,6 +183,7 @@ export class OnlineDB {
     } catch (e) { return { success: false }; }
   }
 
+  // Busca as Ordens de Serviço e mapeia as novas colunas entry_date e exit_date
   static async fetchOrders(tenantId: string) {
     if (!tenantId) return [];
     try {
@@ -202,6 +211,7 @@ export class OnlineDB {
         photos: d.photos || [],
         finishedPhotos: d.finished_photos || [], 
         date: d.created_at,
+        // MAPEAMENTO DAS NOVAS DATAS DO SQL PARA O APP
         entryDate: d.entry_date || '',
         exitDate: d.exit_date || ''
       }));
@@ -211,6 +221,7 @@ export class OnlineDB {
     }
   }
 
+  // Busca produtos em estoque
   static async fetchProducts(tenantId: string) {
     if (!tenantId) return [];
     try {
@@ -237,6 +248,7 @@ export class OnlineDB {
     }
   }
 
+  // Busca histórico de vendas
   static async fetchSales(tenantId: string) {
     if (!tenantId) return [];
     try {
@@ -268,6 +280,7 @@ export class OnlineDB {
     }
   }
 
+  // Salva Ordens de Serviço no Banco de Dados
   static async upsertOrders(tenantId: string, orders: any[]) {
     if (!tenantId || !orders.length) return { success: true };
     try {
@@ -288,6 +301,7 @@ export class OnlineDB {
         photos: os.photos,
         finished_photos: os.finishedPhotos || [], 
         created_at: os.date || new Date().toISOString(),
+        // ENVIO DAS NOVAS DATAS PARA O SQL
         entry_date: os.entryDate,
         exit_date: os.exitDate
       }));
@@ -300,6 +314,7 @@ export class OnlineDB {
     }
   }
 
+  // Salva produtos no Banco de Dados
   static async upsertProducts(tenantId: string, products: any[]) {
     if (!tenantId || !products.length) return { success: true };
     try {
@@ -322,6 +337,7 @@ export class OnlineDB {
     }
   }
 
+  // Salva vendas no Banco de Dados
   static async upsertSales(tenantId: string, sales: any[]) {
     if (!tenantId || !sales.length) return { success: true };
     try {
@@ -349,6 +365,7 @@ export class OnlineDB {
     }
   }
 
+  // Sincroniza configurações globais
   static async syncPush(tenantId: string, storeKey: string, data: any) {
     if (!tenantId) return { success: false };
     try {
@@ -370,6 +387,7 @@ export class OnlineDB {
     } catch (e) { return { success: false }; }
   }
 
+  // Recupera configurações sincronizadas
   static async syncPull(tenantId: string, storeKey: string) {
     if (!tenantId) return null;
     try {
@@ -383,38 +401,29 @@ export class OnlineDB {
     } catch (e) { return null; }
   }
 
+  // Remove um produto
   static async deleteProduct(id: string) {
     try {
-      console.log(`[SQL] Tentando deletar PRODUTO id: ${id}`);
       const { error, status } = await supabase.from('products').delete().eq('id', id);
-      console.log(`[SQL] Resposta Produto: Status ${status}, Erro:`, error);
       return { success: !error };
     } catch (e) { return { success: false }; }
   }
 
+  // Cancela uma venda e remove do banco
   static async deleteSale(id: string) {
-    console.log(`[SQL] Tentando deletar VENDA id: ${id}`);
     try {
-      // Usamos a mesma sintaxe que funciona para produtos
-      const { error, status, statusText } = await supabase
+      const { error, status } = await supabase
         .from('sales')
         .delete()
         .eq('id', id);
-      
-      console.log(`[SQL] Resposta Venda: Status ${status} (${statusText}), Erro:`, error);
-      
-      if (error) {
-        return { success: false, message: error.message };
-      }
-      
-      // Se o status for 204 ou 200, consideramos sucesso no Supabase
+      if (error) return { success: false, message: error.message };
       return { success: status >= 200 && status < 300 };
     } catch (e: any) {
-      console.error(`[SQL FATAL] Exceção ao deletar venda:`, e);
       return { success: false, message: e.message };
     }
   }
 
+  // Remove um usuário colaborador
   static async deleteRemoteUser(id: string) {
     try {
       const { error } = await supabase

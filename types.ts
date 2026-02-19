@@ -17,11 +17,12 @@ export interface User {
   specialty?: 'Vendedor' | 'Técnico' | 'Outros';
 }
 
+// Interface que define a estrutura de uma Ordem de Serviço
 export interface ServiceOrder {
   id: string;
-  date: string;
-  entryDate: string;
-  exitDate: string;
+  date: string; // Data de criação do registro no sistema
+  entryDate: string; // DATA DE ENTRADA DO APARELHO (PT-BR)
+  exitDate: string; // DATA DE SAÍDA DO APARELHO (PT-BR)
   customerName: string;
   phoneNumber: string;
   address: string;
@@ -69,19 +70,16 @@ export interface AppSettings {
   logoUrl: string | null;
   users: User[];
   isConfigured: boolean;
-  // Personalização de Cores
   themePrimary: string;
   themeSidebar: string;
   themeBg: string;
   themeBottomTab: string;
-  // PDF / Cupom
   pdfWarrantyText: string;
   pdfFontSize: number;
   pdfFontFamily: 'helvetica' | 'courier' | 'times';
   pdfPaperWidth: number;
   pdfTextColor: string;
   pdfBgColor: string;
-  // Etiquetas Customizáveis do Cupom
   receiptHeaderSubtitle?: string;
   receiptLabelProtocol?: string;
   receiptLabelDate?: string;
