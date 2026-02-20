@@ -1,6 +1,6 @@
 
 const DB_NAME = 'AssistenciaProDB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export const initDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
@@ -19,6 +19,7 @@ export const initDB = (): Promise<IDBDatabase> => {
       if (!db.objectStoreNames.contains('orders')) db.createObjectStore('orders');
       if (!db.objectStoreNames.contains('products')) db.createObjectStore('products');
       if (!db.objectStoreNames.contains('sales')) db.createObjectStore('sales');
+      if (!db.objectStoreNames.contains('transactions')) db.createObjectStore('transactions');
     };
 
     request.onsuccess = () => resolve(request.result);

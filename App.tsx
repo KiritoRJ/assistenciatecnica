@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Smartphone, Package, ShoppingCart, BarChart3, Settings, LogOut, Menu, X, Loader2, ShieldCheck } from 'lucide-react';
-import { ServiceOrder, Product, Sale, AppSettings, User } from './types';
+import { ServiceOrder, Product, Sale, Transaction, AppSettings, User } from './types';
 import ServiceOrderTab from './components/ServiceOrderTab';
 import StockTab from './components/StockTab';
 import SalesTab from './components/SalesTab';
@@ -38,6 +38,7 @@ const App: React.FC = () => {
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>('os');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -79,12 +80,13 @@ const App: React.FC = () => {
 
   const loadData = useCallback(async (tenantId: string) => {
     try {
-      const [cloudSettings, cloudOrders, cloudProducts, cloudSales, cloudUsers] = await Promise.all([
+      const [cloudSettings, cloudOrders, cloudProducts, cloudSales, cloudUsers, cloudTransactions] = await Promise.all([
         OnlineDB.syncPull(tenantId, 'settings'),
         OnlineDB.fetchOrders(tenantId),
         OnlineDB.fetchProducts(tenantId),
         OnlineDB.fetchSales(tenantId),
-        OnlineDB.fetchUsers(tenantId)
+        OnlineDB.fetchUsers(tenantId),
+        OnlineDB.fetchTransactions(tenantId)
       ]);
 
       let finalSettings = cloudSettings || await getData('settings', tenantId) || DEFAULT_SETTINGS;
@@ -94,13 +96,15 @@ const App: React.FC = () => {
       setOrders(cloudOrders || []);
       setProducts(cloudProducts || []);
       setSales(cloudSales || []);
+      setTransactions(cloudTransactions || []);
       setIsCloudConnected(true);
 
       await Promise.all([
         saveData('settings', tenantId, finalSettings),
         saveData('orders', tenantId, cloudOrders || []),
         saveData('products', tenantId, cloudProducts || []),
-        saveData('sales', tenantId, cloudSales || [])
+        saveData('sales', tenantId, cloudSales || []),
+        saveData('transactions', tenantId, cloudTransactions || [])
       ]);
     } catch (e) {
       setIsCloudConnected(false);
@@ -108,11 +112,13 @@ const App: React.FC = () => {
       const localOrders = await getData('orders', tenantId);
       const localProducts = await getData('products', tenantId);
       const localSales = await getData('sales', tenantId);
+      const localTransactions = await getData('transactions', tenantId);
 
       setSettings(localSettings || DEFAULT_SETTINGS);
       setOrders(localOrders || []);
       setProducts(localProducts || []);
       setSales(localSales || []);
+      setTransactions(localTransactions || []);
     }
   }, []);
 
@@ -246,6 +252,24 @@ const App: React.FC = () => {
         saveData('products', session.tenantId, updatedProducts),
         OnlineDB.upsertProducts(session.tenantId, updatedProducts)
       ]);
+    }
+  };
+
+  const saveTransactions = async (newTransactions: Transaction[]) => {
+    setTransactions(newTransactions);
+    if (session?.tenantId) {
+      await saveData('transactions', session.tenantId, newTransactions);
+      await OnlineDB.upsertTransactions(session.tenantId, newTransactions);
+    }
+  };
+
+  const removeTransaction = async (id: string) => {
+    if (!session?.tenantId) return;
+    const dbResult = await OnlineDB.deleteTransaction(id);
+    if (dbResult.success) {
+      const updated = transactions.filter(t => t.id !== id);
+      setTransactions(updated);
+      await saveData('transactions', session.tenantId, updated);
     }
   };
 
@@ -384,7 +408,7 @@ const App: React.FC = () => {
         {activeTab === 'os' && <ServiceOrderTab orders={orders} setOrders={saveOrders} settings={settings} onDeleteOrder={removeOrder} />}
         {activeTab === 'estoque' && <StockTab products={products} setProducts={saveProducts} onDeleteProduct={removeProduct} />}
         {activeTab === 'vendas' && <SalesTab products={products} setProducts={saveProducts} sales={sales} setSales={saveSales} settings={settings} currentUser={currentUser} />}
-        {activeTab === 'financeiro' && <FinanceTab orders={orders} sales={sales} products={products} onDeleteSale={removeSale} tenantId={session.tenantId || ''} />}
+        {activeTab === 'financeiro' && <FinanceTab orders={orders} sales={sales} products={products} transactions={transactions} setTransactions={saveTransactions} onDeleteTransaction={removeTransaction} onDeleteSale={removeSale} tenantId={session.tenantId || ''} />}
         {activeTab === 'config' && <SettingsTab settings={settings} setSettings={saveSettings} isCloudConnected={isCloudConnected} currentUser={currentUser} onSwitchProfile={handleSwitchProfile} tenantId={session.tenantId} />}
       </main>
 

@@ -282,6 +282,33 @@ export class OnlineDB {
     }
   }
 
+  // Busca transações manuais (entradas e saídas)
+  static async fetchTransactions(tenantId: string) {
+    if (!tenantId) return [];
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('date', { ascending: false });
+      
+      if (error) throw error;
+      
+      return (data || []).map(d => ({
+        id: d.id,
+        type: d.type,
+        description: d.description,
+        amount: Number(d.amount || 0),
+        date: d.date,
+        category: d.category,
+        paymentMethod: d.payment_method
+      }));
+    } catch (e) {
+      console.error("Erro ao buscar transações do Supabase:", e);
+      return [];
+    }
+  }
+
   // Salva Ordens de Serviço no Banco de Dados
   static async upsertOrders(tenantId: string, orders: any[]) {
     if (!tenantId || !orders.length) return { success: true };
@@ -367,6 +394,29 @@ export class OnlineDB {
     }
   }
 
+  // Salva transações no Banco de Dados
+  static async upsertTransactions(tenantId: string, transactions: any[]) {
+    if (!tenantId || !transactions.length) return { success: true };
+    try {
+      const payload = transactions.map(t => ({
+        id: t.id,
+        tenant_id: tenantId,
+        type: t.type,
+        description: t.description,
+        amount: t.amount,
+        date: t.date,
+        category: t.category,
+        payment_method: t.paymentMethod
+      }));
+      const { error } = await supabase.from('transactions').upsert(payload, { onConflict: 'id' });
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error("Erro ao salvar transações no Supabase:", e);
+      return { success: false };
+    }
+  }
+
   // Sincroniza configurações globais
   static async syncPush(tenantId: string, storeKey: string, data: any) {
     if (!tenantId) return { success: false };
@@ -416,6 +466,20 @@ export class OnlineDB {
     try {
       const { error, status } = await supabase
         .from('sales')
+        .delete()
+        .eq('id', id);
+      if (error) return { success: false, message: error.message };
+      return { success: status >= 200 && status < 300 };
+    } catch (e: any) {
+      return { success: false, message: e.message };
+    }
+  }
+
+  // Remove uma transação
+  static async deleteTransaction(id: string) {
+    try {
+      const { error, status } = await supabase
+        .from('transactions')
         .delete()
         .eq('id', id);
       if (error) return { success: false, message: error.message };

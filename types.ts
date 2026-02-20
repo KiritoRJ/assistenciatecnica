@@ -64,6 +64,16 @@ export interface Sale {
   transactionId?: string;
 }
 
+export interface Transaction {
+  id: string;
+  type: 'entrada' | 'saida';
+  description: string;
+  amount: number;
+  date: string;
+  category?: string;
+  paymentMethod?: string;
+}
+
 export interface AppSettings {
   storeName: string;
   storeAddress?: string;
