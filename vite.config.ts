@@ -14,9 +14,12 @@ export default defineConfig(({ mode }) => {
         react(),
         VitePWA({
           registerType: 'autoUpdate',
-          includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg', 'pwa-512x512.png'],
+          includeAssets: ['pwa-512x512.png'],
           workbox: {
             globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+            cleanupOutdatedCaches: true,
+            clientsClaim: true,
+            skipWaiting: true,
             runtimeCaching: [
               {
                 urlPattern: /^https:\/\/cdn\.tailwindcss\.com/,
@@ -50,6 +53,7 @@ export default defineConfig(({ mode }) => {
             ]
           },
           manifest: {
+            id: '/',
             name: 'Assistência Técnica Pro',
             short_name: 'Assistência Pro',
             description: 'Sistema de Gestão para Assistência Técnica',
@@ -57,6 +61,8 @@ export default defineConfig(({ mode }) => {
             background_color: '#ffffff',
             display: 'standalone',
             orientation: 'portrait',
+            scope: '/',
+            start_url: '/',
             icons: [
               {
                 src: '/pwa-512x512.png',
@@ -77,6 +83,9 @@ export default defineConfig(({ mode }) => {
                 purpose: 'maskable'
               }
             ]
+          },
+          devOptions: {
+            enabled: true
           }
         })
       ],
