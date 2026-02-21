@@ -25,19 +25,19 @@ export default defineConfig(({ mode }) => {
             orientation: 'portrait',
             icons: [
               {
-                src: '/pwa-512x512.png',
+                src: 'https://cdn-icons-png.flaticon.com/512/2092/2092056.png',
                 sizes: '192x192',
                 type: 'image/png',
                 purpose: 'any'
               },
               {
-                src: '/pwa-512x512.png',
+                src: 'https://cdn-icons-png.flaticon.com/512/2092/2092056.png',
                 sizes: '512x512',
                 type: 'image/png',
                 purpose: 'any'
               },
               {
-                src: '/pwa-512x512.png',
+                src: 'https://cdn-icons-png.flaticon.com/512/2092/2092056.png',
                 sizes: '512x512',
                 type: 'image/png',
                 purpose: 'maskable'
