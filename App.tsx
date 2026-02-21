@@ -197,11 +197,11 @@ const App: React.FC = () => {
   };
 
   const removeOrder = async (id: string) => {
-    const updated = orders.filter(o => o.id !== id);
-    setOrders(updated);
     if (session?.tenantId) {
       const dbResult = await OnlineDB.deleteOS(id);
       if (dbResult.success) {
+        const updated = orders.map(o => o.id === id ? { ...o, isDeleted: true } : o);
+        setOrders(updated);
         await saveData('orders', session.tenantId, updated);
       }
     }
@@ -238,7 +238,7 @@ const App: React.FC = () => {
     if (!session?.tenantId) return;
     const dbResult = await OnlineDB.deleteSale(sale.id);
     if (dbResult.success) {
-      const updatedSales = sales.filter(s => s.id !== sale.id);
+      const updatedSales = sales.map(s => s.id === sale.id ? { ...s, isDeleted: true } : s);
       setSales(updatedSales);
       const updatedProducts = products.map(p => {
         if (p.id === sale.productId) {
@@ -267,7 +267,7 @@ const App: React.FC = () => {
     if (!session?.tenantId) return;
     const dbResult = await OnlineDB.deleteTransaction(id);
     if (dbResult.success) {
-      const updated = transactions.filter(t => t.id !== id);
+      const updated = transactions.map(t => t.id === id ? { ...t, isDeleted: true } : t);
       setTransactions(updated);
       await saveData('transactions', session.tenantId, updated);
     }
@@ -405,10 +405,10 @@ const App: React.FC = () => {
       </header>
 
       <main className="flex-1 p-4 pt-24 md:pt-10 max-w-7xl mx-auto w-full animate-in fade-in duration-700">
-        {activeTab === 'os' && <ServiceOrderTab orders={orders} setOrders={saveOrders} settings={settings} onDeleteOrder={removeOrder} />}
+        {activeTab === 'os' && <ServiceOrderTab orders={orders.filter(o => !o.isDeleted)} setOrders={saveOrders} settings={settings} onDeleteOrder={removeOrder} />}
         {activeTab === 'estoque' && <StockTab products={products} setProducts={saveProducts} onDeleteProduct={removeProduct} />}
-        {activeTab === 'vendas' && <SalesTab products={products} setProducts={saveProducts} sales={sales} setSales={saveSales} settings={settings} currentUser={currentUser} />}
-        {activeTab === 'financeiro' && <FinanceTab orders={orders} sales={sales} products={products} transactions={transactions} setTransactions={saveTransactions} onDeleteTransaction={removeTransaction} onDeleteSale={removeSale} tenantId={session.tenantId || ''} />}
+        {activeTab === 'vendas' && <SalesTab products={products} setProducts={saveProducts} sales={sales.filter(s => !s.isDeleted)} setSales={saveSales} settings={settings} currentUser={currentUser} onDeleteSale={removeSale} tenantId={session.tenantId || ''} />}
+        {activeTab === 'financeiro' && <FinanceTab orders={orders} sales={sales} products={products} transactions={transactions} setTransactions={saveTransactions} onDeleteTransaction={removeTransaction} onDeleteSale={removeSale} tenantId={session.tenantId || ''} settings={settings} />}
         {activeTab === 'config' && <SettingsTab settings={settings} setSettings={saveSettings} isCloudConnected={isCloudConnected} currentUser={currentUser} onSwitchProfile={handleSwitchProfile} tenantId={session.tenantId} />}
       </main>
 

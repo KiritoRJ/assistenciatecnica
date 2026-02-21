@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Search, Trash2, Camera, X, PackageOpen, TrendingUp, PiggyBank, Edit3, Loader2, AlertTriangle, ScanBarcode } from 'lucide-react';
+import { Plus, Search, Trash2, Camera, X, PackageOpen, TrendingUp, PiggyBank, Edit3, Loader2, AlertTriangle, ScanBarcode, AlertCircle } from 'lucide-react';
 import { Product } from '../types';
 import { formatCurrency, parseCurrencyString } from '../utils';
 import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
@@ -345,6 +345,37 @@ const StockTab: React.FC<Props> = ({ products, setProducts, onDeleteProduct }) =
                 <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest bg-black/40 py-2 px-4 rounded-full inline-block">Aproxime o código lentamente para focar</p>
               </div>
            </div>
+        </div>
+      )}
+
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
+      {productToDelete && (
+        <div className="fixed inset-0 bg-slate-950/80 z-[300] flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white w-full max-w-xs rounded-[2rem] overflow-hidden shadow-2xl animate-in zoom-in-95">
+            <div className="p-8 text-center space-y-4">
+              <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                <AlertCircle size={32} />
+              </div>
+              <h3 className="font-black text-slate-800 uppercase text-sm">Excluir Produto?</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
+                Esta ação irá remover o item do estoque permanentemente.
+              </p>
+              <div className="flex gap-2 pt-2">
+                <button 
+                  onClick={() => setProductToDelete(null)} 
+                  className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-xl font-black text-[9px] uppercase tracking-widest"
+                >
+                  Voltar
+                </button>
+                <button 
+                  onClick={confirmDelete} 
+                  className="flex-1 py-4 bg-red-600 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg shadow-red-500/20"
+                >
+                  Confirmar
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

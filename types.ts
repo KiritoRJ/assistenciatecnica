@@ -37,6 +37,7 @@ export interface ServiceOrder {
   status: 'Pendente' | 'Concluído' | 'Entregue';
   photos: string[];
   finishedPhotos?: string[];
+  isDeleted?: boolean;
 }
 
 export interface Product {
@@ -62,6 +63,7 @@ export interface Sale {
   paymentMethod?: string;
   sellerName?: string;
   transactionId?: string;
+  isDeleted?: boolean;
 }
 
 export interface Transaction {
@@ -72,6 +74,7 @@ export interface Transaction {
   date: string;
   category?: string;
   paymentMethod?: string;
+  isDeleted?: boolean;
 }
 
 export interface AppSettings {

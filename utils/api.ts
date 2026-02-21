@@ -176,10 +176,13 @@ export class OnlineDB {
     }
   }
 
-  // Remove uma O.S. pelo ID
+  // Remove uma O.S. pelo ID (Soft Delete)
   static async deleteOS(osId: string) {
     try {
-      const { error } = await supabase.from('service_orders').delete().eq('id', osId);
+      const { error } = await supabase
+        .from('service_orders')
+        .update({ is_deleted: true })
+        .eq('id', osId);
       if (error) console.error("Erro ao deletar OS:", error);
       return { success: !error };
     } catch (e) { return { success: false }; }
@@ -215,7 +218,8 @@ export class OnlineDB {
         date: d.created_at,
         // MAPEAMENTO DAS NOVAS DATAS DO SQL PARA O APP
         entryDate: d.entry_date || '',
-        exitDate: d.exit_date || ''
+        exitDate: d.exit_date || '',
+        isDeleted: d.is_deleted || false
       }));
     } catch (e) { 
       console.error("Erro ao buscar ordens do Supabase:", e);
@@ -274,7 +278,8 @@ export class OnlineDB {
         costAtSale: Number(d.cost_at_sale || 0),
         paymentMethod: d.payment_method,
         sellerName: d.seller_name,
-        transactionId: d.transaction_id
+        transactionId: d.transaction_id,
+        isDeleted: d.is_deleted || false
       }));
     } catch (e) {
       console.error("Erro ao buscar vendas do Supabase:", e);
@@ -301,7 +306,8 @@ export class OnlineDB {
         amount: Number(d.amount || 0),
         date: d.date,
         category: d.category,
-        paymentMethod: d.payment_method
+        paymentMethod: d.payment_method,
+        isDeleted: d.is_deleted || false
       }));
     } catch (e) {
       console.error("Erro ao buscar transações do Supabase:", e);
@@ -332,7 +338,8 @@ export class OnlineDB {
         created_at: os.date || new Date().toISOString(),
         // ENVIO DAS NOVAS DATAS PARA O SQL
         entry_date: os.entryDate,
-        exit_date: os.exitDate
+        exit_date: os.exitDate,
+        is_deleted: os.isDeleted || false
       }));
       const { error } = await supabase.from('service_orders').upsert(payload, { onConflict: 'id' });
       if (error) throw error;
@@ -374,16 +381,17 @@ export class OnlineDB {
         id: s.id,
         tenant_id: tenantId,
         product_id: s.productId,
-        product_name: s.product_name,
+        product_name: s.productName,
         date: s.date,
         quantity: s.quantity,
         original_price: s.originalPrice,
         discount: s.discount,
         final_price: s.finalPrice,
         cost_at_sale: s.costAtSale,
-        payment_method: s.payment_method,
-        seller_name: s.seller_name,
-        transaction_id: s.transactionId
+        payment_method: s.paymentMethod,
+        seller_name: s.sellerName,
+        transaction_id: s.transactionId,
+        is_deleted: s.isDeleted || false
       }));
       const { error } = await supabase.from('sales').upsert(payload, { onConflict: 'id' });
       if (error) throw error;
@@ -406,7 +414,8 @@ export class OnlineDB {
         amount: t.amount,
         date: t.date,
         category: t.category,
-        payment_method: t.paymentMethod
+        payment_method: t.paymentMethod,
+        is_deleted: t.isDeleted || false
       }));
       const { error } = await supabase.from('transactions').upsert(payload, { onConflict: 'id' });
       if (error) throw error;
@@ -461,12 +470,12 @@ export class OnlineDB {
     } catch (e) { return { success: false }; }
   }
 
-  // Cancela uma venda e remove do banco
+  // Cancela uma venda e remove do banco (Soft Delete)
   static async deleteSale(id: string) {
     try {
       const { error, status } = await supabase
         .from('sales')
-        .delete()
+        .update({ is_deleted: true })
         .eq('id', id);
       if (error) return { success: false, message: error.message };
       return { success: status >= 200 && status < 300 };
@@ -475,12 +484,12 @@ export class OnlineDB {
     }
   }
 
-  // Remove uma transação
+  // Remove uma transação (Soft Delete)
   static async deleteTransaction(id: string) {
     try {
       const { error, status } = await supabase
         .from('transactions')
-        .delete()
+        .update({ is_deleted: true })
         .eq('id', id);
       if (error) return { success: false, message: error.message };
       return { success: status >= 200 && status < 300 };
@@ -502,6 +511,30 @@ export class OnlineDB {
     } catch (e: any) {
       console.error("Erro Delete User:", e);
       return { success: false, message: e.message };
+    }
+  }
+
+  // Limpeza de dados antigos (mais de 3 meses)
+  static async cleanupOldData(tenantId: string) {
+    if (!tenantId) return { success: false };
+    try {
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+      const dateLimit = threeMonthsAgo.toISOString();
+
+      // Deletar Ordens de Serviço antigas
+      await supabase.from('service_orders').delete().eq('tenant_id', tenantId).lt('created_at', dateLimit);
+      
+      // Deletar Vendas antigas
+      await supabase.from('sales').delete().eq('tenant_id', tenantId).lt('date', dateLimit);
+      
+      // Deletar Transações antigas
+      await supabase.from('transactions').delete().eq('tenant_id', tenantId).lt('date', dateLimit);
+
+      return { success: true };
+    } catch (e) {
+      console.error("Erro na limpeza de dados:", e);
+      return { success: false };
     }
   }
 }

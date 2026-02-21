@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { ShoppingBag, Search, X, History, ShoppingCart, Package, ArrowLeft, CheckCircle2, Eye, Loader2, Plus, Minus, Trash2, ChevronUp, ChevronDown, Receipt, Share2, Download, ScanBarcode } from 'lucide-react';
+import { ShoppingBag, Search, X, History, ShoppingCart, Package, ArrowLeft, CheckCircle2, Eye, Loader2, Plus, Minus, Trash2, ChevronUp, ChevronDown, Receipt, Share2, Download, ScanBarcode, Lock, KeyRound } from 'lucide-react';
 import { Product, Sale, AppSettings, User } from '../types';
 import { formatCurrency, parseCurrencyString, formatDate } from '../utils';
 import { Html5Qrcode } from 'html5-qrcode';
@@ -12,6 +12,8 @@ interface Props {
   setSales: (sales: Sale[]) => void;
   settings: AppSettings;
   currentUser: User | null;
+  onDeleteSale: (sale: Sale) => Promise<void>;
+  tenantId: string;
 }
 
 interface CartItem {
@@ -19,7 +21,7 @@ interface CartItem {
   quantity: number;
 }
 
-const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, settings, currentUser }) => {
+const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, settings, currentUser, onDeleteSale, tenantId }) => {
   const [showHistory, setShowHistory] = useState(false);
   const [productSearch, setProductSearch] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
@@ -28,6 +30,13 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
   const [lastPaymentMethod, setLastPaymentMethod] = useState('');
   const [lastTransactionId, setLastTransactionId] = useState('');
   const [lastSaleDate, setLastSaleDate] = useState('');
+
+  const [isCancelling, setIsCancelling] = useState<string | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [verifyingPassword, setVerifyingPassword] = useState(false);
+  const [authError, setAuthError] = useState(false);
+  const [selectedSaleToCancel, setSelectedSaleToCancel] = useState<Sale | null>(null);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCartDrawer, setShowCartDrawer] = useState(false);
@@ -105,6 +114,43 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
       scannerRef.current = null;
     }
     setIsScannerOpen(false);
+  };
+
+  const initiateCancelSale = (sale: Sale) => {
+    setSelectedSaleToCancel(sale);
+    setIsAuthModalOpen(true);
+    setPasswordInput('');
+    setAuthError(false);
+  };
+
+  const confirmCancellation = async () => {
+    if (!selectedSaleToCancel || !passwordInput || !tenantId) return;
+    setVerifyingPassword(true);
+    setAuthError(false);
+
+    try {
+      const { OnlineDB } = await import('../utils/api');
+      const authResult = await OnlineDB.verifyAdminPassword(tenantId, passwordInput);
+      if (authResult.success) {
+        setIsCancelling(selectedSaleToCancel.id);
+        setIsAuthModalOpen(false);
+        try {
+          await onDeleteSale(selectedSaleToCancel);
+        } catch (e: any) {
+          alert(`ERRO AO CANCELAR: ${e.message}`);
+        } finally {
+          setIsCancelling(null);
+          setSelectedSaleToCancel(null);
+        }
+      } else {
+        setAuthError(true);
+        setTimeout(() => setAuthError(false), 2000);
+      }
+    } catch (err) {
+      alert("Falha de rede ao verificar autorização.");
+    } finally {
+      setVerifyingPassword(false);
+    }
   };
 
   useEffect(() => {
@@ -202,11 +248,25 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
           <div className="grid gap-2">
             {sales.map(sale => (
               <div key={sale.id} className="bg-white p-4 border border-slate-100 rounded-2xl flex justify-between items-center shadow-sm">
-                <div>
-                  <p className="text-xs font-black uppercase text-slate-800">{sale.productName}</p>
-                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{formatDate(sale.date)} • {sale.paymentMethod}</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-emerald-50 text-emerald-500 rounded-lg flex items-center justify-center shrink-0">
+                    <ShoppingBag size={16} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black uppercase text-slate-800">{sale.productName}</p>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{formatDate(sale.date)} • {sale.paymentMethod}</p>
+                  </div>
                 </div>
-                <p className="font-black text-emerald-600 text-sm">{formatCurrency(sale.finalPrice)}</p>
+                <div className="flex items-center gap-4">
+                  <p className="font-black text-emerald-600 text-sm">{formatCurrency(sale.finalPrice)}</p>
+                  <button 
+                    onClick={() => initiateCancelSale(sale)}
+                    disabled={isCancelling === sale.id}
+                    className="p-2 text-slate-300 hover:text-red-500 bg-slate-50 rounded-xl active:scale-90 disabled:opacity-50"
+                  >
+                    {isCancelling === sale.id ? <Loader2 className="animate-spin" size={14} /> : <Trash2 size={14} />}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -336,6 +396,43 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
               <div id="scanner-region-sales" className="w-full h-full max-h-[60vh]"></div>
               <div className="absolute bottom-10 left-0 right-0 text-center px-6 pointer-events-none">
                 <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest bg-black/40 py-2 px-4 rounded-full inline-block">Aproxime o código lentamente para focar</p>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* MODAL DE AUTENTICAÇÃO PARA CANCELAMENTO */}
+      {isAuthModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/90 z-[200] flex items-center justify-center p-6 backdrop-blur-xl animate-in fade-in">
+           <div className="bg-white w-full max-w-xs rounded-[3rem] p-10 shadow-2xl animate-in zoom-in-95 border border-slate-100">
+              <div className="w-20 h-20 bg-red-50 text-red-600 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 shadow-inner">
+                 <Lock size={36} />
+              </div>
+              <h3 className="text-center font-black text-slate-800 uppercase text-sm mb-1">Autorização Requerida</h3>
+              <p className="text-center text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-10 leading-tight">
+                Insira a senha do administrador<br/>para cancelar esta venda
+              </p>
+              
+              <div className={`flex items-center gap-3 bg-slate-50 border rounded-2xl px-5 py-5 mb-4 transition-all ${authError ? 'border-red-500 bg-red-50 ring-4 ring-red-100' : 'border-slate-100 focus-within:border-blue-500'}`}>
+                 <KeyRound size={20} className={authError ? 'text-red-500' : 'text-slate-300'} />
+                 <input 
+                   type="password" 
+                   autoFocus
+                   value={passwordInput}
+                   onChange={(e) => setPasswordInput(e.target.value)}
+                   onKeyDown={(e) => e.key === 'Enter' && confirmCancellation()}
+                   placeholder="SENHA DO ADM"
+                   className="bg-transparent w-full outline-none font-black text-sm uppercase placeholder:text-slate-200"
+                 />
+              </div>
+              
+              {authError && <p className="text-center text-[9px] font-black text-red-500 uppercase mb-4 animate-bounce">Senha Incorreta!</p>}
+
+              <div className="flex flex-col gap-2">
+                 <button onClick={confirmCancellation} disabled={verifyingPassword} className="w-full py-5 bg-red-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-red-500/20 active:scale-95 transition-all flex items-center justify-center disabled:opacity-50">
+                   {verifyingPassword ? <Loader2 size={18} className="animate-spin" /> : 'AUTORIZAR CANCELAMENTO'}
+                 </button>
+                 <button onClick={() => { setIsAuthModalOpen(false); setPasswordInput(''); setSelectedSaleToCancel(null); }} className="w-full py-4 text-slate-400 font-black uppercase text-[10px] tracking-widest">VOLTAR</button>
               </div>
            </div>
         </div>
