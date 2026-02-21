@@ -25,19 +25,19 @@ export default defineConfig(({ mode }) => {
             orientation: 'portrait',
             icons: [
               {
-                src: 'https://picsum.photos/seed/blue-app-icon/192/192',
+                src: 'https://api.dicebear.com/7.x/icons/svg?seed=smartphone&backgroundColor=2563eb&color=ffffff',
                 sizes: '192x192',
-                type: 'image/png'
+                type: 'image/svg+xml'
               },
               {
-                src: 'https://picsum.photos/seed/blue-app-icon/512/512',
+                src: 'https://api.dicebear.com/7.x/icons/svg?seed=smartphone&backgroundColor=2563eb&color=ffffff',
                 sizes: '512x512',
-                type: 'image/png'
+                type: 'image/svg+xml'
               },
               {
-                src: 'https://picsum.photos/seed/blue-app-icon/512/512',
+                src: 'https://api.dicebear.com/7.x/icons/svg?seed=smartphone&backgroundColor=2563eb&color=ffffff',
                 sizes: '512x512',
-                type: 'image/png',
+                type: 'image/svg+xml',
                 purpose: 'any maskable'
               }
             ]
