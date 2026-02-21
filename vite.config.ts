@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => {
             short_name: 'Assistência Pro',
             description: 'Sistema de Gestão para Assistência Técnica',
             theme_color: '#2563eb',
-            background_color: '#2563eb',
+            background_color: '#ffffff',
             display: 'standalone',
             orientation: 'portrait',
             icons: [

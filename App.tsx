@@ -307,7 +307,7 @@ const App: React.FC = () => {
 
   if (isInitializing) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4">
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4">
         <Loader2 className="animate-spin text-blue-500" size={40} />
         <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em]">Validando Sistema...</p>
       </div>
@@ -353,9 +353,9 @@ const App: React.FC = () => {
 
   if (!settings) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-6 p-10 text-center">
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-6 p-10 text-center">
         <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
-        <p className="text-white font-black uppercase tracking-[0.3em] text-xs">Sincronizando Dados</p>
+        <p className="text-blue-600 font-black uppercase tracking-[0.3em] text-xs">Sincronizando Dados</p>
         <button onClick={handleLogout} className="text-[10px] font-black text-red-400 uppercase tracking-widest mt-10">Sair</button>
       </div>
     );
