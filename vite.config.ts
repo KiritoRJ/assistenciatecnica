@@ -25,21 +25,21 @@ export default defineConfig(({ mode }) => {
             orientation: 'portrait',
             icons: [
               {
-                src: '/pwa-512x512.png',
+                src: 'https://api.dicebear.com/7.x/icons/svg?seed=smartphone&backgroundColor=2563eb&padding=15&borderRadius=25&color=ffffff',
                 sizes: '192x192',
-                type: 'image/png',
+                type: 'image/svg+xml',
                 purpose: 'any'
               },
               {
-                src: '/pwa-512x512.png',
+                src: 'https://api.dicebear.com/7.x/icons/svg?seed=smartphone&backgroundColor=2563eb&padding=15&borderRadius=25&color=ffffff',
                 sizes: '512x512',
-                type: 'image/png',
+                type: 'image/svg+xml',
                 purpose: 'any'
               },
               {
-                src: '/pwa-512x512.png',
+                src: 'https://api.dicebear.com/7.x/icons/svg?seed=smartphone&backgroundColor=2563eb&padding=20&borderRadius=35&color=ffffff',
                 sizes: '512x512',
-                type: 'image/png',
+                type: 'image/svg+xml',
                 purpose: 'maskable'
               }
             ]
