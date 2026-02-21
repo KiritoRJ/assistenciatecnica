@@ -25,19 +25,19 @@ export default defineConfig(({ mode }) => {
             orientation: 'portrait',
             icons: [
               {
-                src: 'https://api.dicebear.com/7.x/icons/svg?seed=smartphone&backgroundColor=2563eb&color=ffffff',
+                src: 'https://cdn-icons-png.flaticon.com/512/7075/7075336.png',
                 sizes: '192x192',
-                type: 'image/svg+xml'
+                type: 'image/png'
               },
               {
-                src: 'https://api.dicebear.com/7.x/icons/svg?seed=smartphone&backgroundColor=2563eb&color=ffffff',
+                src: 'https://cdn-icons-png.flaticon.com/512/7075/7075336.png',
                 sizes: '512x512',
-                type: 'image/svg+xml'
+                type: 'image/png'
               },
               {
-                src: 'https://api.dicebear.com/7.x/icons/svg?seed=smartphone&backgroundColor=2563eb&color=ffffff',
+                src: 'https://cdn-icons-png.flaticon.com/512/7075/7075336.png',
                 sizes: '512x512',
-                type: 'image/svg+xml',
+                type: 'image/png',
                 purpose: 'any maskable'
               }
             ]
