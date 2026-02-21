@@ -25,44 +25,21 @@ export default defineConfig(({ mode }) => {
             orientation: 'portrait',
             icons: [
               {
-                src: 'https://cdn-icons-png.flaticon.com/512/7075/7075336.png',
-                sizes: '64x64',
-                type: 'image/png'
-              },
-              {
-                src: 'https://cdn-icons-png.flaticon.com/512/7075/7075336.png',
-                sizes: '128x128',
-                type: 'image/png'
-              },
-              {
-                src: 'https://cdn-icons-png.flaticon.com/512/7075/7075336.png',
-                sizes: '144x144',
-                type: 'image/png'
-              },
-              {
-                src: 'https://cdn-icons-png.flaticon.com/512/7075/7075336.png',
-                sizes: '152x152',
-                type: 'image/png'
-              },
-              {
-                src: 'https://cdn-icons-png.flaticon.com/512/7075/7075336.png',
+                src: 'https://api.dicebear.com/7.x/icons/svg?seed=smartphone&backgroundColor=2563eb&color=ffffff&padding=25',
                 sizes: '192x192',
-                type: 'image/png'
+                type: 'image/svg+xml',
+                purpose: 'any'
               },
               {
-                src: 'https://cdn-icons-png.flaticon.com/512/7075/7075336.png',
-                sizes: '384x384',
-                type: 'image/png'
-              },
-              {
-                src: 'https://cdn-icons-png.flaticon.com/512/7075/7075336.png',
+                src: 'https://api.dicebear.com/7.x/icons/svg?seed=smartphone&backgroundColor=2563eb&color=ffffff&padding=25',
                 sizes: '512x512',
-                type: 'image/png'
+                type: 'image/svg+xml',
+                purpose: 'any'
               },
               {
-                src: 'https://cdn-icons-png.flaticon.com/512/7075/7075336.png',
+                src: 'https://api.dicebear.com/7.x/icons/svg?seed=smartphone&backgroundColor=2563eb&color=ffffff&padding=30',
                 sizes: '512x512',
-                type: 'image/png',
+                type: 'image/svg+xml',
                 purpose: 'maskable'
               }
             ]
