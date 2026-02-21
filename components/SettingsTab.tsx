@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { Image as ImageIcon, Camera, FileText, Palette, MoveHorizontal, MoreVertical, ArrowLeft, Check, Layout, Pipette, X, AlertCircle, Users, Shield, UserPlus, Trash2, User as UserIcon, Loader2, Lock, MapPin, Phone, KeyRound, Briefcase, Smartphone } from 'lucide-react';
-import { AppSettings, User } from '../types';
+import { Image as ImageIcon, Camera, FileText, Palette, MoveHorizontal, MoreVertical, ArrowLeft, Check, Layout, Pipette, X, AlertCircle, Users, Shield, UserPlus, Trash2, User as UserIcon, Loader2, Lock, MapPin, Phone, KeyRound, Briefcase, Smartphone, Download, Upload } from 'lucide-react';
+import { AppSettings, User, ServiceOrder, Product, Sale, Transaction } from '../types';
 import { OnlineDB } from '../utils/api';
 import { OfflineSync } from '../utils/offlineSync';
 import { db } from '../utils/localDb';
@@ -20,9 +20,11 @@ interface Props {
 const SettingsTab: React.FC<Props> = ({ settings, setSettings, isCloudConnected = true, currentUser, onSwitchProfile, tenantId, deferredPrompt, onInstallApp }) => {
   const isAdmin = useMemo(() => currentUser.role === 'admin' || (currentUser as any).role === 'super', [currentUser]);
   
-  const [view, setView] = useState<'main' | 'print' | 'theme' | 'users'>('main');
+  const [view, setView] = useState<'main' | 'print' | 'theme' | 'users' | 'backup'>('main');
   const [showMenu, setShowMenu] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -199,6 +201,144 @@ const SettingsTab: React.FC<Props> = ({ settings, setSettings, isCloudConnected 
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  const exportToXML = async () => {
+    if (!tenantId) return;
+    setIsExporting(true);
+    try {
+      const data = await OfflineSync.getLocalData(tenantId);
+      
+      let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+      xml += '<AssistenciaProBackup>\n';
+      
+      // Export Orders
+      xml += '  <ServiceOrders>\n';
+      data.orders.forEach((o: ServiceOrder) => {
+        xml += '    <Order>\n';
+        Object.entries(o).forEach(([key, value]) => {
+          if (Array.isArray(value)) {
+            xml += `      <${key}>\n`;
+            value.forEach(item => xml += `        <Item>${item}</Item>\n`);
+            xml += `      </${key}>\n`;
+          } else {
+            xml += `      <${key}>${value}</${key}>\n`;
+          }
+        });
+        xml += '    </Order>\n';
+      });
+      xml += '  </ServiceOrders>\n';
+
+      // Export Products
+      xml += '  <Products>\n';
+      data.products.forEach((p: Product) => {
+        xml += '    <Product>\n';
+        Object.entries(p).forEach(([key, value]) => {
+          xml += `      <${key}>${value}</${key}>\n`;
+        });
+        xml += '    </Product>\n';
+      });
+      xml += '  </Products>\n';
+
+      // Export Sales
+      xml += '  <Sales>\n';
+      data.sales.forEach((s: Sale) => {
+        xml += '    <Sale>\n';
+        Object.entries(s).forEach(([key, value]) => {
+          xml += `      <${key}>${value}</${key}>\n`;
+        });
+        xml += '    </Sale>\n';
+      });
+      xml += '  </Sales>\n';
+
+      // Export Transactions
+      xml += '  <Transactions>\n';
+      data.transactions.forEach((t: Transaction) => {
+        xml += '    <Transaction>\n';
+        Object.entries(t).forEach(([key, value]) => {
+          xml += `      <${key}>${value}</${key}>\n`;
+        });
+        xml += '    </Transaction>\n';
+      });
+      xml += '  </Transactions>\n';
+
+      xml += '</AssistenciaProBackup>';
+
+      const blob = new Blob([xml], { type: 'application/xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `backup_assistencia_pro_${new Date().toISOString().split('T')[0]}.xml`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      triggerSaveFeedback("XML Exportado!");
+    } catch (err) {
+      alert("Erro ao exportar backup.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const importFromXML = () => {
+    if (!tenantId) return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xml';
+    input.onchange = async (e: any) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      
+      setIsImporting(true);
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const xmlText = event.target?.result as string;
+          const parser = new DOMParser();
+          const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+          
+          const parseNode = (node: Element) => {
+            const obj: any = {};
+            Array.from(node.children).forEach(child => {
+              if (child.children.length > 0) {
+                obj[child.tagName] = Array.from(child.children).map(c => c.textContent);
+              } else {
+                const val = child.textContent;
+                // Basic type conversion
+                if (val === 'true') obj[child.tagName] = true;
+                else if (val === 'false') obj[child.tagName] = false;
+                else if (!isNaN(Number(val)) && val !== '') obj[child.tagName] = Number(val);
+                else obj[child.tagName] = val;
+              }
+            });
+            return obj;
+          };
+
+          const orders = Array.from(xmlDoc.getElementsByTagName('Order')).map(parseNode);
+          const products = Array.from(xmlDoc.getElementsByTagName('Product')).map(parseNode);
+          const sales = Array.from(xmlDoc.getElementsByTagName('Sale')).map(parseNode);
+          const transactions = Array.from(xmlDoc.getElementsByTagName('Transaction')).map(parseNode);
+
+          if (confirm(`Deseja importar ${orders.length} OS, ${products.length} Produtos, ${sales.length} Vendas e ${transactions.length} Transações? Isso substituirá dados locais com IDs conflitantes.`)) {
+            // Bulk save to local DB and sync queue
+            for (const o of orders) await OfflineSync.saveOrder(tenantId, o);
+            for (const p of products) await OfflineSync.saveProduct(tenantId, p);
+            for (const s of sales) await OfflineSync.saveSale(tenantId, s);
+            for (const t of transactions) await OfflineSync.saveTransaction(tenantId, t);
+            
+            triggerSaveFeedback("Backup Importado!");
+            setTimeout(() => window.location.reload(), 1500);
+          }
+        } catch (err) {
+          alert("Erro ao processar arquivo XML. Verifique o formato.");
+        } finally {
+          setIsImporting(false);
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
   };
 
   if (view === 'users') {
@@ -401,6 +541,54 @@ const SettingsTab: React.FC<Props> = ({ settings, setSettings, isCloudConnected 
     );
   }
 
+  if (view === 'backup' && isAdmin) {
+    return (
+      <div className="space-y-6 animate-in slide-in-from-right-10 duration-500 pb-24 h-full">
+        <div className="flex items-center gap-4 mb-8">
+          <button onClick={() => setView('main')} className="p-3 bg-white shadow-sm border border-slate-100 rounded-2xl text-slate-600 active:scale-90 transition-all">
+            <ArrowLeft size={24} />
+          </button>
+          <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Backup de Dados</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm space-y-6 flex flex-col items-center text-center">
+            <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-[2rem] flex items-center justify-center shadow-inner">
+              <Download size={40} />
+            </div>
+            <div className="space-y-2">
+              <h3 className="font-black text-slate-800 uppercase text-sm">Exportar XML</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-tight">Gera um arquivo com todas as OS, Produtos, Vendas e Fotos.</p>
+            </div>
+            <button 
+              onClick={exportToXML} 
+              disabled={isExporting}
+              className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-blue-500/20 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
+            >
+              {isExporting ? <Loader2 className="animate-spin" size={18} /> : 'Baixar Backup XML'}
+            </button>
+          </div>
+
+          <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm space-y-6 flex flex-col items-center text-center">
+            <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-[2rem] flex items-center justify-center shadow-inner">
+              <Upload size={40} />
+            </div>
+            <div className="space-y-2">
+              <h3 className="font-black text-slate-800 uppercase text-sm">Importar XML</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-tight">Restaura dados de um arquivo XML anterior para o sistema.</p>
+            </div>
+            <button 
+              onClick={importFromXML} 
+              disabled={isImporting}
+              className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-emerald-500/20 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
+            >
+              {isImporting ? <Loader2 className="animate-spin" size={18} /> : 'Selecionar Arquivo'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (view === 'theme' && isAdmin) {
     return (
       <div className="space-y-6 animate-in slide-in-from-right-10 duration-500">
@@ -427,7 +615,6 @@ const SettingsTab: React.FC<Props> = ({ settings, setSettings, isCloudConnected 
       </div>
     );
   }
-
   if (view === 'print' && isAdmin) {
     return (
       <div className="space-y-6 animate-in slide-in-from-right-10 duration-500">
@@ -445,7 +632,6 @@ const SettingsTab: React.FC<Props> = ({ settings, setSettings, isCloudConnected 
       </div>
     );
   }
-
   return (
     <div className="space-y-8 animate-in fade-in duration-500 relative">
       {saveMessage && (
@@ -475,6 +661,9 @@ const SettingsTab: React.FC<Props> = ({ settings, setSettings, isCloudConnected 
                     </button>
                     <button onClick={() => { setView('print'); setShowMenu(false); }} className={`w-full flex items-center gap-4 px-6 py-5 text-[10px] font-black text-slate-600 hover:bg-slate-50 transition-colors uppercase tracking-widest text-left border-l-4 ${(view as any) === 'print' ? 'border-blue-500 bg-blue-50' : 'border-transparent'}`}>
                       <FileText size={18} /> Dados do Recibo
+                    </button>
+                    <button onClick={() => { setView('backup'); setShowMenu(false); }} className={`w-full flex items-center gap-4 px-6 py-5 text-[10px] font-black text-slate-600 hover:bg-slate-50 transition-colors uppercase tracking-widest text-left border-l-4 ${(view as any) === 'backup' ? 'border-blue-500 bg-blue-50' : 'border-transparent'}`}>
+                      <Download size={18} /> Backup e Importação
                     </button>
                   </>
                 )}

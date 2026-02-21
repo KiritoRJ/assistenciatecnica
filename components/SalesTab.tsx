@@ -43,6 +43,7 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
   const [showCartDrawer, setShowCartDrawer] = useState(false);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [amountReceived, setAmountReceived] = useState(0);
+  const [totalDiscount, setTotalDiscount] = useState(0);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'Dinheiro' | 'Cartão' | 'PIX'>('Dinheiro');
   const [isGeneratingReceipt, setIsGeneratingReceipt] = useState(false);
 
@@ -170,6 +171,10 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
     return cart.reduce((acc, item) => acc + (item.product.salePrice * item.quantity), 0);
   }, [cart]);
 
+  const finalTotal = useMemo(() => {
+    return Math.max(0, cartTotal - totalDiscount);
+  }, [cartTotal, totalDiscount]);
+
   const addToCart = (product: Product) => {
     const existingItem = cart.find(item => item.product.id === product.id);
     const currentQtyInCart = existingItem ? existingItem.quantity : 0;
@@ -204,20 +209,28 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
     if (cart.length === 0) return;
     const transactionId = Math.random().toString(36).substr(2, 6).toUpperCase();
     const date = new Date().toISOString();
-    const newSales: Sale[] = cart.map(item => ({
-      id: Math.random().toString(36).substr(2, 9),
-      productId: item.product.id,
-      productName: item.product.name,
-      date,
-      quantity: item.quantity,
-      originalPrice: item.product.salePrice,
-      discount: 0,
-      finalPrice: item.product.salePrice * item.quantity,
-      costAtSale: item.product.costPrice,
-      paymentMethod: selectedPaymentMethod,
-      sellerName: currentUser?.name || 'Sistema',
-      transactionId
-    }));
+    
+    const newSales: Sale[] = cart.map(item => {
+      const itemTotal = item.product.salePrice * item.quantity;
+      // Distribui o desconto proporcionalmente se houver mais de um item
+      const itemDiscount = cartTotal > 0 ? (itemTotal / cartTotal) * totalDiscount : 0;
+      
+      return {
+        id: Math.random().toString(36).substr(2, 9),
+        productId: item.product.id,
+        productName: item.product.name,
+        date,
+        quantity: item.quantity,
+        originalPrice: item.product.salePrice,
+        discount: itemDiscount,
+        finalPrice: itemTotal - itemDiscount,
+        costAtSale: item.product.costPrice,
+        paymentMethod: selectedPaymentMethod,
+        sellerName: currentUser?.name || 'Sistema',
+        transactionId
+      };
+    });
+
     const updatedProducts = products.map(p => {
       const cartItem = cart.find(item => item.product.id === p.id);
       if (cartItem) return { ...p, quantity: p.quantity - cartItem.quantity };
@@ -225,12 +238,13 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
     });
     setProducts(updatedProducts);
     setSales([...newSales, ...sales]);
-    setLastSaleAmount(cartTotal);
+    setLastSaleAmount(finalTotal);
     setLastTransactionItems([...cart]);
     setLastPaymentMethod(selectedPaymentMethod);
     setLastTransactionId(transactionId);
     setLastSaleDate(date);
     setCart([]);
+    setTotalDiscount(0);
     setShowCheckoutModal(false);
     setShowCartDrawer(false);
     setShowSuccess(true);
@@ -389,9 +403,33 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
         <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center z-[100] p-4 backdrop-blur-md">
           <div className="bg-white w-full max-w-sm rounded-[3rem] p-8 space-y-6">
             <h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter text-center">Checkout</h3>
-            <div className="bg-emerald-50 p-6 rounded-3xl text-center">
-              <p className="text-4xl font-black text-emerald-800">{formatCurrency(cartTotal)}</p>
+            
+            <div className="space-y-4">
+              <div className="bg-slate-50 p-4 rounded-3xl space-y-1">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Subtotal</p>
+                <p className="text-xl font-black text-slate-600 text-center">{formatCurrency(cartTotal)}</p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Desconto (R$)</label>
+                <div className="relative">
+                  <Minus className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                  <input 
+                    type="number" 
+                    value={totalDiscount || ''} 
+                    onChange={(e) => setTotalDiscount(Number(e.target.value))}
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-black outline-none focus:border-emerald-500 transition-colors"
+                    placeholder="0,00"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-emerald-50 p-6 rounded-3xl text-center">
+                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Total a Pagar</p>
+                <p className="text-4xl font-black text-emerald-800">{formatCurrency(finalTotal)}</p>
+              </div>
             </div>
+
             <div className="grid grid-cols-3 gap-2">
               {['Dinheiro', 'Cartão', 'PIX'].map(m => (
                 <button key={m} onClick={() => setSelectedPaymentMethod(m as any)} className={`py-4 rounded-2xl text-[9px] font-black uppercase border transition-all ${selectedPaymentMethod === m ? 'bg-emerald-600 border-emerald-600 text-white shadow-xl' : 'bg-white border-slate-100 text-slate-400'}`}>{m}</button>
