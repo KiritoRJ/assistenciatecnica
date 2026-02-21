@@ -529,62 +529,7 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
         </div>
       </div>
 
-      {/* HISTÓRICO DE VENDAS */}
-      <div className="bg-white rounded-[2rem] border border-slate-50 shadow-sm overflow-hidden flex flex-col">
-        <div className="p-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/20">
-          <div className="flex items-center gap-2">
-            <History size={14} className="text-slate-400" />
-            <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Histórico de Vendas</h3>
-          </div>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300" size={12} />
-            <input 
-              type="text" 
-              placeholder="BUSCAR ID OU ITEM..." 
-              className="pl-8 pr-4 py-1.5 bg-white border border-slate-100 rounded-lg text-[8px] font-black uppercase outline-none focus:border-blue-500 w-40"
-              value={saleSearch}
-              onChange={e => setSaleSearch(e.target.value)}
-            />
-          </div>
-        </div>
 
-        <div className="divide-y divide-slate-50 max-h-[400px] overflow-y-auto">
-          {filteredSales.length > 0 ? filteredSales.map((sale, idx) => (
-            <div key={sale.id} className="p-3 flex items-center justify-between hover:bg-slate-50/30 transition-colors">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 bg-emerald-50 text-emerald-500 rounded-lg flex items-center justify-center shrink-0">
-                  <ShoppingBag size={16} />
-                </div>
-                <div className="min-w-0">
-                  <h4 className="text-[10px] font-black text-slate-700 uppercase truncate leading-tight">{sale.productName}</h4>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[7px] font-black text-blue-500 uppercase tracking-tighter">ID: {sale.transactionId || 'N/A'}</span>
-                    <span className="text-[7px] text-slate-300">•</span>
-                    <span className="text-[7px] font-bold text-slate-400">{formatDate(sale.date)}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="text-right">
-                  <p className="text-[10px] font-black text-slate-800">{formatCurrency(sale.finalPrice)}</p>
-                  <span className="text-[7px] font-black text-slate-400 uppercase">{sale.paymentMethod}</span>
-                </div>
-                <button 
-                  onClick={() => initiateCancelSale(sale)}
-                  disabled={isCancelling === sale.id}
-                  className="p-2 text-slate-300 hover:text-red-500 bg-slate-50 rounded-xl active:scale-90 disabled:opacity-50"
-                >
-                  {isCancelling === sale.id ? <Loader2 className="animate-spin" size={14} /> : <Trash2 size={14} />}
-                </button>
-              </div>
-            </div>
-          )) : (
-            <div className="p-10 text-center opacity-20">
-              <p className="text-[9px] font-black uppercase tracking-[0.2em]">Nenhuma venda encontrada</p>
-            </div>
-          )}
-        </div>
-      </div>
 
       {/* MODAL DE RELATÓRIO COMPLETO */}
       {isReportModalOpen && (
