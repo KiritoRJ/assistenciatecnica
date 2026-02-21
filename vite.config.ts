@@ -15,6 +15,40 @@ export default defineConfig(({ mode }) => {
         VitePWA({
           registerType: 'autoUpdate',
           includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg', 'pwa-512x512.png'],
+          workbox: {
+            globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+            runtimeCaching: [
+              {
+                urlPattern: /^https:\/\/cdn\.tailwindcss\.com/,
+                handler: 'CacheFirst',
+                options: {
+                  cacheName: 'tailwind-cdn',
+                  expiration: {
+                    maxEntries: 10,
+                    maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+                  }
+                }
+              },
+              {
+                urlPattern: /^https:\/\/fonts\.googleapis\.com/,
+                handler: 'CacheFirst',
+                options: {
+                  cacheName: 'google-fonts-stylesheets'
+                }
+              },
+              {
+                urlPattern: /^https:\/\/fonts\.gstatic\.com/,
+                handler: 'CacheFirst',
+                options: {
+                  cacheName: 'google-fonts-webfonts',
+                  expiration: {
+                    maxEntries: 30,
+                    maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
+                  }
+                }
+              }
+            ]
+          },
           manifest: {
             name: 'Assistência Técnica Pro',
             short_name: 'Assistência Pro',

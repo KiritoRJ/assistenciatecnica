@@ -9,7 +9,8 @@ import FinanceTab from './components/FinanceTab';
 import SettingsTab from './components/SettingsTab';
 import SuperAdminDashboard from './components/SuperAdminDashboard';
 import { OnlineDB } from './utils/api';
-import { getData, saveData } from './utils/db';
+import { OfflineSync } from './utils/offlineSync';
+import { db } from './utils/localDb';
 
 type Tab = 'os' | 'estoque' | 'vendas' | 'financeiro' | 'config';
 
@@ -46,6 +47,18 @@ const App: React.FC = () => {
   const [isCloudConnected, setIsCloudConnected] = useState(true);
   const [isInitializing, setIsInitializing] = useState(true);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    OfflineSync.init();
+    const handleStatusChange = () => setIsOnline(navigator.onLine);
+    window.addEventListener('online', handleStatusChange);
+    window.addEventListener('offline', handleStatusChange);
+    return () => {
+      window.removeEventListener('online', handleStatusChange);
+      window.removeEventListener('offline', handleStatusChange);
+    };
+  }, []);
 
   useEffect(() => {
     const handler = (e: any) => {
@@ -100,45 +113,37 @@ const App: React.FC = () => {
 
   const loadData = useCallback(async (tenantId: string) => {
     try {
-      const [cloudSettings, cloudOrders, cloudProducts, cloudSales, cloudUsers, cloudTransactions] = await Promise.all([
-        OnlineDB.syncPull(tenantId, 'settings'),
-        OnlineDB.fetchOrders(tenantId),
-        OnlineDB.fetchProducts(tenantId),
-        OnlineDB.fetchSales(tenantId),
-        OnlineDB.fetchUsers(tenantId),
-        OnlineDB.fetchTransactions(tenantId)
-      ]);
+      setIsCloudConnected(navigator.onLine);
+      
+      // Tenta puxar dados novos se estiver online
+      if (navigator.onLine) {
+        const cloudData = await OfflineSync.pullAllData(tenantId);
+        if (cloudData) {
+          setSettings({ ...DEFAULT_SETTINGS, ...cloudData.settings });
+          setOrders(cloudData.orders || []);
+          setProducts(cloudData.products || []);
+          setSales(cloudData.sales || []);
+          setTransactions(cloudData.transactions || []);
+          return;
+        }
+      }
 
-      let finalSettings = { ...DEFAULT_SETTINGS, ...(cloudSettings || await getData('settings', tenantId) || {}) };
-      finalSettings.users = cloudUsers || [];
-
-      setSettings(finalSettings);
-      setOrders(cloudOrders || []);
-      setProducts(cloudProducts || []);
-      setSales(cloudSales || []);
-      setTransactions(cloudTransactions || []);
-      setIsCloudConnected(true);
-
-      await Promise.all([
-        saveData('settings', tenantId, finalSettings),
-        saveData('orders', tenantId, cloudOrders || []),
-        saveData('products', tenantId, cloudProducts || []),
-        saveData('sales', tenantId, cloudSales || []),
-        saveData('transactions', tenantId, cloudTransactions || [])
-      ]);
+      // Se offline ou falha no pull, carrega local
+      const localData = await OfflineSync.getLocalData(tenantId);
+      setSettings({ ...DEFAULT_SETTINGS, ...(localData.settings || {}) });
+      setOrders(localData.orders || []);
+      setProducts(localData.products || []);
+      setSales(localData.sales || []);
+      setTransactions(localData.transactions || []);
     } catch (e) {
+      console.error("Erro ao carregar dados:", e);
       setIsCloudConnected(false);
-      const localSettings = await getData('settings', tenantId);
-      const localOrders = await getData('orders', tenantId);
-      const localProducts = await getData('products', tenantId);
-      const localSales = await getData('sales', tenantId);
-      const localTransactions = await getData('transactions', tenantId);
-
-      setSettings({ ...DEFAULT_SETTINGS, ...(localSettings || {}) });
-      setOrders(localOrders || []);
-      setProducts(localProducts || []);
-      setSales(localSales || []);
-      setTransactions(localTransactions || []);
+      const localData = await OfflineSync.getLocalData(tenantId);
+      setSettings({ ...DEFAULT_SETTINGS, ...(localData.settings || {}) });
+      setOrders(localData.orders || []);
+      setProducts(localData.products || []);
+      setSales(localData.sales || []);
+      setTransactions(localData.transactions || []);
     }
   }, []);
 
@@ -203,35 +208,38 @@ const App: React.FC = () => {
   const saveSettings = async (newSettings: AppSettings) => {
     setSettings(newSettings);
     if (session?.tenantId) {
-      await saveData('settings', session.tenantId, newSettings);
-      await OnlineDB.syncPush(session.tenantId, 'settings', newSettings);
+      await OfflineSync.saveSettings(session.tenantId, newSettings);
     }
   };
 
   const saveOrders = async (newOrders: ServiceOrder[]) => {
     setOrders(newOrders);
     if (session?.tenantId) {
-      await saveData('orders', session.tenantId, newOrders);
-      await OnlineDB.upsertOrders(session.tenantId, newOrders);
+      // Identifica o que mudou para salvar individualmente no OfflineSync
+      // Para simplificar, vamos salvar a lista toda localmente e tentar sincronizar
+      // Mas o ideal é salvar apenas o item novo/editado.
+      // Como o app usa o padrão de passar a lista toda, vamos iterar ou salvar a lista.
+      // Ajuste: OfflineSync.saveOrder agora suporta salvar o estado atual.
+      for (const order of newOrders) {
+        await OfflineSync.saveOrder(session.tenantId, order);
+      }
     }
   };
 
   const removeOrder = async (id: string) => {
     if (session?.tenantId) {
-      const dbResult = await OnlineDB.deleteOS(id);
-      if (dbResult.success) {
-        const updated = orders.map(o => o.id === id ? { ...o, isDeleted: true } : o);
-        setOrders(updated);
-        await saveData('orders', session.tenantId, updated);
-      }
+      const updated = orders.map(o => o.id === id ? { ...o, isDeleted: true } : o);
+      setOrders(updated);
+      await OfflineSync.deleteOrder(session.tenantId, id);
     }
   };
 
   const saveProducts = async (newProducts: Product[]) => {
     setProducts(newProducts);
     if (session?.tenantId) {
-      await saveData('products', session.tenantId, newProducts);
-      await OnlineDB.upsertProducts(session.tenantId, newProducts);
+      for (const product of newProducts) {
+        await OfflineSync.saveProduct(session.tenantId, product);
+      }
     }
   };
 
@@ -239,58 +247,51 @@ const App: React.FC = () => {
     const updated = products.filter(p => p.id !== id);
     setProducts(updated);
     if (session?.tenantId) {
-      const dbResult = await OnlineDB.deleteProduct(id);
-      if (dbResult.success) {
-        await saveData('products', session.tenantId, updated);
-      }
+      await OfflineSync.deleteProduct(session.tenantId, id);
     }
   };
 
   const saveSales = async (newSales: Sale[]) => {
     setSales(newSales);
     if (session?.tenantId) {
-      await saveData('sales', session.tenantId, newSales);
-      await OnlineDB.upsertSales(session.tenantId, newSales);
+      for (const sale of newSales) {
+        await OfflineSync.saveSale(session.tenantId, sale);
+      }
     }
   };
 
   const removeSale = async (sale: Sale) => {
     if (!session?.tenantId) return;
-    const dbResult = await OnlineDB.deleteSale(sale.id);
-    if (dbResult.success) {
-      const updatedSales = sales.map(s => s.id === sale.id ? { ...s, isDeleted: true } : s);
-      setSales(updatedSales);
-      const updatedProducts = products.map(p => {
-        if (p.id === sale.productId) {
-          return { ...p, quantity: p.quantity + sale.quantity };
-        }
-        return p;
-      });
-      setProducts(updatedProducts);
-      await Promise.all([
-        saveData('sales', session.tenantId, updatedSales),
-        saveData('products', session.tenantId, updatedProducts),
-        OnlineDB.upsertProducts(session.tenantId, updatedProducts)
-      ]);
-    }
+    const updatedSales = sales.map(s => s.id === sale.id ? { ...s, isDeleted: true } : s);
+    setSales(updatedSales);
+    const updatedProducts = products.map(p => {
+      if (p.id === sale.productId) {
+        return { ...p, quantity: p.quantity + sale.quantity };
+      }
+      return p;
+    });
+    setProducts(updatedProducts);
+    
+    await Promise.all([
+      OfflineSync.deleteSale(session.tenantId, sale.id),
+      ...updatedProducts.map(p => OfflineSync.saveProduct(session.tenantId!, p))
+    ]);
   };
 
   const saveTransactions = async (newTransactions: Transaction[]) => {
     setTransactions(newTransactions);
     if (session?.tenantId) {
-      await saveData('transactions', session.tenantId, newTransactions);
-      await OnlineDB.upsertTransactions(session.tenantId, newTransactions);
+      for (const transaction of newTransactions) {
+        await OfflineSync.saveTransaction(session.tenantId, transaction);
+      }
     }
   };
 
   const removeTransaction = async (id: string) => {
     if (!session?.tenantId) return;
-    const dbResult = await OnlineDB.deleteTransaction(id);
-    if (dbResult.success) {
-      const updated = transactions.map(t => t.id === id ? { ...t, isDeleted: true } : t);
-      setTransactions(updated);
-      await saveData('transactions', session.tenantId, updated);
-    }
+    const updated = transactions.map(t => t.id === id ? { ...t, isDeleted: true } : t);
+    setTransactions(updated);
+    await OfflineSync.deleteTransaction(session.tenantId, id);
   };
 
   const handleSwitchProfile = (user: User) => {
