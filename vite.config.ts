@@ -14,46 +14,12 @@ export default defineConfig(({ mode }) => {
         react(),
         VitePWA({
           registerType: 'autoUpdate',
-          includeAssets: ['pwa-512x512.png'],
+          injectRegister: 'auto',
           workbox: {
-            globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+            globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
             cleanupOutdatedCaches: true,
-            clientsClaim: true,
-            skipWaiting: true,
-            runtimeCaching: [
-              {
-                urlPattern: /^https:\/\/cdn\.tailwindcss\.com/,
-                handler: 'CacheFirst',
-                options: {
-                  cacheName: 'tailwind-cdn',
-                  expiration: {
-                    maxEntries: 10,
-                    maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
-                  }
-                }
-              },
-              {
-                urlPattern: /^https:\/\/fonts\.googleapis\.com/,
-                handler: 'CacheFirst',
-                options: {
-                  cacheName: 'google-fonts-stylesheets'
-                }
-              },
-              {
-                urlPattern: /^https:\/\/fonts\.gstatic\.com/,
-                handler: 'CacheFirst',
-                options: {
-                  cacheName: 'google-fonts-webfonts',
-                  expiration: {
-                    maxEntries: 30,
-                    maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
-                  }
-                }
-              }
-            ]
           },
           manifest: {
-            id: '/',
             name: 'Assistência Técnica Pro',
             short_name: 'Assistência Pro',
             description: 'Sistema de Gestão para Assistência Técnica',
@@ -65,27 +31,22 @@ export default defineConfig(({ mode }) => {
             start_url: '/',
             icons: [
               {
-                src: '/pwa-512x512.png',
+                src: 'pwa-512x512.png',
                 sizes: '192x192',
                 type: 'image/png',
-                purpose: 'any'
               },
               {
-                src: '/pwa-512x512.png',
+                src: 'pwa-512x512.png',
                 sizes: '512x512',
                 type: 'image/png',
-                purpose: 'any'
               },
               {
-                src: '/pwa-512x512.png',
+                src: 'pwa-512x512.png',
                 sizes: '512x512',
                 type: 'image/png',
                 purpose: 'maskable'
               }
             ]
-          },
-          devOptions: {
-            enabled: true
           }
         })
       ],
