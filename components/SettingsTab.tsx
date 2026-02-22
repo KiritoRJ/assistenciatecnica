@@ -670,6 +670,14 @@ const SettingsTab: React.FC<Props> = ({ settings, setSettings, isCloudConnected 
                 <button onClick={() => { setView('users'); setShowMenu(false); }} className={`w-full flex items-center gap-4 px-6 py-5 text-[10px] font-black text-slate-600 hover:bg-slate-50 transition-colors uppercase tracking-widest text-left border-l-4 ${(view as any) === 'users' ? 'border-blue-500 bg-blue-50' : 'border-transparent'}`}>
                   <Users size={18} /> {isAdmin ? 'Gestão de Equipe' : 'Trocar de Perfil'}
                 </button>
+                {deferredPrompt && (
+                  <button 
+                    onClick={() => { onInstallApp?.(); setShowMenu(false); }} 
+                    className="w-full flex items-center gap-4 px-6 py-5 text-[10px] font-black text-blue-600 hover:bg-blue-50 transition-colors uppercase tracking-widest text-left border-l-4 border-transparent"
+                  >
+                    <Smartphone size={18} /> Instalar Aplicativo
+                  </button>
+                )}
               </div>
             </>
           )}
