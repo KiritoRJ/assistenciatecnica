@@ -15,6 +15,7 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
   const [activeProductIndex, setActiveProductIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
   const [likedProducts, setLikedProducts] = useState<Record<string, boolean>>({});
+  const [savedProducts, setSavedProducts] = useState<Record<string, boolean>>({});
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -52,9 +53,14 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
 
   const handleScroll = () => {
     if (containerRef.current) {
+      // Simple debounce/threshold to prevent rapid state updates during scroll
       const index = Math.round(containerRef.current.scrollTop / window.innerHeight);
       if (index !== activeProductIndex) {
-        setActiveProductIndex(index);
+        // Only update if we are clearly snapped to a new item
+        const diff = Math.abs(containerRef.current.scrollTop - (index * window.innerHeight));
+        if (diff < 50) { // Threshold to confirm snap
+           setActiveProductIndex(index);
+        }
       }
     }
   };
@@ -67,6 +73,11 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
       ...prev,
       [productId]: (prev[productId] || 0) + (isLiked ? -1 : 1)
     }));
+  };
+
+  const handleSave = (e: React.MouseEvent, productId: string) => {
+    e.stopPropagation();
+    setSavedProducts(prev => ({ ...prev, [productId]: !prev[productId] }));
   };
 
   const handleWhatsAppClick = (product: Product) => {
@@ -93,10 +104,10 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
     }
   };
 
-  const getEmbedUrl = (url: string) => {
+  const getEmbedUrl = (url: string, shouldPlay: boolean) => {
     if (url.includes('youtube.com') || url.includes('youtu.be')) {
       const videoId = url.includes('v=') ? url.split('v=')[1].split('&')[0] : url.split('/').pop();
-      return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=${isMuted ? 1 : 0}&controls=0&loop=1&playlist=${videoId}`;
+      return `https://www.youtube.com/embed/${videoId}?autoplay=${shouldPlay ? 1 : 0}&mute=${isMuted ? 1 : 0}&controls=0&loop=1&playlist=${videoId}`;
     }
     return url;
   };
@@ -136,22 +147,23 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
       <div 
         ref={containerRef}
         onScroll={handleScroll}
-        className="h-full w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth hide-scrollbar"
+        className="h-full w-full overflow-y-scroll snap-y snap-mandatory hide-scrollbar [&::-webkit-scrollbar]:hidden"
       >
         {products.map((product, index) => {
           const currentPrice = product.isPromotion && product.promotionalPrice ? product.promotionalPrice : product.salePrice;
           const isActive = index === activeProductIndex;
           const hasVideo = !!product.videoUrl;
           const isLiked = likedProducts[product.id];
+          const isSaved = savedProducts[product.id];
           const likes = likeCounts[product.id] || 0;
 
           return (
             <div key={product.id} className="h-full w-full snap-start relative flex items-center justify-center bg-zinc-900">
               {/* Media Layer */}
               <div className="absolute inset-0 z-0" onClick={() => setIsMuted(!isMuted)}>
-                {hasVideo && isActive ? (
+                {hasVideo ? (
                   <iframe 
-                    src={getEmbedUrl(product.videoUrl!)} 
+                    src={getEmbedUrl(product.videoUrl!, isActive)} 
                     className="w-full h-full object-cover pointer-events-none scale-[1.35]"
                     allow="autoplay; encrypted-media"
                   />
@@ -191,13 +203,13 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
                   <button onClick={() => handleWhatsAppClick(product)} className="active:scale-90 transition-transform">
                     <MessageCircle size={32} className="text-white drop-shadow-md" />
                   </button>
-                  <span className="text-xs font-bold shadow-black drop-shadow-md">Dúvidas</span>
+                  <span className="text-xs font-bold shadow-black drop-shadow-md">Comprar</span>
                 </div>
 
                 {/* Bookmark Button */}
                 <div className="flex flex-col items-center gap-1">
-                  <button className="active:scale-90 transition-transform">
-                    <Bookmark size={32} className="text-white drop-shadow-md" />
+                  <button onClick={(e) => handleSave(e, product.id)} className="active:scale-90 transition-transform">
+                    <Bookmark size={32} className={`${isSaved ? 'fill-orange-500 text-orange-500' : 'text-white'} drop-shadow-md`} />
                   </button>
                   <span className="text-xs font-bold shadow-black drop-shadow-md">Salvar</span>
                 </div>
@@ -220,7 +232,7 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
 
               {/* Bottom Info Layer */}
               <div className="absolute bottom-0 left-0 right-16 p-4 pb-20 z-20 flex flex-col gap-2 text-left">
-                <h3 className="font-bold text-white text-lg shadow-black drop-shadow-md">@{settings.storeName.replace(/\s+/g, '').toLowerCase()}</h3>
+                <h3 className="font-bold text-white text-lg shadow-black drop-shadow-md">@{settings.catalogSlug || catalogSlug || settings.storeName.replace(/\s+/g, '').toLowerCase()}</h3>
                 
                 <div className="space-y-1">
                   <p className="text-sm text-white/90 leading-snug line-clamp-2 drop-shadow-md">
