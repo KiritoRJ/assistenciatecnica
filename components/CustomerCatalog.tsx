@@ -184,7 +184,7 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
   }
 
   return (
-    <div className="h-screen w-full bg-black text-white overflow-hidden relative font-sans">
+    <div className="fixed inset-0 w-full bg-black text-white overflow-hidden font-sans">
       {/* Top Bar - TikTok Style */}
       {viewMode !== 'profile' && (
       <div className="absolute top-0 left-0 right-0 z-20 pt-8 pb-4 px-4 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
@@ -552,7 +552,7 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
       </div>
 
       {/* Bottom Navigation */}
-      <div className="absolute bottom-0 left-0 right-0 bg-black border-t border-white/10 py-3 px-2 flex justify-between items-center z-30">
+      <div className="absolute bottom-0 left-0 right-0 bg-black border-t border-white/10 py-3 pb-6 px-2 flex justify-between items-center z-50">
         <button 
           onClick={() => setViewMode('grid')}
           className={`flex flex-col items-center gap-1 w-1/5 ${viewMode === 'grid' || viewMode === 'feed' ? 'text-white' : 'text-white/60 hover:text-white'} transition-colors`}
