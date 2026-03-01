@@ -217,6 +217,8 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
                   const index = products.findIndex(p => p.id === product.id);
                   setActiveProductIndex(index);
                   setViewMode('feed');
+                  setPlayingStates(prev => ({ ...prev, [product.id]: true }));
+                  setIsMuted(false);
                   // Optional: scroll to item when switching back to feed
                   setTimeout(() => {
                     if (containerRef.current) {
@@ -261,6 +263,8 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
                         const index = products.findIndex(p => p.id === product.id);
                         setActiveProductIndex(index);
                         setViewMode('feed');
+                        setPlayingStates(prev => ({ ...prev, [product.id]: true }));
+                        setIsMuted(false);
                       }}
                       className="flex-1 bg-white text-black text-[9px] font-bold py-1.5 rounded flex items-center justify-center gap-1 active:scale-95 transition-transform"
                     >
