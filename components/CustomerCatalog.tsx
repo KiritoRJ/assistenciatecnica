@@ -14,7 +14,7 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'feed' | 'grid'>('grid');
   const [activeProductIndex, setActiveProductIndex] = useState(0);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
   const [playingStates, setPlayingStates] = useState<Record<string, boolean>>({});
   const [likedProducts, setLikedProducts] = useState<Record<string, boolean>>({});
   const [savedProducts, setSavedProducts] = useState<Record<string, boolean>>({});
@@ -174,7 +174,22 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
         <div className="w-8"></div> {/* Spacer */}
         <div className="flex items-center gap-4 text-base font-bold shadow-black drop-shadow-md pointer-events-auto">
            <span 
-             onClick={() => setViewMode('grid')}
+             onClick={() => {
+               setViewMode('grid');
+               // Pause current video when switching tabs
+               const currentProduct = products[activeProductIndex];
+               if (currentProduct) {
+                 const iframe = document.getElementById(`iframe-${currentProduct.id}`) as HTMLIFrameElement;
+                 if (iframe && iframe.contentWindow) {
+                   iframe.contentWindow.postMessage(JSON.stringify({ 
+                     event: 'command', 
+                     func: 'pauseVideo', 
+                     args: '' 
+                   }), '*');
+                   setPlayingStates(prev => ({ ...prev, [currentProduct.id]: false }));
+                 }
+               }
+             }}
              className={`${viewMode === 'grid' ? 'text-white border-b-2 border-white pb-1' : 'text-white/60 hover:text-white'} cursor-pointer transition-all`}
            >
              Todos
