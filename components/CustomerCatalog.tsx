@@ -105,10 +105,30 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
   };
 
   const getEmbedUrl = (url: string, shouldPlay: boolean) => {
+    if (!url) return '';
+    
+    // YouTube (Standard & Shorts)
     if (url.includes('youtube.com') || url.includes('youtu.be')) {
-      const videoId = url.includes('v=') ? url.split('v=')[1].split('&')[0] : url.split('/').pop();
-      return `https://www.youtube.com/embed/${videoId}?autoplay=${shouldPlay ? 1 : 0}&mute=${isMuted ? 1 : 0}&controls=0&loop=1&playlist=${videoId}`;
+      let videoId = '';
+      if (url.includes('shorts/')) {
+        videoId = url.split('shorts/')[1].split('?')[0];
+      } else if (url.includes('v=')) {
+        videoId = url.split('v=')[1].split('&')[0];
+      } else {
+        videoId = url.split('/').pop() || '';
+      }
+      return `https://www.youtube.com/embed/${videoId}?autoplay=${shouldPlay ? 1 : 0}&mute=${isMuted ? 1 : 0}&controls=0&loop=1&playlist=${videoId}&playsinline=1&rel=0`;
     }
+    
+    // TikTok
+    if (url.includes('tiktok.com')) {
+      // Extract video ID from TikTok URL (usually the last numeric part)
+      const videoId = url.split('/video/')[1]?.split('?')[0] || '';
+      if (videoId) {
+        return `https://www.tiktok.com/embed/v2/${videoId}?lang=pt-BR&autoplay=${shouldPlay ? 1 : 0}`;
+      }
+    }
+
     return url;
   };
 

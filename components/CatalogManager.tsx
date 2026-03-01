@@ -163,6 +163,9 @@ const CatalogManager: React.FC<CatalogManagerProps> = ({ products, setProducts, 
               className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-3xl outline-none text-sm font-medium text-slate-600 placeholder:text-slate-300"
               placeholder="https://..."
             />
+            <p className="text-[9px] text-slate-400 ml-4">
+              Suporta: YouTube (Vídeos e Shorts) e TikTok. Cole o link completo.
+            </p>
           </div>
 
           <div className="space-y-2">

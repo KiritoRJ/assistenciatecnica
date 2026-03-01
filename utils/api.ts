@@ -551,19 +551,33 @@ export class OnlineDB {
         supabase.from('cloud_data').select('data_json').eq('tenant_id', tenantId).eq('store_key', 'settings').maybeSingle()
       ]);
 
-      const products = (productsData.data || []).map(d => ({
-        id: d.id,
-        name: d.name,
-        barcode: d.barcode,
-        photo: d.photo,
-        costPrice: Number(d.cost_price || 0),
-        salePrice: Number(d.sale_price || 0),
-        quantity: Number(d.quantity || 0),
-        description: d.description,
-        additionalPhotos: d.additional_photos || [],
-        promotionalPrice: Number(d.promotional_price || 0),
-        isPromotion: d.is_promotion || false
-      }));
+      const products = (productsData.data || []).map(d => {
+        // Extract videoUrl from additional_photos if present (legacy support or workaround)
+        let videoUrl = d.video_url || null;
+        let additionalPhotos = d.additional_photos || [];
+        
+        // Check for video in additionalPhotos
+        const videoEntryIndex = additionalPhotos.findIndex((p: string) => p.startsWith('VIDEO:'));
+        if (videoEntryIndex !== -1) {
+          videoUrl = additionalPhotos[videoEntryIndex].replace('VIDEO:', '');
+          additionalPhotos = additionalPhotos.filter((_: string, i: number) => i !== videoEntryIndex);
+        }
+
+        return {
+          id: d.id,
+          name: d.name,
+          barcode: d.barcode,
+          photo: d.photo,
+          costPrice: Number(d.cost_price || 0),
+          salePrice: Number(d.sale_price || 0),
+          quantity: Number(d.quantity || 0),
+          description: d.description,
+          additionalPhotos: additionalPhotos,
+          promotionalPrice: Number(d.promotional_price || 0),
+          isPromotion: d.is_promotion || false,
+          videoUrl: videoUrl
+        };
+      });
 
       const settings = settingsData.data?.data_json || null;
 
@@ -586,19 +600,32 @@ export class OnlineDB {
       
       if (error) throw error;
       
-      return (data || []).map(d => ({
-        id: d.id,
-        name: d.name,
-        barcode: d.barcode,
-        photo: d.photo,
-        costPrice: Number(d.cost_price || 0),
-        salePrice: Number(d.sale_price || 0),
-        quantity: Number(d.quantity || 0),
-        description: d.description,
-        additionalPhotos: d.additional_photos || [],
-        promotionalPrice: Number(d.promotional_price || 0),
-        isPromotion: d.is_promotion || false
-      }));
+      return (data || []).map(d => {
+        // Extract videoUrl from additional_photos if present
+        let videoUrl = d.video_url || null;
+        let additionalPhotos = d.additional_photos || [];
+        
+        const videoEntryIndex = additionalPhotos.findIndex((p: string) => p.startsWith('VIDEO:'));
+        if (videoEntryIndex !== -1) {
+          videoUrl = additionalPhotos[videoEntryIndex].replace('VIDEO:', '');
+          additionalPhotos = additionalPhotos.filter((_: string, i: number) => i !== videoEntryIndex);
+        }
+
+        return {
+          id: d.id,
+          name: d.name,
+          barcode: d.barcode,
+          photo: d.photo,
+          costPrice: Number(d.cost_price || 0),
+          salePrice: Number(d.sale_price || 0),
+          quantity: Number(d.quantity || 0),
+          description: d.description,
+          additionalPhotos: additionalPhotos,
+          promotionalPrice: Number(d.promotional_price || 0),
+          isPromotion: d.is_promotion || false,
+          videoUrl: videoUrl
+        };
+      });
     } catch (e) { 
       console.error("Erro ao buscar produtos do Supabase:", e);
       return []; 
@@ -705,20 +732,31 @@ export class OnlineDB {
   static async upsertProducts(tenantId: string, products: any[]) {
     if (!tenantId || !products.length) return { success: true };
     try {
-      const payload = products.map(p => ({
-        id: p.id,
-        tenant_id: tenantId,
-        name: p.name,
-        barcode: p.barcode,
-        photo: p.photo,
-        cost_price: p.costPrice,
-        sale_price: p.salePrice,
-        quantity: p.quantity,
-        description: p.description,
-        additional_photos: p.additionalPhotos || [],
-        promotional_price: p.promotionalPrice || 0,
-        is_promotion: p.isPromotion || false
-      }));
+      const payload = products.map(p => {
+        // Workaround: Store videoUrl in additional_photos if column doesn't exist or for backup
+        let additionalPhotos = p.additionalPhotos || [];
+        // Remove old video entries
+        additionalPhotos = additionalPhotos.filter((photo: string) => !photo.startsWith('VIDEO:'));
+        
+        if (p.videoUrl) {
+          additionalPhotos.push(`VIDEO:${p.videoUrl}`);
+        }
+
+        return {
+          id: p.id,
+          tenant_id: tenantId,
+          name: p.name,
+          barcode: p.barcode,
+          photo: p.photo,
+          cost_price: p.costPrice,
+          sale_price: p.salePrice,
+          quantity: p.quantity,
+          description: p.description,
+          additional_photos: additionalPhotos,
+          promotional_price: p.promotionalPrice || 0,
+          is_promotion: p.isPromotion || false
+        };
+      });
       const { error } = await supabase.from('products').upsert(payload, { onConflict: 'id' });
       if (error) throw error;
       return { success: true };
