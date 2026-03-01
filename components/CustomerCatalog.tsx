@@ -12,8 +12,10 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
   const [products, setProducts] = useState<Product[]>([]);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'feed' | 'grid'>('grid');
   const [activeProductIndex, setActiveProductIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
+  const [playingStates, setPlayingStates] = useState<Record<string, boolean>>({});
   const [likedProducts, setLikedProducts] = useState<Record<string, boolean>>({});
   const [savedProducts, setSavedProducts] = useState<Record<string, boolean>>({});
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
@@ -104,6 +106,22 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
     }
   };
 
+  const toggleVideo = (productId: string) => {
+    const iframe = document.getElementById(`iframe-${productId}`) as HTMLIFrameElement;
+    if (iframe && iframe.contentWindow) {
+      const isPlaying = playingStates[productId] ?? true;
+      const command = isPlaying ? 'pauseVideo' : 'playVideo';
+      iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: command, args: '' }), '*');
+      
+      if (!isPlaying) {
+        iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: '' }), '*');
+        setIsMuted(false);
+      }
+      
+      setPlayingStates(prev => ({ ...prev, [productId]: !isPlaying }));
+    }
+  };
+
   const getEmbedUrl = (url: string, shouldPlay: boolean) => {
     if (!url) return '';
     
@@ -117,7 +135,7 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
       } else {
         videoId = url.split('/').pop() || '';
       }
-      return `https://www.youtube.com/embed/${videoId}?autoplay=${shouldPlay ? 1 : 0}&mute=${isMuted ? 1 : 0}&controls=0&loop=1&playlist=${videoId}&playsinline=1&rel=0`;
+      return `https://www.youtube.com/embed/${videoId}?autoplay=${shouldPlay ? 1 : 0}&mute=${isMuted ? 1 : 0}&controls=0&loop=1&playlist=${videoId}&playsinline=1&rel=0&enablejsapi=1`;
     }
     
     // TikTok
@@ -155,19 +173,102 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
       <div className="absolute top-0 left-0 right-0 z-20 pt-8 pb-4 px-4 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
         <div className="w-8"></div> {/* Spacer */}
         <div className="flex items-center gap-4 text-base font-bold shadow-black drop-shadow-md pointer-events-auto">
-           <span className="text-white/60 cursor-pointer hover:text-white transition-colors">Seguindo</span>
-           <span className="text-white border-b-2 border-white pb-1 cursor-pointer">Para Você</span>
+           <span 
+             onClick={() => setViewMode('grid')}
+             className={`${viewMode === 'grid' ? 'text-white border-b-2 border-white pb-1' : 'text-white/60 hover:text-white'} cursor-pointer transition-all`}
+           >
+             Todos
+           </span>
+           <span 
+             onClick={() => setViewMode('feed')}
+             className={`${viewMode === 'feed' ? 'text-white border-b-2 border-white pb-1' : 'text-white/60 hover:text-white'} cursor-pointer transition-all`}
+           >
+             Vídeos
+           </span>
         </div>
         <button className="pointer-events-auto">
            <Search size={24} className="text-white" />
         </button>
       </div>
 
+      {/* Grid View */}
+      {viewMode === 'grid' && (
+        <div className="h-full w-full overflow-y-auto bg-black pt-24 pb-24 px-2">
+          <div className="grid grid-cols-2 gap-2">
+            {products.map((product) => (
+              <div 
+                key={product.id} 
+                onClick={() => {
+                  const index = products.findIndex(p => p.id === product.id);
+                  setActiveProductIndex(index);
+                  setViewMode('feed');
+                  // Optional: scroll to item when switching back to feed
+                  setTimeout(() => {
+                    if (containerRef.current) {
+                      containerRef.current.scrollTop = index * window.innerHeight;
+                    }
+                  }, 100);
+                }}
+                className="relative aspect-[3/4] bg-zinc-900 rounded-lg overflow-hidden cursor-pointer active:scale-95 transition-transform"
+              >
+                {product.photo ? (
+                  <img src={product.photo} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-zinc-800">
+                    <ImageIcon size={32} className="text-zinc-600" />
+                  </div>
+                )}
+                {product.isPromotion && (
+                  <div className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+                    Promo
+                  </div>
+                )}
+                <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/90 to-transparent flex flex-col gap-2">
+                  <div>
+                    <p className="text-white text-xs font-bold truncate">{product.name}</p>
+                    <p className="text-emerald-400 text-xs font-black">
+                      R$ {(product.isPromotion && product.promotionalPrice ? product.promotionalPrice : product.salePrice).toFixed(2).replace('.', ',')}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleWhatsAppClick(product);
+                      }}
+                      className="flex-1 bg-emerald-600 text-white text-[9px] font-bold py-1.5 rounded flex items-center justify-center gap-1 active:scale-95 transition-transform"
+                    >
+                      <MessageCircle size={10} /> Comprar
+                    </button>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const index = products.findIndex(p => p.id === product.id);
+                        setActiveProductIndex(index);
+                        setViewMode('feed');
+                      }}
+                      className="flex-1 bg-white text-black text-[9px] font-bold py-1.5 rounded flex items-center justify-center gap-1 active:scale-95 transition-transform"
+                    >
+                      <PlayCircle size={10} /> Vídeo
+                    </button>
+                  </div>
+                </div>
+                {product.videoUrl && (
+                  <div className="absolute top-2 left-2 text-white drop-shadow-md">
+                    <PlayCircle size={16} fill="rgba(0,0,0,0.5)" />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Feed Container */}
       <div 
         ref={containerRef}
         onScroll={handleScroll}
-        className="h-full w-full overflow-y-scroll snap-y snap-mandatory hide-scrollbar [&::-webkit-scrollbar]:hidden"
+        className={`h-full w-full overflow-y-scroll snap-y snap-mandatory hide-scrollbar [&::-webkit-scrollbar]:hidden ${viewMode === 'grid' ? 'hidden' : ''}`}
       >
         {products.map((product, index) => {
           const currentPrice = product.isPromotion && product.promotionalPrice ? product.promotionalPrice : product.salePrice;
@@ -176,13 +277,15 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
           const isLiked = likedProducts[product.id];
           const isSaved = savedProducts[product.id];
           const likes = likeCounts[product.id] || 0;
+          const isPlaying = playingStates[product.id] ?? true;
 
           return (
             <div key={product.id} className="h-full w-full snap-start relative flex items-center justify-center bg-zinc-900">
               {/* Media Layer */}
-              <div className="absolute inset-0 z-0" onClick={() => setIsMuted(!isMuted)}>
+              <div className="absolute inset-0 z-0" onClick={() => hasVideo ? toggleVideo(product.id) : setIsMuted(!isMuted)}>
                 {hasVideo ? (
                   <iframe 
+                    id={`iframe-${product.id}`}
                     src={getEmbedUrl(product.videoUrl!, isActive)} 
                     className="w-full h-full object-cover pointer-events-none scale-[1.35]"
                     allow="autoplay; encrypted-media"
@@ -196,6 +299,13 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
                 )}
                 {/* Dark Gradient Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/80" />
+                
+                {/* Play/Pause Overlay Icon */}
+                {hasVideo && !isPlaying && isActive && (
+                  <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                    <PlayCircle size={64} className="text-white/50 animate-pulse" />
+                  </div>
+                )}
               </div>
 
               {/* Right Sidebar Actions */}
