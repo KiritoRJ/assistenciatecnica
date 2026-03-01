@@ -281,7 +281,7 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
 
       {/* Profile View */}
       {viewMode === 'profile' && settings && (
-        <div className="h-full w-full bg-black flex flex-col items-center pt-20 px-6 text-center overflow-y-auto pb-24">
+        <div className="h-full w-full bg-black flex flex-col items-center pt-20 px-6 text-center overflow-y-auto pb-24 hide-scrollbar [&::-webkit-scrollbar]:hidden">
           <div className="w-32 h-32 rounded-full border-2 border-white/20 overflow-hidden mb-6 bg-zinc-900">
             {settings.logoUrl ? (
               <img src={settings.logoUrl} className="w-full h-full object-cover" />
