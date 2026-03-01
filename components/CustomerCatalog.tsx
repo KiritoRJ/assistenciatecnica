@@ -325,7 +325,7 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
 
       {/* Grid View */}
       {viewMode === 'grid' && (
-        <div className="h-full w-full overflow-y-auto bg-black pt-24 pb-24 px-2">
+        <div className="h-full w-full overflow-y-auto bg-black pt-24 pb-24 px-2 hide-scrollbar [&::-webkit-scrollbar]:hidden">
           {displayProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-zinc-500">
               <Search size={48} className="mb-4 opacity-50" />
@@ -386,7 +386,7 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
                           e.stopPropagation();
                           handleWhatsAppClick(product);
                         }}
-                        className="flex-1 bg-emerald-600 text-white text-[9px] font-bold py-1.5 rounded flex items-center justify-center gap-1 active:scale-95 transition-transform"
+                        className="flex-1 bg-emerald-600 text-white text-[9px] font-bold py-1.5 rounded flex items-center justify-center gap-1 active:scale-95 transition-transform neon-pulse"
                       >
                         <MessageCircle size={10} /> Comprar
                       </button>
@@ -493,7 +493,7 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
                 
                 {/* Comment/WhatsApp Button */}
                 <div className="flex flex-col items-center gap-1">
-                  <button onClick={() => handleWhatsAppClick(product)} className="active:scale-90 transition-transform">
+                  <button onClick={() => handleWhatsAppClick(product)} className="active:scale-90 transition-transform neon-pulse rounded-full">
                     <MessageCircle size={32} className="text-white drop-shadow-md" />
                   </button>
                   <span className="text-xs font-bold shadow-black drop-shadow-md">Comprar</span>

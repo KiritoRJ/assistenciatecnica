@@ -9,3 +9,15 @@
   border-color: rgba(16, 185, 129, 0.6) !important;
   z-index: 1;
 }
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.neon-pulse {
+  animation: neon-glow 2s ease-in-out infinite;
+}
