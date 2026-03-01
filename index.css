@@ -21,3 +21,24 @@
 .neon-pulse {
   animation: neon-glow 2s ease-in-out infinite;
 }
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+*::-webkit-scrollbar {
+  display: none !important;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+* {
+  -ms-overflow-style: none !important;  /* IE and Edge */
+  scrollbar-width: none !important;  /* Firefox */
+}
+
+/* Force black text for inputs by default, but allow overrides via classes */
+input:not(:disabled), textarea:not(:disabled), select:not(:disabled) {
+  color: #000000;
+}
+
+/* Ensure placeholders stay gray-ish if not overridden */
+input::placeholder, textarea::placeholder {
+  color: #9ca3af; /* gray-400 */
+}

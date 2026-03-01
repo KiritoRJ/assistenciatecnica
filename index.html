@@ -39,13 +39,13 @@
         .border-custom-primary { border-color: var(--primary) !important; }
 
         #app-loader {
-            position: fixed; inset: 0; background: #ffffff;
+            position: fixed; inset: 0; background: #000000;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             z-index: 9999; transition: opacity 0.5s;
         }
         .spinner {
             width: 50px; height: 50px; border: 5px solid rgba(255,255,255,0.05);
-            border-left-color: #2563eb; border-radius: 50%; animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+            border-left-color: #ffffff; border-radius: 50%; animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
         
@@ -90,7 +90,7 @@
 <body class="bg-black text-slate-100 overflow-x-hidden">
     <div id="app-loader">
         <div class="spinner"></div>
-        <p style="color: #3b82f6; font-size: 10px; font-weight: 900; text-transform: uppercase; margin-top: 20px; letter-spacing: 0.3em;">Carregando Interface Pro</p>
+        <p style="color: #ffffff; font-size: 10px; font-weight: 900; text-transform: uppercase; margin-top: 20px; letter-spacing: 0.3em;">Carregando Interface Pro</p>
     </div>
     
     <div id="root"></div>

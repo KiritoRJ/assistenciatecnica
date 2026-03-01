@@ -714,7 +714,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans flex flex-col md:flex-row">
-      <aside className={`hidden md:flex flex-col ${isSidebarCollapsed ? 'w-24' : 'w-72'} bg-slate-900 text-white p-6 h-screen sticky top-0 overflow-y-auto transition-all duration-300 ease-in-out`}>
+      <aside className={`hidden md:flex flex-col ${isSidebarCollapsed ? 'w-24' : 'w-72'} bg-slate-900 text-white p-6 h-screen sticky top-0 overflow-y-auto transition-all duration-300 ease-in-out hide-scrollbar [&::-webkit-scrollbar]:hidden`}>
         <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} mb-12`}>
           {!isSidebarCollapsed && (
             <div className="flex items-center gap-4 overflow-hidden animate-in fade-in">
@@ -759,14 +759,14 @@ const App: React.FC = () => {
         {(session.subscriptionStatus === 'trial' || session.enabledFeatures?.promoBanner) && (
           <div 
             onClick={() => setIsSubscriptionModalOpen(true)}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-3 text-center cursor-pointer hover:from-blue-700 hover:to-indigo-700 transition-all shrink-0 shadow-md z-10 flex items-center justify-center gap-2"
+            className="bg-zinc-900 border-b border-white/10 text-white px-4 py-3 text-center cursor-pointer hover:bg-zinc-800 transition-all shrink-0 shadow-md z-10 flex items-center justify-center gap-2"
           >
             <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest">
               {session.subscriptionStatus === 'trial' ? 'Você está no período de teste. Clique aqui para assinar e não perder o acesso!' : 'Aproveite nossas ofertas exclusivas! Clique aqui para ver os planos.'}
             </span>
           </div>
         )}
-        <div className="flex-1 overflow-y-auto p-4 pt-4 pb-28 md:pt-10 md:pb-4 max-w-7xl mx-auto w-full animate-in fade-in duration-700">
+        <div className="flex-1 overflow-y-auto p-4 pt-4 pb-28 md:pt-10 md:pb-4 max-w-7xl mx-auto w-full animate-in fade-in duration-700 hide-scrollbar [&::-webkit-scrollbar]:hidden">
           {activeTab === 'os' && <ServiceOrderTab orders={orders.filter(o => !o.isDeleted)} setOrders={saveOrders} settings={settings} onUpdateSettings={saveSettings} onDeleteOrder={removeOrder} tenantId={session.tenantId || ''} maxOS={session.maxOS} />}
           {activeTab === 'estoque' && <StockTab products={products} setProducts={saveProducts} onDeleteProduct={removeProduct} settings={settings} onUpdateSettings={saveSettings} maxProducts={session.maxProducts} />}
           {activeTab === 'vendas' && <SalesTab products={products} setProducts={saveProducts} sales={sales.filter(s => !s.isDeleted)} setSales={saveSales} settings={settings} onUpdateSettings={saveSettings} currentUser={currentUser} onDeleteSale={removeSale} tenantId={session.tenantId || ''} />}
