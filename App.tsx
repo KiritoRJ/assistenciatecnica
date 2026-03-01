@@ -69,7 +69,7 @@ const App: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [activeTab, setActiveTab] = useState<Tab>('os');
+  const [activeTab, setActiveTab] = useState<Tab>('vendas');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
@@ -391,7 +391,7 @@ const App: React.FC = () => {
     setOrders([]);
     setProducts([]);
     setSales([]);
-    setActiveTab('os');
+    setActiveTab('vendas');
     setIsLogoutModalOpen(false);
     setLogoutPassword('');
   };
@@ -508,7 +508,7 @@ const App: React.FC = () => {
       localStorage.setItem('currentUser_pro', JSON.stringify(user));
       const allowedTabs = navItems.filter(item => item.roles.includes(newType)).map(i => i.id);
       if (!allowedTabs.includes(activeTab)) {
-        setActiveTab('os');
+        setActiveTab('vendas');
       }
     }
   };

@@ -18,6 +18,39 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [playingStates, setPlayingStates] = useState<Record<string, boolean>>({});
+  const [resolvedTikToks, setResolvedTikToks] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const resolveTikToks = async () => {
+      const tiktokProducts = products.filter(p => p.videoUrl && (p.videoUrl.includes('tiktok.com') || p.videoUrl.includes('vt.tiktok.com')));
+      
+      for (const product of tiktokProducts) {
+        if (!product.videoUrl) continue;
+        
+        // Skip if already resolved or if it's already a long link with ID
+        const match = product.videoUrl.match(/\/video\/(\d+)/);
+        if (match) {
+          setResolvedTikToks(prev => ({ ...prev, [product.videoUrl!]: match[1] }));
+          continue;
+        }
+
+        try {
+          const res = await fetch(`/api/resolve-tiktok?url=${encodeURIComponent(product.videoUrl)}`);
+          if (!res.ok) continue;
+          const data = await res.json();
+          if (data.videoId) {
+            setResolvedTikToks(prev => ({ ...prev, [product.videoUrl!]: data.videoId }));
+          }
+        } catch (err) {
+          console.error("Error resolving TikTok:", err);
+        }
+      }
+    };
+
+    if (products.length > 0) {
+      resolveTikToks();
+    }
+  }, [products]);
 
   useEffect(() => {
     setActiveProductIndex(0);
@@ -156,10 +189,15 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
     
     // TikTok
     if (url.includes('tiktok.com')) {
-      // Extract video ID from TikTok URL (usually the last numeric part)
-      const videoId = url.split('/video/')[1]?.split('?')[0] || '';
+      const videoId = resolvedTikToks[url];
       if (videoId) {
         return `https://www.tiktok.com/embed/v2/${videoId}?lang=pt-BR&autoplay=${shouldPlay ? 1 : 0}`;
+      }
+      
+      // Fallback extraction
+      const match = url.match(/\/video\/(\d+)/);
+      if (match) {
+        return `https://www.tiktok.com/embed/v2/${match[1]}?lang=pt-BR&autoplay=${shouldPlay ? 1 : 0}`;
       }
     }
 

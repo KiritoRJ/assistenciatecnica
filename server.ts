@@ -45,6 +45,32 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
 // Auth Routes
+app.get('/api/resolve-tiktok', async (req, res) => {
+  const { url } = req.query;
+  if (!url || typeof url !== 'string') {
+    return res.status(400).json({ error: 'URL is required' });
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      redirect: 'follow',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
+
+    const finalUrl = response.url;
+    const match = finalUrl.match(/\/video\/(\d+)/);
+    const videoId = match ? match[1] : null;
+
+    res.json({ finalUrl, videoId });
+  } catch (err) {
+    console.error('Error resolving TikTok URL:', err);
+    res.status(500).json({ error: 'Failed to resolve URL' });
+  }
+});
+
 app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
   const cleanUser = username.trim().toLowerCase();
