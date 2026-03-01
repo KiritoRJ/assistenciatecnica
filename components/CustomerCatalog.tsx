@@ -340,6 +340,16 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
                     const index = displayProducts.findIndex(p => p.id === product.id);
                     setActiveProductIndex(index);
                     setViewMode('feed');
+                    
+                    // Force play via postMessage
+                    setTimeout(() => {
+                      const iframe = document.getElementById(`iframe-${product.id}`) as HTMLIFrameElement;
+                      if (iframe && iframe.contentWindow) {
+                        iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: '' }), '*');
+                        iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: '' }), '*');
+                      }
+                    }, 100);
+
                     setPlayingStates(prev => ({ ...prev, [product.id]: true }));
                     setIsMuted(false);
                     // Optional: scroll to item when switching back to feed
@@ -386,6 +396,16 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
                           const index = displayProducts.findIndex(p => p.id === product.id);
                           setActiveProductIndex(index);
                           setViewMode('feed');
+                          
+                          // Force play via postMessage
+                          setTimeout(() => {
+                            const iframe = document.getElementById(`iframe-${product.id}`) as HTMLIFrameElement;
+                            if (iframe && iframe.contentWindow) {
+                              iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: '' }), '*');
+                              iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: '' }), '*');
+                            }
+                          }, 100);
+
                           setPlayingStates(prev => ({ ...prev, [product.id]: true }));
                           setIsMuted(false);
                         }}
