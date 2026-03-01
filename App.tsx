@@ -528,31 +528,31 @@ const App: React.FC = () => {
 
   if (!session?.isLoggedIn) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 font-sans">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
         <div className="w-full max-w-sm space-y-8 animate-in fade-in zoom-in-95 duration-700">
           <div className="text-center space-y-4">
-            <div className="w-20 h-20 bg-blue-600 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-2xl border border-white/10">
+            <div className="w-20 h-20 bg-blue-600 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-2xl border border-slate-100">
               <Smartphone size={40} className="text-white" />
             </div>
-            <h1 className="text-3xl font-black text-white tracking-tighter uppercase">LOJAS CLOUD</h1>
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+            <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">LOJAS CLOUD</h1>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
               {isRegisterMode ? 'Crie sua loja grátis por 7 dias' : 'sua loja nas nuvens'}
             </p>
           </div>
 
           {isRegisterMode ? (
-            <form onSubmit={handleRegister} className="bg-white/5 p-8 rounded-[3rem] border border-white/10 space-y-4 shadow-2xl">
+            <form onSubmit={handleRegister} className="bg-white p-8 rounded-[3rem] border border-slate-100 space-y-4 shadow-2xl">
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Nome da Loja</label>
-                <input type="text" value={registerForm.storeName} onChange={e => setRegisterForm({...registerForm, storeName: e.target.value})} className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 font-bold text-white outline-none focus:border-blue-500 transition-colors text-xs" placeholder="Ex: Tech Cell" />
+                <input type="text" value={registerForm.storeName} onChange={e => setRegisterForm({...registerForm, storeName: e.target.value})} className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 font-bold text-slate-900 outline-none focus:border-blue-500 transition-colors text-xs" placeholder="Ex: Tech Cell" />
               </div>
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Usuário Administrador</label>
-                <input type="text" value={registerForm.username} onChange={e => setRegisterForm({...registerForm, username: e.target.value.toLowerCase()})} className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 font-bold text-white outline-none focus:border-blue-500 transition-colors text-xs" placeholder="Seu usuário" />
+                <input type="text" value={registerForm.username} onChange={e => setRegisterForm({...registerForm, username: e.target.value.toLowerCase()})} className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 font-bold text-slate-900 outline-none focus:border-blue-500 transition-colors text-xs" placeholder="Seu usuário" />
               </div>
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Senha</label>
-                <input type="password" value={registerForm.password} onChange={e => setRegisterForm({...registerForm, password: e.target.value})} className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 font-bold text-white outline-none focus:border-blue-500 transition-colors text-xs" placeholder="••••••" />
+                <input type="password" value={registerForm.password} onChange={e => setRegisterForm({...registerForm, password: e.target.value})} className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 font-bold text-slate-900 outline-none focus:border-blue-500 transition-colors text-xs" placeholder="••••••" />
               </div>
               {loginError && (
                 <div className="flex items-center gap-2 text-red-400 bg-red-400/10 p-3 rounded-xl border border-red-400/20">
@@ -563,19 +563,19 @@ const App: React.FC = () => {
               <button type="submit" disabled={isRegistering} className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-2xl active:scale-95 transition-all mt-4 disabled:opacity-50">
                 {isRegistering ? <Loader2 className="animate-spin mx-auto" size={20} /> : 'Criar Minha Loja'}
               </button>
-              <button type="button" onClick={() => { setIsRegisterMode(false); setLoginError(null); }} className="w-full text-slate-500 font-black uppercase text-[9px] tracking-widest hover:text-white transition-colors">
+              <button type="button" onClick={() => { setIsRegisterMode(false); setLoginError(null); }} className="w-full text-slate-400 font-black uppercase text-[9px] tracking-widest hover:text-slate-600 transition-colors">
                 Já tenho uma conta
               </button>
             </form>
           ) : (
-            <form onSubmit={handleLogin} className="bg-white/5 p-8 rounded-[3rem] border border-white/10 space-y-4 shadow-2xl">
+            <form onSubmit={handleLogin} className="bg-white p-8 rounded-[3rem] border border-slate-100 space-y-4 shadow-2xl">
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Usuário / Login</label>
-                <input type="text" autoFocus value={loginForm.username} onChange={e => setLoginForm({...loginForm, username: e.target.value.toLowerCase()})} className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 font-bold text-white outline-none focus:border-blue-500 transition-colors text-xs" placeholder="Seu usuário" />
+                <input type="text" autoFocus value={loginForm.username} onChange={e => setLoginForm({...loginForm, username: e.target.value.toLowerCase()})} className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 font-bold text-slate-900 outline-none focus:border-blue-500 transition-colors text-xs" placeholder="Seu usuário" />
               </div>
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Senha</label>
-                <input type="password" value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 font-bold text-white outline-none focus:border-blue-500 transition-colors text-xs" placeholder="••••••" />
+                <input type="password" value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 font-bold text-slate-900 outline-none focus:border-blue-500 transition-colors text-xs" placeholder="••••••" />
               </div>
               {loginError && (
                 <div className={`flex items-center gap-2 ${loginError.includes('sucesso') ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' : 'text-red-400 bg-red-400/10 border-red-400/20'} p-3 rounded-xl border`}>
@@ -586,7 +586,7 @@ const App: React.FC = () => {
               <button type="submit" disabled={isLoggingIn} className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-2xl active:scale-95 transition-all mt-4 disabled:opacity-50">
                 {isLoggingIn ? <Loader2 className="animate-spin mx-auto" size={20} /> : 'Acessar Sistema'}
               </button>
-              <button type="button" onClick={() => { setIsRegisterMode(true); setLoginError(null); }} className="w-full text-slate-500 font-black uppercase text-[9px] tracking-widest hover:text-white transition-colors">
+              <button type="button" onClick={() => { setIsRegisterMode(true); setLoginError(null); }} className="w-full text-slate-400 font-black uppercase text-[9px] tracking-widest hover:text-slate-600 transition-colors">
                 Criar nova loja grátis
               </button>
             </form>
