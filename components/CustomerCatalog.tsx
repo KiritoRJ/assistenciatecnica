@@ -12,10 +12,26 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
   const [products, setProducts] = useState<Product[]>([]);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'feed' | 'grid'>('grid');
+  const [viewMode, setViewMode] = useState<'feed' | 'grid' | 'profile'>('grid');
   const [activeProductIndex, setActiveProductIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [playingStates, setPlayingStates] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setActiveProductIndex(0);
+    if (containerRef.current) {
+      containerRef.current.scrollTop = 0;
+    }
+  }, [searchQuery]);
+
+  const filteredProducts = products.filter(p => 
+    p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (p.barcode && p.barcode.includes(searchQuery))
+  );
+
+  const displayProducts = searchQuery ? filteredProducts : products;
   const [likedProducts, setLikedProducts] = useState<Record<string, boolean>>({});
   const [savedProducts, setSavedProducts] = useState<Record<string, boolean>>({});
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
@@ -170,116 +186,224 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
   return (
     <div className="h-screen w-full bg-black text-white overflow-hidden relative font-sans">
       {/* Top Bar - TikTok Style */}
+      {viewMode !== 'profile' && (
       <div className="absolute top-0 left-0 right-0 z-20 pt-8 pb-4 px-4 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
-        <div className="w-8"></div> {/* Spacer */}
-        <div className="flex items-center gap-4 text-base font-bold shadow-black drop-shadow-md pointer-events-auto">
-           <span 
-             onClick={() => {
-               setViewMode('grid');
-               // Pause current video when switching tabs
-               const currentProduct = products[activeProductIndex];
-               if (currentProduct) {
-                 const iframe = document.getElementById(`iframe-${currentProduct.id}`) as HTMLIFrameElement;
-                 if (iframe && iframe.contentWindow) {
-                   iframe.contentWindow.postMessage(JSON.stringify({ 
-                     event: 'command', 
-                     func: 'pauseVideo', 
-                     args: '' 
-                   }), '*');
-                   setPlayingStates(prev => ({ ...prev, [currentProduct.id]: false }));
-                 }
-               }
-             }}
-             className={`${viewMode === 'grid' ? 'text-white border-b-2 border-white pb-1' : 'text-white/60 hover:text-white'} cursor-pointer transition-all`}
-           >
-             Todos
-           </span>
-           <span 
-             onClick={() => setViewMode('feed')}
-             className={`${viewMode === 'feed' ? 'text-white border-b-2 border-white pb-1' : 'text-white/60 hover:text-white'} cursor-pointer transition-all`}
-           >
-             Vídeos
-           </span>
-        </div>
-        <button className="pointer-events-auto">
-           <Search size={24} className="text-white" />
-        </button>
+        
+        {isSearchOpen ? (
+          <div className="w-full flex items-center gap-2 pointer-events-auto bg-black/50 backdrop-blur-md rounded-full px-4 py-2 border border-white/10">
+            <Search size={18} className="text-white/60" />
+            <input 
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar produto..."
+              className="bg-transparent border-none outline-none text-white text-sm w-full placeholder:text-white/40"
+              autoFocus
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')}>
+                <VolumeX size={16} className="text-white/60 rotate-45" />
+              </button>
+            )}
+            <button onClick={() => {
+              setIsSearchOpen(false);
+              setSearchQuery('');
+            }} className="text-xs font-bold text-white ml-2">
+              Cancelar
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="w-8"></div> {/* Spacer */}
+            <div className="flex items-center gap-4 text-base font-bold shadow-black drop-shadow-md pointer-events-auto">
+               <span 
+                 onClick={() => {
+                   setViewMode('grid');
+                   // Pause current video when switching tabs
+                   const currentProduct = displayProducts[activeProductIndex];
+                   if (currentProduct) {
+                     const iframe = document.getElementById(`iframe-${currentProduct.id}`) as HTMLIFrameElement;
+                     if (iframe && iframe.contentWindow) {
+                       iframe.contentWindow.postMessage(JSON.stringify({ 
+                         event: 'command', 
+                         func: 'pauseVideo', 
+                         args: '' 
+                       }), '*');
+                       setPlayingStates(prev => ({ ...prev, [currentProduct.id]: false }));
+                     }
+                   }
+                 }}
+                 className={`${viewMode === 'grid' ? 'text-white border-b-2 border-white pb-1' : 'text-white/60 hover:text-white'} cursor-pointer transition-all`}
+               >
+                 Todos
+               </span>
+               <span 
+                 onClick={() => {
+                   setViewMode('feed');
+                   // Auto-play current video when switching to feed
+                   const currentProduct = displayProducts[activeProductIndex];
+                   if (currentProduct) {
+                     const iframe = document.getElementById(`iframe-${currentProduct.id}`) as HTMLIFrameElement;
+                     if (iframe && iframe.contentWindow) {
+                       iframe.contentWindow.postMessage(JSON.stringify({ 
+                         event: 'command', 
+                         func: 'playVideo', 
+                         args: '' 
+                       }), '*');
+                       iframe.contentWindow.postMessage(JSON.stringify({ 
+                         event: 'command', 
+                         func: 'unMute', 
+                         args: '' 
+                       }), '*');
+                     }
+                     setPlayingStates(prev => ({ ...prev, [currentProduct.id]: true }));
+                     setIsMuted(false);
+                   }
+                 }}
+                 className={`${viewMode === 'feed' ? 'text-white border-b-2 border-white pb-1' : 'text-white/60 hover:text-white'} cursor-pointer transition-all`}
+               >
+                 Vídeos
+               </span>
+            </div>
+            <button 
+              onClick={() => {
+                setIsSearchOpen(true);
+                setViewMode('grid');
+              }}
+              className="pointer-events-auto"
+            >
+               <Search size={24} className="text-white" />
+            </button>
+          </>
+        )}
       </div>
+      )}
+
+      {/* Profile View */}
+      {viewMode === 'profile' && settings && (
+        <div className="h-full w-full bg-black flex flex-col items-center pt-20 px-6 text-center overflow-y-auto pb-24">
+          <div className="w-32 h-32 rounded-full border-2 border-white/20 overflow-hidden mb-6 bg-zinc-900">
+            {settings.logoUrl ? (
+              <img src={settings.logoUrl} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <ShoppingBag size={48} className="text-zinc-600" />
+              </div>
+            )}
+          </div>
+          
+          <h1 className="text-2xl font-bold text-white mb-2">{settings.storeName}</h1>
+          <p className="text-zinc-400 text-sm mb-8">@{settings.catalogSlug || catalogSlug || settings.storeName.replace(/\s+/g, '').toLowerCase()}</p>
+          
+          <div className="w-full max-w-xs space-y-4">
+            {settings.storePhone && (
+              <div className="bg-zinc-900/50 p-4 rounded-xl flex items-center gap-4 border border-white/5">
+                <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                  <MessageCircle size={20} className="text-emerald-500" />
+                </div>
+                <div className="text-left">
+                  <p className="text-xs text-zinc-500 font-medium uppercase">WhatsApp</p>
+                  <p className="text-white font-medium">{settings.storePhone}</p>
+                </div>
+              </div>
+            )}
+            
+            {settings.storeAddress && (
+              <div className="bg-zinc-900/50 p-4 rounded-xl flex items-center gap-4 border border-white/5">
+                <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+                  <Home size={20} className="text-blue-500" />
+                </div>
+                <div className="text-left">
+                  <p className="text-xs text-zinc-500 font-medium uppercase">Endereço</p>
+                  <p className="text-white font-medium">{settings.storeAddress}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Grid View */}
       {viewMode === 'grid' && (
         <div className="h-full w-full overflow-y-auto bg-black pt-24 pb-24 px-2">
-          <div className="grid grid-cols-2 gap-2">
-            {products.map((product) => (
-              <div 
-                key={product.id} 
-                onClick={() => {
-                  const index = products.findIndex(p => p.id === product.id);
-                  setActiveProductIndex(index);
-                  setViewMode('feed');
-                  setPlayingStates(prev => ({ ...prev, [product.id]: true }));
-                  setIsMuted(false);
-                  // Optional: scroll to item when switching back to feed
-                  setTimeout(() => {
-                    if (containerRef.current) {
-                      containerRef.current.scrollTop = index * window.innerHeight;
-                    }
-                  }, 100);
-                }}
-                className="relative aspect-[3/4] bg-zinc-900 rounded-lg overflow-hidden cursor-pointer active:scale-95 transition-transform"
-              >
-                {product.photo ? (
-                  <img src={product.photo} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-zinc-800">
-                    <ImageIcon size={32} className="text-zinc-600" />
+          {displayProducts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 text-zinc-500">
+              <Search size={48} className="mb-4 opacity-50" />
+              <p>Nenhum produto encontrado</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {displayProducts.map((product) => (
+                <div 
+                  key={product.id} 
+                  onClick={() => {
+                    const index = displayProducts.findIndex(p => p.id === product.id);
+                    setActiveProductIndex(index);
+                    setViewMode('feed');
+                    setPlayingStates(prev => ({ ...prev, [product.id]: true }));
+                    setIsMuted(false);
+                    // Optional: scroll to item when switching back to feed
+                    setTimeout(() => {
+                      if (containerRef.current) {
+                        containerRef.current.scrollTop = index * window.innerHeight;
+                      }
+                    }, 100);
+                  }}
+                  className="relative aspect-[3/4] bg-zinc-900 rounded-lg overflow-hidden cursor-pointer active:scale-95 transition-transform"
+                >
+                  {product.photo ? (
+                    <img src={product.photo} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-zinc-800">
+                      <ImageIcon size={32} className="text-zinc-600" />
+                    </div>
+                  )}
+                  {product.isPromotion && (
+                    <div className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+                      Promo
+                    </div>
+                  )}
+                  <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/90 to-transparent flex flex-col gap-2">
+                    <div>
+                      <p className="text-white text-xs font-bold truncate">{product.name}</p>
+                      <p className="text-emerald-400 text-xs font-black">
+                        R$ {(product.isPromotion && product.promotionalPrice ? product.promotionalPrice : product.salePrice).toFixed(2).replace('.', ',')}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleWhatsAppClick(product);
+                        }}
+                        className="flex-1 bg-emerald-600 text-white text-[9px] font-bold py-1.5 rounded flex items-center justify-center gap-1 active:scale-95 transition-transform"
+                      >
+                        <MessageCircle size={10} /> Comprar
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const index = displayProducts.findIndex(p => p.id === product.id);
+                          setActiveProductIndex(index);
+                          setViewMode('feed');
+                          setPlayingStates(prev => ({ ...prev, [product.id]: true }));
+                          setIsMuted(false);
+                        }}
+                        className="flex-1 bg-white text-black text-[9px] font-bold py-1.5 rounded flex items-center justify-center gap-1 active:scale-95 transition-transform"
+                      >
+                        <PlayCircle size={10} /> Vídeo
+                      </button>
+                    </div>
                   </div>
-                )}
-                {product.isPromotion && (
-                  <div className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
-                    Promo
-                  </div>
-                )}
-                <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/90 to-transparent flex flex-col gap-2">
-                  <div>
-                    <p className="text-white text-xs font-bold truncate">{product.name}</p>
-                    <p className="text-emerald-400 text-xs font-black">
-                      R$ {(product.isPromotion && product.promotionalPrice ? product.promotionalPrice : product.salePrice).toFixed(2).replace('.', ',')}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleWhatsAppClick(product);
-                      }}
-                      className="flex-1 bg-emerald-600 text-white text-[9px] font-bold py-1.5 rounded flex items-center justify-center gap-1 active:scale-95 transition-transform"
-                    >
-                      <MessageCircle size={10} /> Comprar
-                    </button>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const index = products.findIndex(p => p.id === product.id);
-                        setActiveProductIndex(index);
-                        setViewMode('feed');
-                        setPlayingStates(prev => ({ ...prev, [product.id]: true }));
-                        setIsMuted(false);
-                      }}
-                      className="flex-1 bg-white text-black text-[9px] font-bold py-1.5 rounded flex items-center justify-center gap-1 active:scale-95 transition-transform"
-                    >
-                      <PlayCircle size={10} /> Vídeo
-                    </button>
-                  </div>
+                  {product.videoUrl && (
+                    <div className="absolute top-2 left-2 text-white drop-shadow-md">
+                      <PlayCircle size={16} fill="rgba(0,0,0,0.5)" />
+                    </div>
+                  )}
                 </div>
-                {product.videoUrl && (
-                  <div className="absolute top-2 left-2 text-white drop-shadow-md">
-                    <PlayCircle size={16} fill="rgba(0,0,0,0.5)" />
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -287,9 +411,9 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
       <div 
         ref={containerRef}
         onScroll={handleScroll}
-        className={`h-full w-full overflow-y-scroll snap-y snap-mandatory hide-scrollbar [&::-webkit-scrollbar]:hidden ${viewMode === 'grid' ? 'hidden' : ''}`}
+        className={`h-full w-full overflow-y-scroll snap-y snap-mandatory hide-scrollbar [&::-webkit-scrollbar]:hidden ${viewMode !== 'feed' ? 'hidden' : ''}`}
       >
-        {products.map((product, index) => {
+        {displayProducts.map((product, index) => {
           const currentPrice = product.isPromotion && product.promotionalPrice ? product.promotionalPrice : product.salePrice;
           const isActive = index === activeProductIndex;
           const hasVideo = !!product.videoUrl;
@@ -409,11 +533,20 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
 
       {/* Bottom Navigation */}
       <div className="absolute bottom-0 left-0 right-0 bg-black border-t border-white/10 py-3 px-2 flex justify-between items-center z-30">
-        <button className="flex flex-col items-center gap-1 text-white w-1/5">
+        <button 
+          onClick={() => setViewMode('grid')}
+          className={`flex flex-col items-center gap-1 w-1/5 ${viewMode === 'grid' || viewMode === 'feed' ? 'text-white' : 'text-white/60 hover:text-white'} transition-colors`}
+        >
           <Home size={24} className="drop-shadow-md" />
           <span className="text-[10px] font-medium">Início</span>
         </button>
-        <button className="flex flex-col items-center gap-1 text-white/60 w-1/5 hover:text-white transition-colors">
+        <button 
+          onClick={() => {
+            setIsSearchOpen(true);
+            setViewMode('grid');
+          }}
+          className="flex flex-col items-center gap-1 text-white/60 w-1/5 hover:text-white transition-colors"
+        >
           <Search size={24} />
           <span className="text-[10px] font-medium">Busca</span>
         </button>
@@ -428,7 +561,25 @@ const CustomerCatalog: React.FC<CustomerCatalogProps> = ({ tenantId, catalogSlug
           <MessageCircle size={24} />
           <span className="text-[10px] font-medium">Entrada</span>
         </button>
-        <button className="flex flex-col items-center gap-1 text-white/60 w-1/5 hover:text-white transition-colors">
+        <button 
+          onClick={() => {
+            setViewMode('profile');
+            // Pause video if playing
+            const currentProduct = displayProducts[activeProductIndex];
+            if (currentProduct) {
+                 const iframe = document.getElementById(`iframe-${currentProduct.id}`) as HTMLIFrameElement;
+                 if (iframe && iframe.contentWindow) {
+                   iframe.contentWindow.postMessage(JSON.stringify({ 
+                     event: 'command', 
+                     func: 'pauseVideo', 
+                     args: '' 
+                   }), '*');
+                   setPlayingStates(prev => ({ ...prev, [currentProduct.id]: false }));
+                 }
+            }
+          }}
+          className={`flex flex-col items-center gap-1 w-1/5 ${viewMode === 'profile' ? 'text-white' : 'text-white/60 hover:text-white'} transition-colors`}
+        >
           <User size={24} />
           <span className="text-[10px] font-medium">Perfil</span>
         </button>
