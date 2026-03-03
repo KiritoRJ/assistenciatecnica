@@ -318,7 +318,9 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
 
   const handleFinalizeSale = () => {
     if (cart.length === 0) return;
-    const transactionId = Math.random().toString(36).substr(2, 6).toUpperCase();
+    const uniqueTransactions = new Set(sales.map(s => s.transactionId).filter(Boolean));
+    const nextTransactionNumber = uniqueTransactions.size + 1;
+    const transactionId = nextTransactionNumber.toString().padStart(2, '0');
     const date = new Date().toISOString();
     
     const totalPaid = paymentEntries.reduce((acc, curr) => acc + curr.amount, 0);
@@ -330,14 +332,17 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
     const discountedTotal = Math.max(0, cartTotal - totalDiscount);
     const surchargeAmount = discountedTotal * (totalSurcharge / 100);
 
-    const newSales: Sale[] = cart.map(item => {
+    const newSales: Sale[] = cart.map((item, index) => {
       const itemTotal = item.product.salePrice * item.quantity;
       // Distribui o desconto proporcionalmente se houver mais de um item
       const itemDiscount = cartTotal > 0 ? (itemTotal / cartTotal) * totalDiscount : 0;
       const itemSurcharge = cartTotal > 0 ? (itemTotal / cartTotal) * surchargeAmount : 0;
       
+      const nextIdNumber = sales.length + index + 1;
+      const formattedId = nextIdNumber.toString().padStart(2, '0');
+
       return {
-        id: Math.random().toString(36).substr(2, 9),
+        id: formattedId,
         productId: item.product.id,
         productName: item.product.name,
         date,
@@ -486,7 +491,7 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
                   </div>
                   <div>
                     <p className="text-xs font-black uppercase text-slate-800">{sale.productName}</p>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{formatDate(sale.date)} • {sale.paymentMethod}</p>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Pedido #{sale.transactionId} • {formatDate(sale.date)} • {sale.paymentMethod}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>

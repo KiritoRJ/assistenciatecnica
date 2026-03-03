@@ -13,6 +13,7 @@ import CustomerCatalog from './components/CustomerCatalog';
 import { OnlineDB } from './utils/api';
 import { OfflineSync } from './utils/offlineSync';
 import { db } from './utils/localDb';
+import { useBillNotifications } from './utils/useBillNotifications';
 
 type Tab = 'os' | 'estoque' | 'vendas' | 'financeiro' | 'config';
 
@@ -34,7 +35,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   printerSize: 58,
   pdfTextColor: '#000000',
   pdfBgColor: '#FFFFFF',
-  itemsPerPage: 32
+  itemsPerPage: 32,
+  enableBillNotifications: false
 };
 
 const App: React.FC = () => {
@@ -70,6 +72,8 @@ const App: React.FC = () => {
   const [sales, setSales] = useState<Sale[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>('vendas');
+
+  useBillNotifications(transactions, settings);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);

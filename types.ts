@@ -152,4 +152,5 @@ export interface AppSettings {
   salesLayout?: 'small' | 'medium' | 'list';
   osLayout?: 'small' | 'medium' | 'large';
   catalogSlug?: string;
+  enableBillNotifications?: boolean;
 }

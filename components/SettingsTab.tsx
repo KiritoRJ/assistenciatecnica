@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Image as ImageIcon, Camera, FileText, Palette, MoveHorizontal, MoreVertical, ArrowLeft, Check, Layout, Pipette, X, AlertCircle, Users, Shield, UserPlus, Trash2, User as UserIcon, Loader2, Lock, MapPin, Phone, KeyRound, Briefcase, Smartphone, Download, Upload, LogOut } from 'lucide-react';
+import { Image as ImageIcon, Camera, FileText, Palette, MoveHorizontal, MoreVertical, ArrowLeft, Check, Layout, Pipette, X, AlertCircle, Users, Shield, UserPlus, Trash2, User as UserIcon, Loader2, Lock, MapPin, Phone, KeyRound, Briefcase, Smartphone, Download, Upload, LogOut, Bell } from 'lucide-react';
 import { AppSettings, User, ServiceOrder, Product, Sale, Transaction } from '../types';
 import { OnlineDB } from '../utils/api';
 import { OfflineSync } from '../utils/offlineSync';
@@ -48,7 +48,7 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
     }
   };
 
-  const [view, setView] = useState<'main' | 'print' | 'theme' | 'users' | 'backup' | 'catalog'>('main');
+  const [view, setView] = useState<'main' | 'print' | 'theme' | 'users' | 'backup' | 'catalog' | 'notifications'>('main');
   const [showMenu, setShowMenu] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -816,6 +816,39 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
       </div>
     );
   }
+  if (view === 'notifications' && isAdmin) {
+    return (
+      <div className="space-y-6 animate-in slide-in-from-right-10 duration-500">
+        <div className="flex items-center gap-4 mb-8">
+          <button onClick={() => setView('main')} className="p-3 bg-white shadow-sm border border-slate-100 rounded-2xl text-slate-600 active:scale-90 transition-all"><ArrowLeft size={24} /></button>
+          <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Notificações</h2>
+        </div>
+        <div className="bg-white rounded-[3rem] p-8 shadow-sm border border-slate-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Contas a Pagar</h3>
+              <p className="text-xs text-slate-500 mt-1">Receber notificações 3 dias antes do vencimento.</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                className="sr-only peer" 
+                checked={settings.enableBillNotifications || false}
+                onChange={(e) => {
+                  updateSetting('enableBillNotifications', e.target.checked);
+                  if (e.target.checked && 'Notification' in window) {
+                    Notification.requestPermission();
+                  }
+                }}
+              />
+              <div className="w-14 h-7 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-500"></div>
+            </label>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (view === 'print' && isAdmin) {
     return (
       <div className="space-y-6 animate-in slide-in-from-right-10 duration-500">
@@ -874,6 +907,9 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
                     </button>
                     <button onClick={() => { setView('print'); setShowMenu(false); }} className={`w-full flex items-center gap-3 px-5 py-4 text-[10px] font-black text-slate-600 hover:bg-slate-50 transition-colors uppercase tracking-widest text-left border-l-4 ${(view as any) === 'print' ? 'border-blue-500 bg-blue-50' : 'border-transparent'}`}>
                       <FileText size={16} /> Dados do Recibo
+                    </button>
+                    <button onClick={() => { setView('notifications'); setShowMenu(false); }} className={`w-full flex items-center gap-3 px-5 py-4 text-[10px] font-black text-slate-600 hover:bg-slate-50 transition-colors uppercase tracking-widest text-left border-l-4 ${(view as any) === 'notifications' ? 'border-blue-500 bg-blue-50' : 'border-transparent'}`}>
+                      <Bell size={16} /> Notificações
                     </button>
                     <button onClick={() => { setView('catalog'); setShowMenu(false); }} className={`w-full flex items-center gap-3 px-5 py-4 text-[10px] font-black text-slate-600 hover:bg-slate-50 transition-colors uppercase tracking-widest text-left border-l-4 ${(view as any) === 'catalog' ? 'border-blue-500 bg-blue-50' : 'border-transparent'}`}>
                       <Briefcase size={16} /> Catálogo Online

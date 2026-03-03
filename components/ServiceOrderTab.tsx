@@ -126,9 +126,11 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
     if (editingOrder) {
       newOrdersList = orders.map(o => o.id === editingOrder.id ? { ...o, ...formData } as ServiceOrder : o);
     } else {
+      const nextIdNumber = orders.length + 1;
+      const formattedId = nextIdNumber.toString().padStart(2, '0');
       const newOrder: ServiceOrder = {
         ...formData, 
-        id: 'OS' + Math.random().toString(36).substr(2, 5).toUpperCase(),
+        id: formattedId,
         date: new Date().toISOString(), 
         total: formData.total || (formData.partsCost || 0) + (formData.serviceCost || 0),
       } as ServiceOrder;

@@ -1539,7 +1539,7 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                                   <ShoppingBag size={14} />
                                </div>
                                <div>
-                                  <p className="text-[9px] font-black text-slate-700 uppercase leading-tight">{sale.productName}</p>
+                                  <p className="text-[9px] font-black text-slate-700 uppercase leading-tight">Pedido #{sale.transactionId} - {sale.productName}</p>
                                   <p className="text-[7px] text-slate-400 font-bold uppercase mt-0.5">
                                     {formatDate(sale.date)} • Qtd: {sale.quantity}
                                   </p>
@@ -1571,7 +1571,7 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                                   <ClipboardList size={14} />
                                </div>
                                <div>
-                                  <p className="text-[9px] font-black text-slate-700 uppercase leading-tight">OS #{os.id.slice(-4)} - {os.customerName}</p>
+                                  <p className="text-[9px] font-black text-slate-700 uppercase leading-tight">OS #{os.id} - {os.customerName}</p>
                                   <p className="text-[7px] text-slate-400 font-bold uppercase mt-0.5">
                                     {formatDate(os.date)} • {os.deviceModel}
                                   </p>
@@ -1671,7 +1671,7 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                                   <ShoppingBag size={14} />
                                </div>
                                <div>
-                                  <p className="text-[9px] font-black text-slate-700 uppercase leading-tight">{sale.productName}</p>
+                                  <p className="text-[9px] font-black text-slate-700 uppercase leading-tight">Pedido #{sale.transactionId} - {sale.productName}</p>
                                   <p className="text-[7px] text-slate-400 font-bold uppercase mt-0.5">
                                     {formatDate(sale.date)} • Qtd: {sale.quantity}
                                   </p>
@@ -1702,7 +1702,7 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                                   <ClipboardList size={14} />
                                </div>
                                <div>
-                                  <p className="text-[9px] font-black text-slate-700 uppercase leading-tight">OS #{os.id.slice(-4)} - {os.customerName}</p>
+                                  <p className="text-[9px] font-black text-slate-700 uppercase leading-tight">OS #{os.id} - {os.customerName}</p>
                                   <p className="text-[7px] text-slate-400 font-bold uppercase mt-0.5">
                                     {formatDate(os.date)} • {os.deviceModel}
                                   </p>
@@ -1788,7 +1788,7 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                                   <ShoppingBag size={14} />
                                </div>
                                <div>
-                                  <p className="text-[9px] font-black text-slate-700 uppercase leading-tight">{sale.productName}</p>
+                                  <p className="text-[9px] font-black text-slate-700 uppercase leading-tight">Pedido #{sale.transactionId} - {sale.productName}</p>
                                   <p className="text-[7px] text-slate-400 font-bold uppercase mt-0.5">
                                     {formatDate(sale.date)} • Qtd: {sale.quantity}
                                   </p>
@@ -1822,7 +1822,7 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                                   <ClipboardList size={14} />
                                </div>
                                <div>
-                                  <p className="text-[9px] font-black text-slate-700 uppercase leading-tight">OS #{os.id.slice(-4)} - {os.customerName}</p>
+                                  <p className="text-[9px] font-black text-slate-700 uppercase leading-tight">OS #{os.id} - {os.customerName}</p>
                                   <p className="text-[7px] text-slate-400 font-bold uppercase mt-0.5">
                                     {formatDate(os.date)} • {os.deviceModel}
                                   </p>
