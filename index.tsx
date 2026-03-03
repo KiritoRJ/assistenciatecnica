@@ -26,19 +26,6 @@ const updateSW = registerSW({
   }
 });
 
-// Fallback manual registration
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js', { scope: '/' })
-      .then((registration) => {
-        console.log('PWA: Service Worker registrado manualmente com sucesso:', registration);
-      })
-      .catch((error) => {
-        console.error('PWA: Falha no registro manual do Service Worker:', error);
-      });
-  });
-}
-
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error("Could not find root element to mount to");

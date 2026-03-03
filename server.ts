@@ -6,6 +6,7 @@ import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import { OnlineDB, supabase } from './utils/api';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -464,15 +465,31 @@ async function startServer() {
     // Serve service worker and manifest explicitly to ensure correct MIME types and no caching issues
     // Defined BEFORE express.static to ensure headers are applied
     app.get('/sw.js', (req, res) => {
-      console.log('Serving sw.js');
       res.setHeader('Content-Type', 'application/javascript');
       res.setHeader('Service-Worker-Allowed', '/');
-      res.sendFile(path.join(distPath, 'sw.js'), (err) => {
-        if (err) {
-          console.error('Error serving sw.js:', err);
-          res.status(404).end();
-        }
-      });
+      
+      const swPath = path.join(distPath, 'sw.js');
+      if (fs.existsSync(swPath)) {
+        res.sendFile(swPath, (err) => {
+          if (err) {
+            console.error('Error serving sw.js:', err);
+            res.status(404).end();
+          }
+        });
+      } else {
+        // Fallback to a no-op service worker if the file is missing in dist
+        res.send(`
+          self.addEventListener('install', (event) => {
+            self.skipWaiting();
+          });
+          self.addEventListener('activate', (event) => {
+            event.waitUntil(self.clients.claim());
+          });
+          self.addEventListener('fetch', (event) => {
+            // No-op fetch handler
+          });
+        `);
+      }
     });
 
     app.get('/manifest.webmanifest', (req, res) => {
