@@ -836,8 +836,12 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
                 checked={settings.enableBillNotifications || false}
                 onChange={(e) => {
                   updateSetting('enableBillNotifications', e.target.checked);
-                  if (e.target.checked && 'Notification' in window) {
-                    Notification.requestPermission();
+                  if (e.target.checked) {
+                    if ('Notification' in window) {
+                      Notification.requestPermission();
+                    } else {
+                      alert('Seu navegador não suporta notificações push. No iPhone/iPad, você precisa instalar o aplicativo na tela inicial e abrir por lá para receber notificações.');
+                    }
                   }
                 }}
               />

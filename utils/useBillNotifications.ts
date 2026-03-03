@@ -53,5 +53,5 @@ export function useBillNotifications(transactions: Transaction[], settings: AppS
     // And check every hour while the app is open
     const interval = setInterval(checkBills, 60 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [transactions]);
+  }, [transactions, settings?.enableBillNotifications]);
 }
