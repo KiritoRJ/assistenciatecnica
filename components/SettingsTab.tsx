@@ -835,10 +835,17 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
                 className="sr-only peer" 
                 checked={settings.enableBillNotifications || false}
                 onChange={(e) => {
-                  updateSetting('enableBillNotifications', e.target.checked);
-                  if (e.target.checked) {
+                  const checked = e.target.checked;
+                  updateSetting('enableBillNotifications', checked);
+                  if (checked) {
                     if ('Notification' in window) {
-                      Notification.requestPermission();
+                      Notification.requestPermission().then(permission => {
+                        if (permission === 'granted') {
+                          alert('Notificações ativadas com sucesso!');
+                        } else if (permission === 'denied') {
+                          alert('Você bloqueou as notificações. Por favor, ative-as nas configurações do seu navegador/celular para este site.');
+                        }
+                      });
                     } else {
                       alert('Seu navegador não suporta notificações push. No iPhone/iPad, você precisa instalar o aplicativo na tela inicial e abrir por lá para receber notificações.');
                     }
@@ -863,10 +870,24 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
                 alert('Você precisa permitir as notificações primeiro.');
                 return;
               }
-              new Notification('Teste de Notificação', {
+              
+              const title = 'Teste de Notificação';
+              const options = {
                 body: 'Parabéns! As notificações estão funcionando corretamente no seu aparelho.',
-                icon: '/icon.svg'
-              });
+                icon: '/icon.svg',
+                badge: '/icon.svg',
+                vibrate: [200, 100, 200]
+              };
+
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.ready.then((registration) => {
+                  registration.showNotification(title, options);
+                }).catch(() => {
+                  new Notification(title, options);
+                });
+              } else {
+                new Notification(title, options);
+              }
             }}
             className="w-full py-4 bg-blue-50 text-blue-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-600 hover:text-white transition-all"
           >
@@ -1105,6 +1126,36 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
             Instalar App
           </button>
         )}
+
+        {/* VERSÃO E ATUALIZAÇÃO */}
+        <div className="pt-8 pb-4 text-center space-y-4">
+           <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full">
+              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Versão 2.1.0 - Estável</span>
+           </div>
+           <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest leading-relaxed">
+              Se as novas funções não aparecerem,<br/>clique no botão abaixo para atualizar.
+           </p>
+           <button 
+             onClick={() => {
+               if ('serviceWorker' in navigator) {
+                 navigator.serviceWorker.getRegistrations().then(registrations => {
+                   for(let registration of registrations) {
+                     registration.update();
+                   }
+                   alert('Verificando atualizações... O app irá reiniciar se houver uma nova versão.');
+                   window.location.reload();
+                 });
+               } else {
+                 window.location.reload();
+               }
+             }}
+             className="flex items-center gap-2 mx-auto px-4 py-2 text-slate-400 hover:text-blue-600 transition-colors"
+           >
+              <Download size={14} />
+              <span className="text-[9px] font-black uppercase tracking-widest">Forçar Atualização</span>
+           </button>
+        </div>
       </div>
     </div>
   );

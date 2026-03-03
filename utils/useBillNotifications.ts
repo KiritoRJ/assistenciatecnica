@@ -31,10 +31,26 @@ export function useBillNotifications(transactions: Transaction[], settings: AppS
           if (diffDays >= 0 && diffDays <= 3) {
             const notificationKey = `${t.id}-${diffDays}`;
             if (!notifiedBills[notificationKey]) {
-              new Notification('Conta a Pagar Próxima', {
+              const title = 'Conta a Pagar Próxima';
+              const options = {
                 body: `A conta "${t.description}" vence ${diffDays === 0 ? 'hoje' : `em ${diffDays} dia(s)`}. Valor: R$ ${t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
                 icon: '/icon.svg',
-              });
+                badge: '/icon.svg',
+                vibrate: [200, 100, 200],
+                tag: notificationKey,
+                renotify: true
+              };
+
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.ready.then((registration) => {
+                  registration.showNotification(title, options);
+                }).catch(() => {
+                  new Notification(title, options);
+                });
+              } else {
+                new Notification(title, options);
+              }
+
               notifiedBills[notificationKey] = true;
               hasUpdates = true;
             }
