@@ -105,6 +105,13 @@ export interface Transaction {
   category?: string;
   paymentMethod?: string;
   isDeleted?: boolean;
+  dueDate?: string;
+  status?: 'pending' | 'paid' | 'overdue';
+  installments?: {
+    current: number;
+    total: number;
+  };
+  recurrence?: 'monthly' | 'yearly';
 }
 
 export interface AppSettings {

@@ -11,12 +11,12 @@ export const parseCurrencyString = (str: string): number => {
   return parseInt(cleanStr || '0', 10) / 100;
 };
 
-export const formatDate = (dateString: string): string => {
-  return new Date(dateString).toLocaleDateString('pt-BR');
+export const formatDate = (date: string | Date): string => {
+  return new Date(date).toLocaleDateString('pt-BR');
 };
 
-export const formatDateTime = (dateString: string): string => {
-  return new Date(dateString).toLocaleString('pt-BR');
+export const formatDateTime = (date: string | Date): string => {
+  return new Date(date).toLocaleString('pt-BR');
 };
 
 export const playBeepSound = () => {

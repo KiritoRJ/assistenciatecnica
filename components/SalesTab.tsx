@@ -608,18 +608,18 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
           )}
 
           {/* BARRA DE CARRINHO (RODAPÉ) */}
-          <div className="fixed bottom-20 left-0 right-0 p-4 z-40 pointer-events-none">
-            <div className="max-w-xl mx-auto pointer-events-auto">
-              <div className="bg-slate-950 rounded-[2.5rem] shadow-2xl overflow-hidden">
-                <div className="p-4 flex items-center justify-between cursor-pointer" onClick={() => setShowCartDrawer(!showCartDrawer)}>
+          <div className="fixed bottom-20 left-0 right-0 md:bottom-6 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-[600px] p-4 z-40 pointer-events-none">
+            <div className="max-w-xl mx-auto pointer-events-auto md:max-w-none">
+              <div className="bg-slate-950 rounded-[2.5rem] shadow-2xl overflow-hidden border border-white/10">
+                <div className="py-2 px-4 md:py-2 md:px-6 flex items-center justify-between cursor-pointer" onClick={() => setShowCartDrawer(!showCartDrawer)}>
                   <div className="flex items-center gap-4">
                     <div className="relative">
-                      <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-emerald-500"><ShoppingCart size={20} /></div>
+                      <div className="w-8 h-8 md:w-8 md:h-8 bg-white/10 rounded-xl flex items-center justify-center text-emerald-500"><ShoppingCart size={16} className="md:w-4 md:h-4" /></div>
                       <span className="absolute -top-2 -right-2 bg-emerald-500 text-white text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-slate-950">{cart.length}</span>
                     </div>
-                    <div>
-                      <p className="text-[8px] font-black uppercase text-slate-500">TOTAL</p>
-                      <p className="text-lg font-black text-white">{formatCurrency(cartTotal)}</p>
+                    <div className="flex flex-col md:flex-row md:items-center md:gap-2">
+                      <p className="text-[8px] font-black uppercase text-slate-500 md:text-[9px]">TOTAL</p>
+                      <p className="text-base font-black text-white md:text-base">{formatCurrency(cartTotal)}</p>
                     </div>
                   </div>
                   <button 
@@ -631,25 +631,27 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
                       }
                     }} 
                     disabled={cart.length === 0} 
-                    className="bg-emerald-500 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase disabled:opacity-20 shadow-xl shadow-emerald-500/20"
+                    className="bg-emerald-500 text-white px-4 py-2 md:px-8 md:py-2 rounded-xl font-black text-[10px] uppercase disabled:opacity-20 shadow-xl shadow-emerald-500/20 hover:bg-emerald-400 transition-colors"
                   >
                     COBRAR
                   </button>
                 </div>
                 {showCartDrawer && (
-                  <div className="px-5 pb-6 max-h-[30vh] overflow-y-auto space-y-2">
+                  <div className="px-5 pb-6 max-h-[30vh] md:max-h-[40vh] overflow-y-auto space-y-2 custom-scrollbar">
                     {cart.map(item => (
                       <div key={item.product.id} className="bg-white/5 p-3 rounded-xl flex items-center justify-between">
                         <div className="flex items-center gap-3 min-w-0">
-                          <h4 className="text-[9px] font-black text-white uppercase truncate">{item.product.name}</h4>
+                          <h4 className="text-[9px] font-black text-white uppercase truncate max-w-[200px]" title={item.product.name}>
+                            {item.product.name.length > 25 ? item.product.name.substring(0, 25) + '...' : item.product.name}
+                          </h4>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
                            <div className="flex items-center bg-slate-900 rounded-lg p-1 border border-white/5">
-                             <button onClick={() => updateCartQuantity(item.product.id, -1)} className="p-1 text-slate-400"><Minus size={12} /></button>
-                             <span className="w-6 text-center text-[10px] font-black text-white">{item.quantity}</span>
-                             <button onClick={() => updateCartQuantity(item.product.id, 1)} className="p-1 text-slate-400"><Plus size={12} /></button>
+                             <button onClick={() => updateCartQuantity(item.product.id, -1)} className="p-1 text-slate-400 hover:text-white"><Minus size={10} /></button>
+                             <span className="w-5 text-center text-[9px] font-black text-white">{item.quantity}</span>
+                             <button onClick={() => updateCartQuantity(item.product.id, 1)} className="p-1 text-slate-400 hover:text-white"><Plus size={10} /></button>
                            </div>
-                           <button onClick={() => removeFromCart(item.product.id)} className="text-red-500"><Trash2 size={14} /></button>
+                           <button onClick={() => removeFromCart(item.product.id)} className="text-red-500 hover:text-red-400"><Trash2 size={12} /></button>
                         </div>
                       </div>
                     ))}

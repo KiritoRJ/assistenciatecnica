@@ -685,7 +685,11 @@ export class OnlineDB {
         date: d.date,
         category: d.category,
         paymentMethod: d.payment_method,
-        isDeleted: d.is_deleted || false
+        isDeleted: d.is_deleted || false,
+        status: d.status || 'paid',
+        dueDate: d.due_date,
+        installments: d.installments,
+        recurrence: d.recurrence
       }));
     } catch (e) {
       console.error("Erro ao buscar transações do Supabase:", e);
@@ -808,7 +812,11 @@ export class OnlineDB {
         date: t.date,
         category: t.category,
         payment_method: t.paymentMethod,
-        is_deleted: t.isDeleted || false
+        is_deleted: t.isDeleted || false,
+        status: t.status,
+        due_date: t.dueDate,
+        installments: t.installments,
+        recurrence: t.recurrence
       }));
       const { error } = await supabase.from('transactions').upsert(payload, { onConflict: 'id' });
       if (error) throw error;

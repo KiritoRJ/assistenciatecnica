@@ -488,9 +488,10 @@ const App: React.FC = () => {
   const saveTransactions = async (newTransactions: Transaction[]) => {
     setTransactions(newTransactions);
     if (session?.tenantId) {
-      for (const transaction of newTransactions) {
-        await OfflineSync.saveTransaction(session.tenantId, transaction);
-      }
+      // Sincroniza em background para não travar a UI
+      newTransactions.forEach(transaction => {
+        OfflineSync.saveTransaction(session.tenantId!, transaction).catch(console.error);
+      });
     }
   };
 
@@ -714,71 +715,91 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans flex flex-col md:flex-row">
-      <aside className={`hidden md:flex flex-col ${isSidebarCollapsed ? 'w-24' : 'w-72'} bg-slate-900 text-white p-6 h-screen sticky top-0 overflow-y-auto transition-all duration-300 ease-in-out hide-scrollbar [&::-webkit-scrollbar]:hidden`}>
-        <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} mb-12`}>
-          {!isSidebarCollapsed && (
-            <div className="flex items-center gap-4 overflow-hidden animate-in fade-in">
-              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shrink-0">
-                {settings.logoUrl ? <img src={settings.logoUrl} className="w-full h-full object-cover rounded-xl" /> : <Smartphone size={20} />}
-              </div>
-              <h1 className="text-sm font-black tracking-tighter uppercase leading-tight truncate">{settings.storeName}</h1>
+      <aside className={`hidden md:flex flex-col ${isSidebarCollapsed ? 'w-0 p-0 border-none opacity-0 pointer-events-none overflow-hidden' : 'w-72 p-6 opacity-100 overflow-y-auto'} bg-slate-900 text-white h-[100dvh] sticky top-0 transition-all duration-300 ease-in-out hide-scrollbar [&::-webkit-scrollbar]:hidden`}>
+        <div className="flex items-center justify-between mb-12 min-w-[240px]">
+          <div className="flex items-center gap-4 overflow-hidden animate-in fade-in">
+            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shrink-0">
+              {settings.logoUrl ? <img src={settings.logoUrl} className="w-full h-full object-cover rounded-xl" /> : <Smartphone size={20} />}
             </div>
-          )}
-          <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all">
-            {isSidebarCollapsed ? <Menu size={24} /> : <X size={20} />}
+            <h1 className="text-sm font-black tracking-tighter uppercase leading-tight truncate">{settings.storeName}</h1>
+          </div>
+          <button onClick={() => setIsSidebarCollapsed(true)} className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all">
+            <X size={20} />
           </button>
         </div>
-        <nav className="flex-1 space-y-2">
+        <nav className="flex-1 space-y-2 min-w-[240px]">
           {visibleNavItems.map(item => (
-            <button key={item.id} onClick={() => setActiveTab(item.id as Tab)} className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-4 px-6'} py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === item.id ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
+            <button key={item.id} onClick={() => setActiveTab(item.id as Tab)} className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === item.id ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
               <item.icon size={20} className="shrink-0" />
-              {!isSidebarCollapsed && <span className="animate-in fade-in whitespace-nowrap">{item.label}</span>}
+              <span className="animate-in fade-in whitespace-nowrap">{item.label}</span>
             </button>
           ))}
         </nav>
-        <div className="mt-8 pt-8 border-t border-white/5">
-          <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-4'} mb-6`}>
+        <div className="mt-8 pt-8 border-t border-white/5 min-w-[240px]">
+          <div className="flex items-center gap-3 px-4 mb-6">
             <div className="w-10 h-10 bg-slate-800 rounded-xl overflow-hidden border border-white/10 shrink-0">
               {currentUser.photo ? <img src={currentUser.photo} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-600 font-black text-xs">?</div>}
             </div>
-            {!isSidebarCollapsed && (
-              <div className="min-w-0 animate-in fade-in">
-                <p className="text-[9px] font-black uppercase text-white truncate">{currentUser.name}</p>
-                <p className="text-[7px] font-bold uppercase text-slate-500 truncate">{currentUser.specialty || (currentUser.role === 'admin' ? 'Administrador' : 'Colaborador')}</p>
-              </div>
-            )}
+            <div className="min-w-0 animate-in fade-in">
+              <p className="text-[9px] font-black uppercase text-white truncate">{currentUser.name}</p>
+              <p className="text-[7px] font-bold uppercase text-slate-500 truncate">{currentUser.specialty || (currentUser.role === 'admin' ? 'Administrador' : 'Colaborador')}</p>
+            </div>
           </div>
-          <button onClick={() => setIsLogoutModalOpen(true)} className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-4 px-6'} py-4 text-slate-500 hover:text-red-400 font-black text-[10px] uppercase tracking-widest transition-colors`}>
+          <button onClick={() => setIsLogoutModalOpen(true)} className="w-full flex items-center gap-4 px-6 py-4 text-slate-500 hover:text-red-400 font-black text-[10px] uppercase tracking-widest transition-colors">
             <LogOut size={20} className="shrink-0" />
-            {!isSidebarCollapsed && <span className="animate-in fade-in">Sair</span>}
+            <span className="animate-in fade-in">Sair</span>
           </button>
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+      <main className="flex-1 flex flex-col h-[100dvh] overflow-hidden relative">
+        {/* Botão de Menu Flutuante (Desktop quando fechado) */}
+        <div className={`absolute top-4 left-4 z-30 hidden md:block ${!isSidebarCollapsed ? 'md:hidden' : ''}`}>
+          <button 
+            onClick={() => {
+              // Se for mobile (tela pequena), abre o menu lateral (overlay)
+              // Se for desktop (tela média+), expande a sidebar
+              if (window.innerWidth < 768) {
+                setIsSidebarOpen(true);
+              } else {
+                setIsSidebarCollapsed(false);
+              }
+            }}
+            className="w-12 h-12 bg-white text-slate-800 rounded-2xl shadow-xl border border-slate-100 flex items-center justify-center hover:bg-slate-50 transition-all active:scale-95"
+          >
+            <Menu size={24} />
+          </button>
+        </div>
+
         {(session.subscriptionStatus === 'trial' || session.enabledFeatures?.promoBanner) && (
           <div 
             onClick={() => setIsSubscriptionModalOpen(true)}
-            className="bg-zinc-900 border-b border-white/10 text-white px-4 py-3 text-center cursor-pointer hover:bg-zinc-800 transition-all shrink-0 shadow-md z-10 flex items-center justify-center gap-2"
+            className="bg-zinc-900 border-b border-white/10 text-white px-4 py-3 text-center cursor-pointer hover:bg-zinc-800 transition-all shrink-0 shadow-md z-10 flex items-center justify-center gap-2 pl-20 md:pl-4"
           >
             <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest">
               {session.subscriptionStatus === 'trial' ? 'Você está no período de teste. Clique aqui para assinar e não perder o acesso!' : 'Aproveite nossas ofertas exclusivas! Clique aqui para ver os planos.'}
             </span>
           </div>
         )}
-        <div className="flex-1 overflow-y-auto p-4 pt-4 pb-28 md:pt-10 md:pb-4 max-w-7xl mx-auto w-full animate-in fade-in duration-700 hide-scrollbar [&::-webkit-scrollbar]:hidden">
+        <div className={`flex-1 overflow-y-auto p-4 pt-4 pb-24 md:pt-10 md:pb-4 max-w-7xl mx-auto w-full animate-in fade-in duration-700 hide-scrollbar [&::-webkit-scrollbar]:hidden ${isSidebarCollapsed ? 'md:pl-20' : 'md:pl-4'}`}>
           {activeTab === 'os' && <ServiceOrderTab orders={orders.filter(o => !o.isDeleted)} setOrders={saveOrders} settings={settings} onUpdateSettings={saveSettings} onDeleteOrder={removeOrder} tenantId={session.tenantId || ''} maxOS={session.maxOS} />}
           {activeTab === 'estoque' && <StockTab products={products} setProducts={saveProducts} onDeleteProduct={removeProduct} settings={settings} onUpdateSettings={saveSettings} maxProducts={session.maxProducts} />}
           {activeTab === 'vendas' && <SalesTab products={products} setProducts={saveProducts} sales={sales.filter(s => !s.isDeleted)} setSales={saveSales} settings={settings} onUpdateSettings={saveSettings} currentUser={currentUser} onDeleteSale={removeSale} tenantId={session.tenantId || ''} />}
-          {activeTab === 'financeiro' && <FinanceTab orders={orders} sales={sales} products={products} transactions={transactions} setTransactions={saveTransactions} onDeleteTransaction={removeTransaction} onDeleteSale={removeSale} tenantId={session.tenantId || ''} settings={settings} enabledFeatures={session.enabledFeatures} />}
+          {activeTab === 'financeiro' && <FinanceTab orders={orders} sales={sales} products={products} transactions={transactions} setTransactions={saveTransactions} setOrders={saveOrders} onDeleteTransaction={removeTransaction} onDeleteSale={removeSale} tenantId={session.tenantId || ''} settings={settings} enabledFeatures={session.enabledFeatures} />}
           {activeTab === 'config' && <SettingsTab products={products} setProducts={saveProducts} settings={settings} setSettings={saveSettings} isCloudConnected={isCloudConnected} currentUser={currentUser} onSwitchProfile={handleSwitchProfile} tenantId={session.tenantId} deferredPrompt={deferredPrompt} onInstallApp={handleInstallApp} subscriptionStatus={session.subscriptionStatus} subscriptionExpiresAt={session.subscriptionExpiresAt} lastPlanType={session.lastPlanType} enabledFeatures={session.enabledFeatures} maxUsers={session.maxUsers} maxOS={session.maxOS} maxProducts={session.maxProducts} onLogout={() => setIsLogoutModalOpen(true)} />}
         </div>
       </main>
 
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-6 py-4 flex justify-between items-center z-40">
+      {/* Bottom Navigation (Mobile Only) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-2 py-3 z-40 flex items-center justify-around shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
         {visibleNavItems.map(item => (
-          <button key={item.id} onClick={() => setActiveTab(item.id as Tab)} className={`p-2 transition-all ${activeTab === item.id ? 'text-blue-600 scale-110' : 'text-slate-300'}`}>
-            <item.icon size={24} strokeWidth={activeTab === item.id ? 3 : 2} />
+          <button 
+            key={item.id} 
+            onClick={() => setActiveTab(item.id as Tab)} 
+            className={`flex flex-col items-center gap-1 transition-all ${activeTab === item.id ? 'text-blue-600 scale-110' : 'text-slate-400'}`}
+          >
+            <item.icon size={20} />
+            <span className="text-[8px] font-black uppercase tracking-widest">{item.label}</span>
           </button>
         ))}
       </nav>
