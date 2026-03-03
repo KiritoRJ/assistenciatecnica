@@ -849,6 +849,30 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
             </label>
           </div>
         </div>
+
+        <div className="bg-white rounded-[3rem] p-8 shadow-sm border border-slate-100 space-y-4">
+          <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Teste de Sistema</h3>
+          <p className="text-xs text-slate-500">Clique no botão abaixo para verificar se as notificações estão funcionando corretamente no seu aparelho.</p>
+          <button 
+            onClick={() => {
+              if (!('Notification' in window)) {
+                alert('Seu navegador não suporta notificações.');
+                return;
+              }
+              if (Notification.permission !== 'granted') {
+                alert('Você precisa permitir as notificações primeiro.');
+                return;
+              }
+              new Notification('Teste de Notificação', {
+                body: 'Parabéns! As notificações estão funcionando corretamente no seu aparelho.',
+                icon: '/icon.svg'
+              });
+            }}
+            className="w-full py-4 bg-blue-50 text-blue-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-600 hover:text-white transition-all"
+          >
+            Enviar Notificação de Teste
+          </button>
+        </div>
       </div>
     );
   }
@@ -1030,6 +1054,21 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
 
         {/* OUTRAS CONFIGURAÇÕES */}
         <div className="grid grid-cols-2 gap-3">
+           {isAdmin && (
+             <button 
+               onClick={() => setView('notifications')}
+               className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center gap-2 hover:bg-slate-50 active:scale-95 transition-all group"
+             >
+                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                  <Bell size={20} />
+                </div>
+                <div>
+                  <p className="text-[9px] font-black text-slate-800 uppercase tracking-widest">Notificações</p>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Configurar Alertas</p>
+                </div>
+             </button>
+           )}
+
            <div className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm space-y-3">
               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Layout size={12}/> Paginação</label>
               <div className="grid grid-cols-2 gap-2">
