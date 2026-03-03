@@ -10,7 +10,7 @@ import SettingsTab from './components/SettingsTab';
 import SuperAdminDashboard from './components/SuperAdminDashboard';
 import SubscriptionView from './components/SubscriptionView';
 import CustomerCatalog from './components/CustomerCatalog';
-import { OnlineDB } from './utils/api';
+import { OnlineDB, supabase } from './utils/api';
 import { OfflineSync } from './utils/offlineSync';
 import { db } from './utils/localDb';
 import { useAppNotifications } from './utils/useAppNotifications';
@@ -266,12 +266,54 @@ const App: React.FC = () => {
       setSales(localData.sales || []);
       setTransactions(localData.transactions || []);
     }
-  }, []);
+  }, [session?.printerSize]);
 
   useEffect(() => {
     if (session?.isLoggedIn && session.tenantId) {
       loadData(session.tenantId);
     }
+  }, [session?.isLoggedIn, session?.tenantId, loadData]);
+
+  // Real-time listener for data updates
+  useEffect(() => {
+    if (!session?.isLoggedIn || !session.tenantId) return;
+
+    const tenantId = session.tenantId;
+    let timeout: any;
+
+    const debouncedLoad = () => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => loadData(tenantId), 1000);
+    };
+    
+    const channel = supabase
+      .channel(`tenant-${tenantId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'service_orders', filter: `tenant_id=eq.${tenantId}` },
+        debouncedLoad
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'sales', filter: `tenant_id=eq.${tenantId}` },
+        debouncedLoad
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products', filter: `tenant_id=eq.${tenantId}` },
+        debouncedLoad
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'transactions', filter: `tenant_id=eq.${tenantId}` },
+        debouncedLoad
+      )
+      .subscribe();
+
+    return () => {
+      clearTimeout(timeout);
+      supabase.removeChannel(channel);
+    };
   }, [session?.isLoggedIn, session?.tenantId, loadData]);
 
   useEffect(() => {

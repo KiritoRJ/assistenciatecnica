@@ -22,7 +22,7 @@ export function useAppNotifications(
 
       // Mark existing OS and Sales as notified
       orders.forEach(o => {
-        const key = `new-os-${o.id}`;
+        const key = `os-${o.id}-${o.status}`;
         if (!notifiedItems[key]) {
           notifiedItems[key] = true;
           hasUpdates = true;
@@ -130,13 +130,16 @@ export function useAppNotifications(
         });
       }
 
-      // 4. Novas Ordens de Serviço (New OS)
+      // 4. Novas Ordens de Serviço e Mudanças de Status (New OS & Status Changes)
       if (settings.enableNewOSNotifications) {
         orders.forEach((o) => {
           if (!o.isDeleted) {
-            const key = `new-os-${o.id}`;
-            showNotification('Nova Ordem de Serviço', {
-              body: `Cliente: ${o.customerName}\nAparelho: ${o.deviceBrand} ${o.deviceModel}`,
+            // Incluímos o status na chave para notificar se o status mudar
+            const key = `os-${o.id}-${o.status}`;
+            const statusLabel = o.status;
+
+            showNotification(`O.S. ${statusLabel}`, {
+              body: `Cliente: ${o.customerName}\nAparelho: ${o.deviceBrand} ${o.deviceModel}\nStatus: ${statusLabel}`,
               icon: '/icon.svg',
             }, key);
           }
