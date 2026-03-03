@@ -13,7 +13,7 @@ import CustomerCatalog from './components/CustomerCatalog';
 import { OnlineDB } from './utils/api';
 import { OfflineSync } from './utils/offlineSync';
 import { db } from './utils/localDb';
-import { useBillNotifications } from './utils/useBillNotifications';
+import { useAppNotifications } from './utils/useAppNotifications';
 
 type Tab = 'os' | 'estoque' | 'vendas' | 'financeiro' | 'config';
 
@@ -73,7 +73,6 @@ const App: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>('vendas');
 
-  useBillNotifications(transactions, settings);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
@@ -85,6 +84,9 @@ const App: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  const currentUser = session?.user || (settings?.users?.[0] || null);
+  useAppNotifications(transactions, products, orders, sales, settings, currentUser);
 
   const pathname = window.location.pathname;
   let catalogTenantId = new URLSearchParams(window.location.search).get('catalog');
@@ -702,7 +704,6 @@ const App: React.FC = () => {
     );
   }
 
-  const currentUser = session.user || settings.users[0];
   const navItems = [
     { id: 'os', label: 'Ordens', icon: Smartphone, roles: ['admin', 'colaborador'], feature: 'osTab' },
     { id: 'estoque', label: 'Estoque', icon: Package, roles: ['admin'], feature: 'stockTab' },
@@ -712,8 +713,9 @@ const App: React.FC = () => {
   ];
   
   const visibleNavItems = navItems.filter(item => {
+    if (!currentUser) return false;
     const roleAllowed = item.roles.includes(currentUser.role);
-    const featureAllowed = !item.feature || (session.enabledFeatures as any)?.[item.feature] !== false;
+    const featureAllowed = !item.feature || (session?.enabledFeatures as any)?.[item.feature] !== false;
     return roleAllowed && featureAllowed;
   });
 

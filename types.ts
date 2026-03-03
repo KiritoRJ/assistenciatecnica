@@ -153,4 +153,8 @@ export interface AppSettings {
   osLayout?: 'small' | 'medium' | 'large';
   catalogSlug?: string;
   enableBillNotifications?: boolean;
+  enableReceivableNotifications?: boolean;
+  enableLowStockNotifications?: boolean;
+  enableNewOSNotifications?: boolean;
+  enableNewSaleNotifications?: boolean;
 }

@@ -823,11 +823,12 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
           <button onClick={() => setView('main')} className="p-3 bg-white shadow-sm border border-slate-100 rounded-2xl text-slate-600 active:scale-90 transition-all"><ArrowLeft size={24} /></button>
           <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Notificações</h2>
         </div>
-        <div className="bg-white rounded-[3rem] p-8 shadow-sm border border-slate-100">
+        <div className="bg-white rounded-[3rem] p-8 shadow-sm border border-slate-100 space-y-6">
+          {/* Contas a Pagar */}
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Contas a Pagar</h3>
-              <p className="text-xs text-slate-500 mt-1">Receber notificações 3 dias antes do vencimento.</p>
+              <p className="text-xs text-slate-500 mt-1">Alertas 3 dias antes do vencimento.</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input 
@@ -851,6 +852,82 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
                     }
                   }
                 }}
+              />
+              <div className="w-14 h-7 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-500"></div>
+            </label>
+          </div>
+
+          <div className="h-px bg-slate-100 w-full"></div>
+
+          {/* Contas a Receber */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Contas a Receber</h3>
+              <p className="text-xs text-slate-500 mt-1">Alertas de pagamentos de clientes.</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                className="sr-only peer" 
+                checked={settings.enableReceivableNotifications || false}
+                onChange={(e) => updateSetting('enableReceivableNotifications', e.target.checked)}
+              />
+              <div className="w-14 h-7 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-500"></div>
+            </label>
+          </div>
+
+          <div className="h-px bg-slate-100 w-full"></div>
+
+          {/* Estoque Baixo */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Estoque Baixo</h3>
+              <p className="text-xs text-slate-500 mt-1">Avisar quando houver menos de 3 unidades.</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                className="sr-only peer" 
+                checked={settings.enableLowStockNotifications || false}
+                onChange={(e) => updateSetting('enableLowStockNotifications', e.target.checked)}
+              />
+              <div className="w-14 h-7 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-500"></div>
+            </label>
+          </div>
+
+          <div className="h-px bg-slate-100 w-full"></div>
+
+          {/* Novas OS */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Novas O.S.</h3>
+              <p className="text-xs text-slate-500 mt-1">Alertar quando colaboradores criarem O.S.</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                className="sr-only peer" 
+                checked={settings.enableNewOSNotifications || false}
+                onChange={(e) => updateSetting('enableNewOSNotifications', e.target.checked)}
+              />
+              <div className="w-14 h-7 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-500"></div>
+            </label>
+          </div>
+
+          <div className="h-px bg-slate-100 w-full"></div>
+
+          {/* Novas Vendas */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Novas Vendas</h3>
+              <p className="text-xs text-slate-500 mt-1">Alertar quando colaboradores fizerem vendas.</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                className="sr-only peer" 
+                checked={settings.enableNewSaleNotifications || false}
+                onChange={(e) => updateSetting('enableNewSaleNotifications', e.target.checked)}
               />
               <div className="w-14 h-7 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-500"></div>
             </label>
@@ -1075,21 +1152,6 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
 
         {/* OUTRAS CONFIGURAÇÕES */}
         <div className="grid grid-cols-2 gap-3">
-           {isAdmin && (
-             <button 
-               onClick={() => setView('notifications')}
-               className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center gap-2 hover:bg-slate-50 active:scale-95 transition-all group"
-             >
-                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                  <Bell size={20} />
-                </div>
-                <div>
-                  <p className="text-[9px] font-black text-slate-800 uppercase tracking-widest">Notificações</p>
-                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Configurar Alertas</p>
-                </div>
-             </button>
-           )}
-
            <div className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm space-y-3">
               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Layout size={12}/> Paginação</label>
               <div className="grid grid-cols-2 gap-2">
