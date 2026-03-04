@@ -59,6 +59,8 @@ export interface ServiceOrder {
   status: 'Pendente' | 'Concluído' | 'Entregue';
   photos: string[];
   finishedPhotos?: string[];
+  checklist?: string[];
+  signature?: string;
   isDeleted?: boolean;
 }
 

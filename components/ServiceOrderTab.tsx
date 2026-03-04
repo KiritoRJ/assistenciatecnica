@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Search, Trash2, Camera, X, Eye, Loader2, Smartphone, AlertTriangle, Calculator, CheckCircle, Image as ImageIcon, Calendar, KeyRound, Lock, Download, Maximize2, Layout } from 'lucide-react';
+import { Plus, Search, Trash2, Camera, X, Eye, Loader2, Smartphone, AlertTriangle, Calculator, CheckCircle, Image as ImageIcon, Calendar, KeyRound, Lock, Download, Maximize2, Layout, Check } from 'lucide-react';
 import { ServiceOrder, AppSettings } from '../types';
 import { formatCurrency, parseCurrencyString, formatDate } from '../utils';
 
@@ -13,6 +13,12 @@ interface Props {
   tenantId: string;
   maxOS?: number;
 }
+
+const COMMON_DEFECTS = [
+  'Não Liga', 'Tela Quebrada', 'Bateria Viciada', 'Conector de Carga', 
+  'Câmera com Defeito', 'Botões Falhando', 'Som Baixo/Mudo', 'Sinal de Rede', 
+  'Wi-Fi não conecta', 'Software/Travando', 'Oxidação/Molhou', 'Vidro Traseiro'
+];
 
 const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdateSettings, onDeleteOrder, tenantId, maxOS }) => {
   // --- ESTADOS DE CONTROLE DE INTERFACE ---
@@ -32,6 +38,9 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
   const [statusChangeOrder, setStatusChangeOrder] = useState<ServiceOrder | null>(null);
   const [fullScreenPhoto, setFullScreenPhoto] = useState<string | null>(null);
   const [osLayout, setOsLayout] = useState<'small' | 'medium' | 'large'>(settings.osLayout || 'medium');
+  const [isSigning, setIsSigning] = useState(false);
+  const signatureRef = React.useRef<HTMLCanvasElement>(null);
+
   const osCount = orders.length;
   const limitReached = maxOS !== undefined && osCount >= maxOS;
 
@@ -47,7 +56,8 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
   const [formData, setFormData] = useState<Partial<ServiceOrder>>({
     customerName: '', phoneNumber: '', address: '', deviceBrand: '', deviceModel: '',
     defect: '', repairDetails: '', partsCost: 0, serviceCost: 0, status: 'Pendente',
-    photos: [], finishedPhotos: [], entryDate: '', exitDate: ''
+    photos: [], finishedPhotos: [], entryDate: '', exitDate: '',
+    checklist: [], signature: ''
   });
 
   // Manipula mudanças nos campos de texto e select
@@ -153,9 +163,80 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
       defect: '', status: 'Pendente', photos: [], finishedPhotos: [], 
       partsCost: 0, serviceCost: 0, total: 0, 
       entryDate: today, 
-      exitDate: '' 
+      exitDate: '',
+      checklist: [],
+      signature: ''
     });
   };
+
+  // --- LÓGICA DE ASSINATURA ---
+  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+    const canvas = signatureRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = ('touches' in e) ? e.touches[0].clientX - rect.left : (e as React.MouseEvent).clientX - rect.left;
+    const y = ('touches' in e) ? e.touches[0].clientY - rect.top : (e as React.MouseEvent).clientY - rect.top;
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setIsSigning(true);
+  };
+
+  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isSigning) return;
+    const canvas = signatureRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = ('touches' in e) ? e.touches[0].clientX - rect.left : (e as React.MouseEvent).clientX - rect.left;
+    const y = ('touches' in e) ? e.touches[0].clientY - rect.top : (e as React.MouseEvent).clientY - rect.top;
+
+    ctx.lineTo(x, y);
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    setIsSigning(false);
+    const canvas = signatureRef.current;
+    if (canvas) {
+      setFormData(prev => ({ ...prev, signature: canvas.toDataURL('image/png') }));
+    }
+  };
+
+  const clearSignature = () => {
+    const canvas = signatureRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx?.clearRect(0, 0, canvas.width, canvas.height);
+      setFormData(prev => ({ ...prev, signature: '' }));
+    }
+  };
+
+  const toggleChecklist = (item: string) => {
+    setFormData(prev => {
+      const current = prev.checklist || [];
+      if (current.includes(item)) {
+        return { ...prev, checklist: current.filter(i => i !== item) };
+      }
+      return { ...prev, checklist: [...current, item] };
+    });
+  };
+
+  useEffect(() => {
+    if (isModalOpen && !formData.signature && signatureRef.current) {
+      const canvas = signatureRef.current;
+      const ctx = canvas.getContext('2d');
+      ctx?.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }, [isModalOpen, formData.signature]);
 
   const handleQuickStatusChange = (newStatus: 'Pendente' | 'Concluído' | 'Entregue') => {
     if (!statusChangeOrder) return;
@@ -306,6 +387,19 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
       currentY += 10 * scale;
       currentY = drawSeparator(currentY);
 
+      // 3.5 Checklist
+      if (order.checklist && order.checklist.length > 0) {
+        ctx.font = `900 ${10 * scale}px "Inter", sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.fillText("CHECKLIST DE DEFEITOS", 25 * scale, currentY);
+        currentY += 18 * scale;
+        ctx.font = `500 ${9 * scale}px "Inter", sans-serif`;
+        const checklistText = order.checklist.join(', ');
+        currentY = wrapTextByChars(checklistText, 25 * scale, currentY, 60, 12 * scale);
+        currentY += 10 * scale;
+        currentY = drawSeparator(currentY);
+      }
+
       // 4. Reparo Efetuado
       ctx.font = `900 ${10 * scale}px "Inter", sans-serif`;
       ctx.fillText("REPARO EFETUADO", 25 * scale, currentY);
@@ -379,6 +473,22 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
       currentY = wrapText(cleanWarranty, 25 * scale, currentY, width - 50 * scale, 12 * scale, false, '#666');
 
       currentY += 50 * scale;
+
+      // 6.5 Assinatura
+      if (order.signature) {
+        ctx.font = `900 ${10 * scale}px "Inter", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText("ASSINATURA DO CLIENTE", width / 2, currentY);
+        currentY += 10 * scale;
+        const sigImg = new Image();
+        sigImg.src = order.signature;
+        await new Promise(r => sigImg.onload = r);
+        const sigWidth = 200 * scale;
+        const sigHeight = 64 * scale;
+        ctx.drawImage(sigImg, (width - sigWidth) / 2, currentY, sigWidth, sigHeight);
+        currentY += sigHeight + 20 * scale;
+      }
+
       ctx.font = `900 ${10 * scale}px "Inter", sans-serif`;
       ctx.textAlign = 'center';
       ctx.fillText("OBRIGADO PELA PREFERÊNCIA!", width / 2, currentY);
@@ -587,123 +697,182 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
               <button onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 bg-slate-50 rounded-full"><X size={20} /></button>
             </div>
             
-            <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto pb-10">
-              <div className="grid grid-cols-1 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente</label>
-                  <input name="customerName" value={formData.customerName} onChange={handleInputChange} placeholder="Nome" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3">
+            <div className="p-4 space-y-4 max-h-[75vh] overflow-y-auto pb-10">
+              <div className="grid grid-cols-1 gap-3">
+                {/* DADOS DO CLIENTE */}
+                <div className="bg-slate-50 p-4 rounded-3xl space-y-3">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200 pb-2">Dados do Cliente</h4>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Telefone</label>
-                    <input name="phoneNumber" value={formData.phoneNumber} onChange={handleInputChange} placeholder="(00) 00000-0000" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" />
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Completo</label>
+                    <input name="customerName" value={formData.customerName} onChange={handleInputChange} placeholder="Nome do cliente" className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100" />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Endereço</label>
-                    <input name="address" value={formData.address} onChange={handleInputChange} placeholder="Endereço" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Marca</label>
-                    <input name="deviceBrand" value={formData.deviceBrand} onChange={handleInputChange} placeholder="Marca" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Modelo</label>
-                    <input name="deviceModel" value={formData.deviceModel} onChange={handleInputChange} placeholder="Modelo" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Telefone</label>
+                      <input name="phoneNumber" value={formData.phoneNumber} onChange={handleInputChange} placeholder="(00) 00000-0000" className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Endereço</label>
+                      <input name="address" value={formData.address} onChange={handleInputChange} placeholder="Endereço" className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100" />
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Calendar size={12}/> Entrada</label>
-                    <input name="entryDate" value={formData.entryDate} onChange={handleInputChange} placeholder="DD/MM/AAAA" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" />
+                {/* DADOS DO APARELHO */}
+                <div className="bg-slate-50 p-4 rounded-3xl space-y-3">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200 pb-2">Dados do Aparelho</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Marca</label>
+                      <input name="deviceBrand" value={formData.deviceBrand} onChange={handleInputChange} placeholder="Ex: Samsung" className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Modelo</label>
+                      <input name="deviceModel" value={formData.deviceModel} onChange={handleInputChange} placeholder="Ex: S21 Ultra" className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1"><Calendar size={10}/> Entrada</label>
+                      <input name="entryDate" value={formData.entryDate} onChange={handleInputChange} placeholder="DD/MM/AAAA" className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1"><Calendar size={10}/> Saída</label>
+                      <input name="exitDate" value={formData.exitDate} onChange={handleInputChange} placeholder="DD/MM/AAAA" className={`w-full p-3 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100 ${!(formData.status === 'Concluído' || formData.status === 'Entregue') ? 'opacity-50' : ''}`} />
+                    </div>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Calendar size={12}/> Saída</label>
-                    <input name="exitDate" value={formData.exitDate} onChange={handleInputChange} placeholder="DD/MM/AAAA" className={`w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm ${!(formData.status === 'Concluído' || formData.status === 'Entregue') ? 'opacity-50' : ''}`} />
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Status da O.S.</label>
+                    <select name="status" value={formData.status} onChange={handleInputChange} className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100 appearance-none">
+                      <option value="Pendente">Pendente</option>
+                      <option value="Concluído">Concluído</option>
+                      <option value="Entregue">Entregue</option>
+                    </select>
                   </div>
                 </div>
-                
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</label>
-                  <select name="status" value={formData.status} onChange={handleInputChange} className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm appearance-none border-none">
-                    <option value="Pendente">Pendente</option>
-                    <option value="Concluído">Concluído</option>
-                    <option value="Entregue">Entregue</option>
-                  </select>
-                </div>
 
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Defeito</label>
-                  <textarea name="defect" value={formData.defect} onChange={handleInputChange} placeholder="Defeito..." className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm h-20 resize-none" />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reparo</label>
-                  <textarea name="repairDetails" value={formData.repairDetails} onChange={handleInputChange} placeholder="Reparo..." className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm h-20 resize-none" />
-                </div>
-                
-                {/* FOTOS DE ENTRADA */}
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Camera size={12}/> Fotos de Entrada</label>
-                  <div className="grid grid-cols-4 gap-2">
-                    <label className="aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-center text-slate-400 cursor-pointer active:scale-95 transition-all">
-                      {isCompressing ? <Loader2 className="animate-spin" size={18} /> : <Plus size={24} />}
-                      <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileChange(e, 'photos')} />
-                    </label>
-                    {formData.photos?.map((p, i) => (
-                      <div key={i} className="relative aspect-square rounded-2xl overflow-hidden border border-slate-100 shadow-sm">
-                        <img src={p} className="w-full h-full object-cover" />
-                        <button onClick={() => setFormData(f => ({ ...f, photos: f.photos?.filter((_, idx) => idx !== i) }))} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-lg"><X size={10} /></button>
-                      </div>
+                {/* CHECKLIST DE DEFEITOS */}
+                <div className="bg-slate-50 p-4 rounded-3xl space-y-3">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200 pb-2">Checklist de Defeitos</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {COMMON_DEFECTS.map(item => (
+                      <button 
+                        key={item}
+                        onClick={() => toggleChecklist(item)}
+                        className={`p-2 rounded-xl text-[10px] font-bold uppercase transition-all flex items-center gap-2 border ${formData.checklist?.includes(item) ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-400 border-slate-100'}`}
+                      >
+                        <div className={`w-3 h-3 rounded flex items-center justify-center ${formData.checklist?.includes(item) ? 'bg-white text-blue-600' : 'bg-slate-100'}`}>
+                          {formData.checklist?.includes(item) && <Check size={10} />}
+                        </div>
+                        {item}
+                      </button>
                     ))}
                   </div>
                 </div>
 
-                {/* RESTAURAÇÃO: CAMPO DE FOTOS DE SAÍDA (VISÍVEL SE CONCLUÍDO/ENTREGUE) */}
-                {(formData.status === 'Concluído' || formData.status === 'Entregue') && (
-                  <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                    <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest flex items-center gap-1.5"><CheckCircle size={12}/> Fotos do Serviço Pronto</label>
-                    <div className="grid grid-cols-4 gap-2">
-                      <label className="aspect-square bg-emerald-50 border-2 border-dashed border-emerald-100 rounded-2xl flex items-center justify-center text-emerald-400 cursor-pointer active:scale-95 transition-all">
-                        {isCompressing ? <Loader2 className="animate-spin" size={18} /> : <Plus size={24} />}
-                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileChange(e, 'finishedPhotos')} />
-                      </label>
-                      {formData.finishedPhotos?.map((p, i) => (
-                        <div key={i} className="relative aspect-square rounded-2xl overflow-hidden border border-emerald-100 shadow-sm">
-                          <img src={p} className="w-full h-full object-cover" />
-                          <button onClick={() => setFormData(f => ({ ...f, finishedPhotos: f.finishedPhotos?.filter((_, idx) => idx !== i) }))} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-lg"><X size={10} /></button>
+                {/* DEFEITO E REPARO */}
+                <div className="bg-slate-50 p-4 rounded-3xl space-y-3">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200 pb-2">Descrição Detalhada</h4>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Defeito Informado</label>
+                    <textarea name="defect" value={formData.defect} onChange={handleInputChange} placeholder="Descreva o problema..." className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs h-16 resize-none border border-slate-100" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Reparo Efetuado</label>
+                    <textarea name="repairDetails" value={formData.repairDetails} onChange={handleInputChange} placeholder="O que foi feito..." className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs h-16 resize-none border border-slate-100" />
+                  </div>
+                </div>
+                
+                {/* FOTOS */}
+                <div className="bg-slate-50 p-4 rounded-3xl space-y-3">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200 pb-2">Galeria de Fotos</h4>
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Camera size={10}/> Fotos de Entrada</label>
+                      <div className="grid grid-cols-4 gap-2">
+                        <label className="aspect-square bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-400 cursor-pointer active:scale-95 transition-all">
+                          {isCompressing ? <Loader2 className="animate-spin" size={14} /> : <Plus size={20} />}
+                          <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileChange(e, 'photos')} />
+                        </label>
+                        {formData.photos?.map((p, i) => (
+                          <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-slate-100 shadow-sm">
+                            <img src={p} className="w-full h-full object-cover" />
+                            <button onClick={() => setFormData(f => ({ ...f, photos: f.photos?.filter((_, idx) => idx !== i) }))} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-lg"><X size={8} /></button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {(formData.status === 'Concluído' || formData.status === 'Entregue') && (
+                      <div className="space-y-2 animate-in fade-in">
+                        <label className="text-[9px] font-black text-emerald-600 uppercase tracking-widest flex items-center gap-1.5"><CheckCircle size={10}/> Fotos de Saída</label>
+                        <div className="grid grid-cols-4 gap-2">
+                          <label className="aspect-square bg-white border border-emerald-100 rounded-xl flex items-center justify-center text-emerald-400 cursor-pointer active:scale-95 transition-all">
+                            {isCompressing ? <Loader2 className="animate-spin" size={14} /> : <Plus size={20} />}
+                            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileChange(e, 'finishedPhotos')} />
+                          </label>
+                          {formData.finishedPhotos?.map((p, i) => (
+                            <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-emerald-100 shadow-sm">
+                              <img src={p} className="w-full h-full object-cover" />
+                              <button onClick={() => setFormData(f => ({ ...f, finishedPhotos: f.finishedPhotos?.filter((_, idx) => idx !== i) }))} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-lg"><X size={8} /></button>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
 
-                {/* FINANCEIRO DA O.S. */}
-                <div className="space-y-3 pt-2">
-                  <div className="grid grid-cols-2 gap-3 mb-4">
+                {/* ASSINATURA DIGITAL */}
+                <div className="bg-slate-50 p-4 rounded-3xl space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Assinatura Digital (Opcional)</h4>
+                    <button onClick={clearSignature} className="text-[8px] font-black text-red-500 uppercase tracking-widest">Limpar</button>
+                  </div>
+                  <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden relative h-32">
+                    {formData.signature && !isSigning ? (
+                      <img src={formData.signature} className="w-full h-full object-contain pointer-events-none" />
+                    ) : null}
+                    <canvas 
+                      ref={signatureRef}
+                      width={400}
+                      height={128}
+                      onMouseDown={startDrawing}
+                      onMouseMove={draw}
+                      onMouseUp={stopDrawing}
+                      onMouseOut={stopDrawing}
+                      onTouchStart={startDrawing}
+                      onTouchMove={draw}
+                      onTouchEnd={stopDrawing}
+                      className="absolute inset-0 w-full h-full cursor-crosshair touch-none"
+                    />
+                  </div>
+                </div>
+
+                {/* FINANCEIRO */}
+                <div className="bg-slate-900 p-5 rounded-[2rem] space-y-4 shadow-xl">
+                  <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Valor da Peça</label>
-                      <div className="p-4 bg-slate-50 rounded-2xl flex items-center gap-2 border border-slate-100">
-                        <span className="text-[10px] font-black text-slate-400">R$</span>
-                        <input name="partsCost" value={formatCurrency(formData.partsCost || 0).replace('R$', '').trim()} onChange={handleInputChange} className="w-full bg-transparent font-bold text-sm outline-none" placeholder="0,00" />
+                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Custo Peças</label>
+                      <div className="p-3 bg-white/5 rounded-xl flex items-center gap-2 border border-white/10">
+                        <span className="text-[9px] font-black text-slate-500">R$</span>
+                        <input name="partsCost" value={formatCurrency(formData.partsCost || 0).replace('R$', '').trim()} onChange={handleInputChange} className="w-full bg-transparent font-bold text-xs text-white outline-none" placeholder="0,00" />
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Valor do Serviço</label>
-                      <div className="p-4 bg-slate-50 rounded-2xl flex items-center gap-2 border border-slate-100">
-                        <span className="text-[10px] font-black text-slate-400">R$</span>
-                        <input name="serviceCost" value={formatCurrency(formData.serviceCost || 0).replace('R$', '').trim()} onChange={handleInputChange} className="w-full bg-transparent font-bold text-sm outline-none" placeholder="0,00" />
+                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Mão de Obra</label>
+                      <div className="p-3 bg-white/5 rounded-xl flex items-center gap-2 border border-white/10">
+                        <span className="text-[9px] font-black text-slate-500">R$</span>
+                        <input name="serviceCost" value={formatCurrency(formData.serviceCost || 0).replace('R$', '').trim()} onChange={handleInputChange} className="w-full bg-transparent font-bold text-xs text-white outline-none" placeholder="0,00" />
                       </div>
                     </div>
                   </div>
-
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Calculator size={12}/> Total Geral</label>
-                  <div className="p-5 bg-blue-600 rounded-[1.5rem] shadow-xl flex items-center justify-between border border-blue-500">
-                    <input name="total" value={formatCurrency(formData.total || 0).replace('R$', '').trim()} onChange={handleInputChange} className="w-full bg-transparent font-black text-white outline-none text-2xl" placeholder="0,00" />
+                  <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                    <div className="flex items-center gap-2 text-white">
+                      <Calculator size={16} className="text-blue-400" />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Total Geral</span>
+                    </div>
+                    <input name="total" value={formatCurrency(formData.total || 0).replace('R$', '').trim()} onChange={handleInputChange} className="bg-transparent font-black text-white outline-none text-xl text-right w-32" placeholder="0,00" />
                   </div>
                 </div>
               </div>
