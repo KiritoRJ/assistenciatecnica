@@ -520,7 +520,9 @@ export class OnlineDB {
         // MAPEAMENTO DAS NOVAS DATAS DO SQL PARA O APP
         entryDate: d.entry_date || '',
         exitDate: d.exit_date || '',
-        isDeleted: d.is_deleted || false
+        isDeleted: d.is_deleted || false,
+        signature: d.signature || '',
+        checklist: d.checklist || []
       }));
     } catch (e) { 
       console.error("Erro ao buscar ordens do Supabase:", e);
@@ -723,7 +725,9 @@ export class OnlineDB {
         // ENVIO DAS NOVAS DATAS PARA O SQL
         entry_date: os.entryDate,
         exit_date: os.exitDate,
-        is_deleted: os.isDeleted || false
+        is_deleted: os.isDeleted || false,
+        signature: os.signature || '',
+        checklist: os.checklist || []
       }));
       const { error } = await supabase.from('service_orders').upsert(payload, { onConflict: 'id' });
       if (error) throw error;

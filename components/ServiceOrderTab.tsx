@@ -43,7 +43,8 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
   const fullScreenSignatureRef = React.useRef<HTMLCanvasElement>(null);
   const [isFullScreenSignatureOpen, setIsFullScreenSignatureOpen] = useState(false);
 
-  const osCount = orders.length;
+  const visibleOrders = useMemo(() => orders.filter(o => !o.isDeleted), [orders]);
+  const osCount = visibleOrders.length;
   const limitReached = maxOS !== undefined && osCount >= maxOS;
 
   const handleLayoutChange = async () => {
@@ -139,7 +140,12 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
     if (editingOrder) {
       newOrdersList = orders.map(o => o.id === editingOrder.id ? { ...o, ...formData } as ServiceOrder : o);
     } else {
-      const nextIdNumber = orders.length + 1;
+      // Calculate next ID based on the highest existing ID to avoid collisions with deleted orders
+      const maxId = orders.reduce((max, o) => {
+        const idNum = parseInt(o.id, 10);
+        return !isNaN(idNum) && idNum > max ? idNum : max;
+      }, 0);
+      const nextIdNumber = maxId + 1;
       const formattedId = nextIdNumber.toString().padStart(2, '0');
       const newOrder: ServiceOrder = {
         ...formData, 
@@ -594,8 +600,13 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
   };
 
   const filtered = useMemo(() => {
-    return orders
-      .filter(o => o.customerName.toLowerCase().includes(searchTerm.toLowerCase()))
+    return visibleOrders
+      .filter(o => 
+        o.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        o.deviceModel.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        o.id.includes(searchTerm) ||
+        (o.phoneNumber && o.phoneNumber.includes(searchTerm))
+      )
       .sort((a, b) => {
         // 1. Status: Pendente sempre primeiro
         if (a.status === 'Pendente' && b.status !== 'Pendente') return -1;
@@ -608,7 +619,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
         // 3. Data: Mais recentes primeiro (caso nomes sejam iguais)
         return new Date(b.date).getTime() - new Date(a.date).getTime();
       });
-  }, [orders, searchTerm]);
+  }, [visibleOrders, searchTerm]);
 
   const paginatedOrders = filtered.slice(0, settings.itemsPerPage * currentPage);
 
@@ -725,13 +736,13 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
       {/* MODAL DE EDIÇÃO / CRIAÇÃO */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 z-50 flex flex-col justify-end md:justify-center p-2 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-md mx-auto rounded-[2.5rem] overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10">
-            <div className="p-6 border-b border-slate-50 flex justify-between items-center sticky top-0 bg-white">
+          <div className="bg-white w-full max-w-md mx-auto rounded-[2.5rem] overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-slate-50 flex justify-between items-center bg-white shrink-0">
               <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">{editingOrder ? 'Editar O.S.' : 'Nova O.S.'}</h3>
               <button onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 bg-slate-50 rounded-full"><X size={20} /></button>
             </div>
             
-            <div className="p-4 space-y-4 max-h-[75vh] overflow-y-auto pb-10">
+            <div className="p-4 space-y-4 overflow-y-auto pb-10 flex-1">
               <div className="grid grid-cols-1 gap-3">
                 {/* DADOS DO CLIENTE */}
                 <div className="bg-slate-50 p-4 rounded-3xl space-y-3">
@@ -826,7 +837,14 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
                       <div className="grid grid-cols-4 gap-2">
                         <label className="aspect-square bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-400 cursor-pointer active:scale-95 transition-all">
                           {isCompressing ? <Loader2 className="animate-spin" size={14} /> : <Plus size={20} />}
-                          <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileChange(e, 'photos')} />
+                          <input
+  type="file"
+  accept="image/*"
+  multiple
+  className="hidden"
+  id="photosInput"
+  onChange={(e) => handleFileChange(e, 'photos')}
+/>
                         </label>
                         {formData.photos?.map((p, i) => (
                           <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-slate-100 shadow-sm">
@@ -916,7 +934,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
             </div>
 
             {/* BOTÕES DE AÇÃO DO MODAL */}
-            <div className="p-6 border-t border-slate-50 bg-slate-50 flex gap-3">
+            <div className="p-6 border-t border-slate-50 bg-slate-50 flex gap-3 shrink-0">
               <button onClick={() => setIsModalOpen(false)} className="flex-1 py-4 font-black text-slate-400 uppercase text-[10px]">Sair</button>
               <button onClick={handleSave} disabled={isSaving} className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] shadow-xl active:scale-95">
                 {isSaving ? <Loader2 className="animate-spin" size={20} /> : 'Salvar'}
