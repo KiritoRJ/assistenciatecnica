@@ -837,12 +837,11 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
                       <div className="grid grid-cols-4 gap-2">
                         <label className="aspect-square bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-400 cursor-pointer active:scale-95 transition-all">
                           {isCompressing ? <Loader2 className="animate-spin" size={14} /> : <Plus size={20} />}
-                          <input
+                         <input
   type="file"
   accept="image/*"
   multiple
   className="hidden"
-  id="photosInput"
   onChange={(e) => handleFileChange(e, 'photos')}
 />
                         </label>
@@ -861,7 +860,13 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
                         <div className="grid grid-cols-4 gap-2">
                           <label className="aspect-square bg-white border border-emerald-100 rounded-xl flex items-center justify-center text-emerald-400 cursor-pointer active:scale-95 transition-all">
                             {isCompressing ? <Loader2 className="animate-spin" size={14} /> : <Plus size={20} />}
-                            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileChange(e, 'finishedPhotos')} />
+                            <input
+  type="file"
+  accept="image/*"
+  multiple
+  className="hidden"
+  onChange={(e) => handleFileChange(e, 'finishedPhotos')}
+/>
                           </label>
                           {formData.finishedPhotos?.map((p, i) => (
                             <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-emerald-100 shadow-sm">
