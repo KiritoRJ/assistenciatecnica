@@ -40,6 +40,8 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
   const [osLayout, setOsLayout] = useState<'small' | 'medium' | 'large'>(settings.osLayout || 'medium');
   const [isSigning, setIsSigning] = useState(false);
   const signatureRef = React.useRef<HTMLCanvasElement>(null);
+  const fullScreenSignatureRef = React.useRef<HTMLCanvasElement>(null);
+  const [isFullScreenSignatureOpen, setIsFullScreenSignatureOpen] = useState(false);
 
   const osCount = orders.length;
   const limitReached = maxOS !== undefined && osCount >= maxOS;
@@ -170,9 +172,8 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
   };
 
   // --- LÓGICA DE ASSINATURA ---
-  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
-    const canvas = signatureRef.current;
-    if (!canvas) return;
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = e.currentTarget;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -185,10 +186,9 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
     setIsSigning(true);
   };
 
-  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     if (!isSigning) return;
-    const canvas = signatureRef.current;
-    if (!canvas) return;
+    const canvas = e.currentTarget;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -203,10 +203,11 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
     ctx.stroke();
   };
 
-  const stopDrawing = () => {
+  const stopDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>, isFullScreen: boolean = false) => {
+    if (!isSigning) return;
     setIsSigning(false);
-    const canvas = signatureRef.current;
-    if (canvas) {
+    const canvas = e.currentTarget;
+    if (canvas && !isFullScreen) {
       setFormData(prev => ({ ...prev, signature: canvas.toDataURL('image/png') }));
     }
   };
@@ -217,6 +218,22 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
       const ctx = canvas.getContext('2d');
       ctx?.clearRect(0, 0, canvas.width, canvas.height);
       setFormData(prev => ({ ...prev, signature: '' }));
+    }
+  };
+
+  const clearFullScreenSignature = () => {
+    const canvas = fullScreenSignatureRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx?.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  };
+
+  const saveFullScreenSignature = () => {
+    const canvas = fullScreenSignatureRef.current;
+    if (canvas) {
+      setFormData(prev => ({ ...prev, signature: canvas.toDataURL('image/png') }));
+      setIsFullScreenSignatureOpen(false);
     }
   };
 
@@ -237,6 +254,23 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
       ctx?.clearRect(0, 0, canvas.width, canvas.height);
     }
   }, [isModalOpen, formData.signature]);
+
+  useEffect(() => {
+    if (isFullScreenSignatureOpen && fullScreenSignatureRef.current) {
+      const canvas = fullScreenSignatureRef.current;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (formData.signature) {
+          const img = new Image();
+          img.onload = () => {
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          };
+          img.src = formData.signature;
+        }
+      }
+    }
+  }, [isFullScreenSignatureOpen, formData.signature]);
 
   const handleQuickStatusChange = (newStatus: 'Pendente' | 'Concluído' | 'Entregue') => {
     if (!statusChangeOrder) return;
@@ -827,7 +861,10 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
                 <div className="bg-slate-50 p-4 rounded-3xl space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Assinatura Digital (Opcional)</h4>
-                    <button onClick={clearSignature} className="text-[8px] font-black text-red-500 uppercase tracking-widest">Limpar</button>
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => setIsFullScreenSignatureOpen(true)} className="text-[8px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-1"><Maximize2 size={10} /> Tela Cheia</button>
+                      <button onClick={clearSignature} className="text-[8px] font-black text-red-500 uppercase tracking-widest">Limpar</button>
+                    </div>
                   </div>
                   <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden relative h-32">
                     {formData.signature && !isSigning ? (
@@ -853,16 +890,16 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
                 <div className="bg-slate-900 p-5 rounded-[2rem] space-y-4 shadow-xl">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Custo Peças</label>
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Custo Peças</label>
                       <div className="p-3 bg-white/5 rounded-xl flex items-center gap-2 border border-white/10">
-                        <span className="text-[9px] font-black text-slate-500">R$</span>
+                        <span className="text-[9px] font-black text-white/50">R$</span>
                         <input name="partsCost" value={formatCurrency(formData.partsCost || 0).replace('R$', '').trim()} onChange={handleInputChange} className="w-full bg-transparent font-bold text-xs text-white outline-none" placeholder="0,00" />
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Mão de Obra</label>
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Mão de Obra</label>
                       <div className="p-3 bg-white/5 rounded-xl flex items-center gap-2 border border-white/10">
-                        <span className="text-[9px] font-black text-slate-500">R$</span>
+                        <span className="text-[9px] font-black text-white/50">R$</span>
                         <input name="serviceCost" value={formatCurrency(formData.serviceCost || 0).replace('R$', '').trim()} onChange={handleInputChange} className="w-full bg-transparent font-bold text-xs text-white outline-none" placeholder="0,00" />
                       </div>
                     </div>
@@ -885,6 +922,45 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
                 {isSaving ? <Loader2 className="animate-spin" size={20} /> : 'Salvar'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE ASSINATURA TELA CHEIA */}
+      {isFullScreenSignatureOpen && (
+        <div className="fixed inset-0 bg-slate-950/90 z-[200] flex flex-col animate-in fade-in">
+          <div className="p-6 flex items-center justify-between bg-white shrink-0">
+            <div>
+              <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Assinatura Digital</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Assine no espaço abaixo</p>
+            </div>
+            <button onClick={() => setIsFullScreenSignatureOpen(false)} className="p-2 text-slate-400 bg-slate-50 rounded-full"><X size={20} /></button>
+          </div>
+          
+          <div className="flex-1 bg-slate-100 p-4 flex flex-col">
+            <div className="flex-1 bg-white rounded-3xl shadow-inner relative overflow-hidden border-2 border-slate-200">
+              <canvas 
+                ref={fullScreenSignatureRef}
+                width={window.innerWidth - 32}
+                height={window.innerHeight - 200}
+                onMouseDown={startDrawing}
+                onMouseMove={draw}
+                onMouseUp={(e) => stopDrawing(e, true)}
+                onMouseOut={(e) => stopDrawing(e, true)}
+                onTouchStart={startDrawing}
+                onTouchMove={draw}
+                onTouchEnd={(e) => stopDrawing(e, true)}
+                className="absolute inset-0 w-full h-full cursor-crosshair touch-none"
+              />
+              <div className="absolute bottom-4 left-0 right-0 flex justify-center pointer-events-none">
+                <span className="text-slate-300 font-black text-2xl uppercase tracking-widest opacity-50">Assine Aqui</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="p-6 bg-white flex gap-3 shrink-0">
+            <button onClick={clearFullScreenSignature} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] shadow-sm active:scale-95">Limpar</button>
+            <button onClick={saveFullScreenSignature} className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] shadow-xl active:scale-95">Salvar Assinatura</button>
           </div>
         </div>
       )}

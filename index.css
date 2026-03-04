@@ -33,11 +33,6 @@
   scrollbar-width: none !important;  /* Firefox */
 }
 
-/* Force black text for inputs by default, but allow overrides via classes */
-input:not(:disabled), textarea:not(:disabled), select:not(:disabled) {
-  color: #000000;
-}
-
 /* Ensure placeholders stay gray-ish if not overridden */
 input::placeholder, textarea::placeholder {
   color: #9ca3af; /* gray-400 */
