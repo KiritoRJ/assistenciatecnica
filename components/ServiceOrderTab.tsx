@@ -106,23 +106,49 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
 
   // Gerencia a seleção de arquivos de imagem
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: 'photos' | 'finishedPhotos') => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setIsCompressing(true);
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      try {
-        const compressed = await compressImage(reader.result as string);
-        setFormData(prev => ({ ...prev, [field]: [...(prev[field] || []), compressed] }));
-      } catch (err) {
-        console.error("Erro ao processar imagem", err);
-      } finally {
-        setIsCompressing(false);
-        e.target.value = ''; 
+    const processedImages: string[] = [];
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        // Validação: Apenas imagens
+        if (!file.type.startsWith('image/')) {
+          alert(`O arquivo "${file.name}" não é uma imagem e foi ignorado.`);
+          continue;
+        }
+
+        const reader = new FileReader();
+        
+        await new Promise<void>((resolve) => {
+          reader.onloadend = async () => {
+            try {
+              if (reader.result) {
+                const compressed = await compressImage(reader.result as string);
+                processedImages.push(compressed);
+              }
+            } catch (err) {
+              console.error("Erro ao processar imagem", err);
+            }
+            resolve();
+          };
+          reader.readAsDataURL(file);
+        });
       }
-    };
-    reader.readAsDataURL(file);
+      
+      if (processedImages.length > 0) {
+        setFormData(prev => ({ ...prev, [field]: [...(prev[field] || []), ...processedImages] }));
+      }
+    } catch (err) {
+      console.error("Erro ao processar imagens", err);
+    } finally {
+      setIsCompressing(false);
+      if (e.target) e.target.value = ''; 
+    }
   };
 
   // --- PERSISTÊNCIA ---
@@ -839,7 +865,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
                           {isCompressing ? <Loader2 className="animate-spin" size={14} /> : <Plus size={20} />}
                          <input
   type="file"
-  accept="image/*"
+  accept="*/*"
   multiple
   className="hidden"
   onChange={(e) => handleFileChange(e, 'photos')}
@@ -861,12 +887,12 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
                           <label className="aspect-square bg-white border border-emerald-100 rounded-xl flex items-center justify-center text-emerald-400 cursor-pointer active:scale-95 transition-all">
                             {isCompressing ? <Loader2 className="animate-spin" size={14} /> : <Plus size={20} />}
                             <input
-  type="file"
-  accept="image/*"
-  multiple
-  className="hidden"
-  onChange={(e) => handleFileChange(e, 'finishedPhotos')}
-/>
+                              type="file"
+                              accept="*/*"
+                              multiple
+                              className="hidden"
+                              onChange={(e) => handleFileChange(e, 'finishedPhotos')}
+                            />
                           </label>
                           {formData.finishedPhotos?.map((p, i) => (
                             <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-emerald-100 shadow-sm">
