@@ -29,6 +29,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
   const [authError, setAuthError] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedOrderForPhotos, setSelectedOrderForPhotos] = useState<ServiceOrder | null>(null);
+  const [statusChangeOrder, setStatusChangeOrder] = useState<ServiceOrder | null>(null);
   const [fullScreenPhoto, setFullScreenPhoto] = useState<string | null>(null);
   const [osLayout, setOsLayout] = useState<'small' | 'medium' | 'large'>(settings.osLayout || 'medium');
   const osCount = orders.length;
@@ -154,6 +155,16 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
       entryDate: today, 
       exitDate: '' 
     });
+  };
+
+  const handleQuickStatusChange = (newStatus: 'Pendente' | 'Concluído' | 'Entregue') => {
+    if (!statusChangeOrder) return;
+    
+    const updatedOrder = { ...statusChangeOrder, status: newStatus };
+    const newOrdersList = orders.map(o => o.id === statusChangeOrder.id ? updatedOrder : o);
+    
+    setOrders(newOrdersList);
+    setStatusChangeOrder(null);
   };
 
   // --- GERADOR DE CUPOM TÉRMICO (CANVAS) ---
@@ -501,7 +512,9 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
             `}
           >
             <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0 cursor-pointer" onClick={() => { setEditingOrder(order); setFormData(order); setIsModalOpen(true); }}>
-              <div className={`bg-slate-50 rounded-xl sm:rounded-2xl flex items-center justify-center text-custom-primary overflow-hidden border border-slate-100 shrink-0
+              <div 
+                onClick={(e) => { e.stopPropagation(); setStatusChangeOrder(order); }}
+                className={`bg-slate-50 rounded-xl sm:rounded-2xl flex items-center justify-center text-custom-primary overflow-hidden border border-slate-100 shrink-0 hover:bg-blue-50 transition-colors
                 ${osLayout === 'small' ? 'w-8 h-8 sm:w-10 sm:h-10' : osLayout === 'medium' ? 'w-10 h-10 sm:w-14 sm:h-14' : 'w-14 h-14 sm:w-20 sm:h-20'}
               `}>
                 {order.photos && order.photos.length > 0 ? (
@@ -819,6 +832,42 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
                   {verifyingPassword ? <Loader2 className="animate-spin" size={14} /> : 'Remover'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE ALTERAÇÃO RÁPIDA DE STATUS */}
+      {statusChangeOrder && (
+        <div className="fixed inset-0 bg-slate-950/80 z-[100] flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in" onClick={() => setStatusChangeOrder(null)}>
+          <div className="bg-white w-full max-w-xs rounded-[2rem] overflow-hidden shadow-2xl transition-all duration-300 p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-black text-slate-800 uppercase text-sm tracking-tight">Alterar Status</h3>
+              <button onClick={() => setStatusChangeOrder(null)} className="p-2 text-slate-400 bg-slate-50 rounded-full hover:bg-slate-100 transition-colors"><X size={16} /></button>
+            </div>
+            
+            <div className="space-y-3">
+              <button 
+                onClick={() => handleQuickStatusChange('Pendente')}
+                className={`w-full py-4 px-4 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-between transition-all ${statusChangeOrder.status === 'Pendente' ? 'bg-slate-800 text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}
+              >
+                <span>Pendente</span>
+                {statusChangeOrder.status === 'Pendente' && <CheckCircle size={16} />}
+              </button>
+              <button 
+                onClick={() => handleQuickStatusChange('Concluído')}
+                className={`w-full py-4 px-4 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-between transition-all ${statusChangeOrder.status === 'Concluído' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
+              >
+                <span>Concluído</span>
+                {statusChangeOrder.status === 'Concluído' && <CheckCircle size={16} />}
+              </button>
+              <button 
+                onClick={() => handleQuickStatusChange('Entregue')}
+                className={`w-full py-4 px-4 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-between transition-all ${statusChangeOrder.status === 'Entregue' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
+              >
+                <span>Entregue</span>
+                {statusChangeOrder.status === 'Entregue' && <CheckCircle size={16} />}
+              </button>
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 
-import React, { useState, useMemo } from 'react';
-import { Image as ImageIcon, Camera, FileText, Palette, MoveHorizontal, MoreVertical, ArrowLeft, Check, Layout, Pipette, X, AlertCircle, Users, Shield, UserPlus, Trash2, User as UserIcon, Loader2, Lock, MapPin, Phone, KeyRound, Briefcase, Smartphone, Download, Upload, LogOut, Bell } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Image as ImageIcon, Camera, FileText, Palette, MoveHorizontal, MoreVertical, ArrowLeft, Check, Layout, Pipette, X, AlertCircle, Users, Shield, UserPlus, Trash2, User as UserIcon, Loader2, Lock, MapPin, Phone, KeyRound, Briefcase, Smartphone, Download, Upload, LogOut, Bell, Package } from 'lucide-react';
 import { AppSettings, User, ServiceOrder, Product, Sale, Transaction } from '../types';
 import { OnlineDB } from '../utils/api';
 import { OfflineSync } from '../utils/offlineSync';
@@ -48,11 +48,26 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
     }
   };
 
-  const [view, setView] = useState<'main' | 'print' | 'theme' | 'users' | 'backup' | 'catalog' | 'notifications'>('main');
+  const [view, setView] = useState<'main' | 'print' | 'theme' | 'users' | 'backup' | 'catalog' | 'notifications' | 'subscription'>('main');
   const [showMenu, setShowMenu] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [supportPhone, setSupportPhone] = useState('5511999999999');
+
+  useEffect(() => {
+    const loadSupportPhone = async () => {
+      try {
+        const globalSettings = await OnlineDB.getGlobalSettings();
+        if (globalSettings?.supportPhone) {
+          setSupportPhone(globalSettings.supportPhone);
+        }
+      } catch (e) {
+        console.error("Erro ao carregar telefone de suporte:", e);
+      }
+    };
+    loadSupportPhone();
+  }, []);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -790,6 +805,116 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
       </div>
     );
   }
+  if (view === 'subscription' && isAdmin) {
+    return (
+      <div className="space-y-6 animate-in slide-in-from-right-10 duration-500 pb-24 h-full">
+        <div className="flex items-center gap-4 mb-8">
+          <button onClick={() => setView('main')} className="p-3 bg-white shadow-sm border border-slate-100 rounded-2xl text-slate-600 active:scale-90 transition-all">
+            <ArrowLeft size={24} />
+          </button>
+          <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Plano e Limites</h2>
+        </div>
+
+        <div className="max-w-xl mx-auto space-y-6">
+          {/* PLANO ATUAL */}
+          {subscriptionStatus && (
+            <div className="bg-white rounded-[3rem] p-8 flex flex-col sm:flex-row items-center justify-between relative overflow-hidden border border-slate-100 shadow-sm gap-6">
+              <div className="flex items-center gap-6 relative z-10">
+                <div className={`w-16 h-16 rounded-3xl flex items-center justify-center shadow-inner ${subscriptionStatus === 'trial' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                  <Shield size={32} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Plano Atual</p>
+                  <h3 className="font-black text-slate-800 uppercase text-lg leading-tight">
+                    {getPlanName()}
+                  </h3>
+                </div>
+              </div>
+              <div className="text-center sm:text-right relative z-10 bg-slate-50 sm:bg-transparent p-4 sm:p-0 rounded-2xl w-full sm:w-auto">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Expira em</p>
+                <p className="font-black text-slate-800 text-lg">
+                  {subscriptionExpiresAt ? new Date(subscriptionExpiresAt).toLocaleDateString('pt-BR') : 'N/A'}
+                </p>
+              </div>
+              {/* Decorative background element */}
+              <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-slate-50 rounded-full blur-3xl pointer-events-none"></div>
+            </div>
+          )}
+
+          {/* LIMITES DETALHADOS */}
+          <div className="bg-white rounded-[3rem] p-8 border border-slate-100 shadow-sm space-y-8">
+            <div className="text-center space-y-2">
+              <h3 className="font-black text-slate-800 uppercase text-sm tracking-widest">Capacidade do Sistema</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Acompanhe o uso dos recursos do seu plano</p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              <div className="bg-slate-50 p-6 rounded-[2rem] flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center">
+                    <Users size={24} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Usuários Ativos</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-black text-blue-600 text-2xl leading-none">
+                    {settings.users?.length || 0} 
+                    <span className="text-slate-300 text-sm ml-1">/ {maxUsers === 999 ? '∞' : maxUsers}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-6 rounded-[2rem] flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center">
+                    <Smartphone size={24} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ordens</p>
+                    <p className="text-xs font-bold text-slate-600 uppercase">Limite de O.S.</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-black text-indigo-600 text-2xl leading-none">
+                    {maxOS === 999 ? '∞' : maxOS}
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-6 rounded-[2rem] flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center">
+                    <Package size={24} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Produtos</p>
+                    <p className="text-xs font-bold text-slate-600 uppercase">Limite de Estoque</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-black text-emerald-600 text-2xl leading-none">
+                    {maxProducts === 999 ? '∞' : maxProducts}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4">
+              <button 
+                onClick={() => window.open(`https://wa.me/${supportPhone}?text=Olá, gostaria de falar sobre meu plano na ${settings.storeName}`, '_blank')}
+                className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3"
+              >
+                Falar com Suporte / Upgrade
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (view === 'theme' && isAdmin) {
     return (
       <div className="space-y-6 animate-in slide-in-from-right-10 duration-500">
@@ -1028,6 +1153,9 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
               <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-100 rounded-2xl shadow-2xl z-50 py-2 overflow-hidden animate-in zoom-in-95 origin-top-right">
                 {isAdmin && (
                   <>
+                    <button onClick={() => { setView('subscription'); setShowMenu(false); }} className={`w-full flex items-center gap-3 px-5 py-4 text-[10px] font-black text-slate-600 hover:bg-slate-50 transition-colors uppercase tracking-widest text-left border-l-4 ${(view as any) === 'subscription' ? 'border-blue-500 bg-blue-50' : 'border-transparent'}`}>
+                      <Shield size={16} /> Plano e Limites
+                    </button>
                     <button onClick={() => { setView('theme'); setShowMenu(false); }} className={`w-full flex items-center gap-3 px-5 py-4 text-[10px] font-black text-slate-600 hover:bg-slate-50 transition-colors uppercase tracking-widest text-left border-l-4 ${(view as any) === 'theme' ? 'border-blue-500 bg-blue-50' : 'border-transparent'}`}>
                       <Palette size={16} /> Aparência Global
                     </button>
@@ -1075,50 +1203,6 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
       </div>
 
       <div className="max-w-xl mx-auto space-y-4">
-        {/* PLANO ATUAL */}
-        {isAdmin && subscriptionStatus && (
-          <div className="bg-slate-50 rounded-[2rem] p-6 flex items-center justify-between relative overflow-hidden">
-            <div className="flex items-center gap-4 relative z-10">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${subscriptionStatus === 'trial' ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                <Shield size={20} />
-              </div>
-              <div>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Plano Atual</p>
-                <h3 className="font-black text-slate-800 uppercase text-xs">
-                  {getPlanName()}
-                </h3>
-              </div>
-            </div>
-            <div className="text-right relative z-10">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Expira em</p>
-              <p className="font-black text-slate-800 text-xs">
-                {subscriptionExpiresAt ? new Date(subscriptionExpiresAt).toLocaleDateString('pt-BR') : 'N/A'}
-              </p>
-            </div>
-            {/* Decorative background element */}
-            <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-white/50 rounded-full blur-2xl pointer-events-none"></div>
-          </div>
-        )}
-
-        {/* PLANO E LIMITES */}
-        <div className="bg-slate-50 rounded-[2rem] p-6 space-y-4">
-          <h3 className="font-black text-slate-800 uppercase text-[10px] text-center tracking-widest">Plano e Limites</h3>
-          <div className="grid grid-cols-3 gap-2 text-center divide-x divide-slate-200/50">
-            <div className="px-2">
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">Usuários</p>
-              <p className="font-black text-blue-600 text-lg leading-none">{settings.users?.length || 0} <span className="text-slate-300 text-xs">/ {maxUsers === 999 ? '∞' : maxUsers}</span></p>
-            </div>
-            <div className="px-2">
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">Ordens</p>
-              <p className="font-black text-blue-600 text-lg leading-none">{maxOS === 999 ? '∞' : maxOS}</p>
-            </div>
-            <div className="px-2">
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">Produtos</p>
-              <p className="font-black text-blue-600 text-lg leading-none">{maxProducts === 999 ? '∞' : maxProducts}</p>
-            </div>
-          </div>
-        </div>
-
         {/* DADOS DA LOJA (Compacto) */}
         <div className="bg-white rounded-[2rem] border border-slate-100 p-6 shadow-sm space-y-5">
            <div className="flex items-center gap-4 mb-2">

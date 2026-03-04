@@ -23,7 +23,8 @@ export class OnlineDB {
         monthly: { price: 49.90, maxUsers: 2, maxOS: 999, maxProducts: 999 },
         quarterly: { price: 129.90, maxUsers: 999, maxOS: 999, maxProducts: 999 },
         yearly: { price: 499.00, maxUsers: 999, maxOS: 999, maxProducts: 999 },
-        trial: { maxUsers: 1000, maxOS: 1000, maxProducts: 1000 }
+        trial: { maxUsers: 1000, maxOS: 1000, maxProducts: 1000 },
+        supportPhone: '5511999999999'
       };
 
       if (!data?.data_json) return defaultSettings;
@@ -39,13 +40,14 @@ export class OnlineDB {
         };
       }
 
-      return json;
+      return { ...defaultSettings, ...json };
     } catch (e) {
       return {
         monthly: { price: 49.90, maxUsers: 2, maxOS: 999, maxProducts: 999 },
         quarterly: { price: 129.90, maxUsers: 999, maxOS: 999, maxProducts: 999 },
         yearly: { price: 499.00, maxUsers: 999, maxOS: 999, maxProducts: 999 },
-        trial: { maxUsers: 1000, maxOS: 1000, maxProducts: 1000 }
+        trial: { maxUsers: 1000, maxOS: 1000, maxProducts: 1000 },
+        supportPhone: '5511999999999'
       };
     }
   }

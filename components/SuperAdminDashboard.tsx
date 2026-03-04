@@ -637,6 +637,23 @@ const [globalPlans, setGlobalPlans] = useState<any>({});
             
             <div className="px-4 sm:px-8 overflow-y-auto flex-grow">
               <div className="space-y-3 sm:space-y-4">
+                <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 mb-4">
+                  <h4 className="font-bold text-blue-600 uppercase text-[10px] sm:text-xs mb-3">Suporte Geral</h4>
+                  <div className="space-y-1">
+                    <label className="text-[8px] sm:text-[9px] font-bold text-slate-400">WhatsApp Suporte (com DDD)</label>
+                    <div className="relative">
+                      <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input 
+                        type="text" 
+                        value={globalPlans.supportPhone || ''} 
+                        onChange={e => setGlobalPlans((prev: any) => ({ ...prev, supportPhone: e.target.value.replace(/\D/g, '') }))} 
+                        placeholder="Ex: 11999999999" 
+                        className="w-full bg-white border border-slate-200 rounded-lg p-2 pl-10 text-[10px] sm:text-xs text-slate-800 font-bold" 
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 {['trial', 'monthly', 'quarterly', 'yearly'].map(planId => {
                   const plan = globalPlans[planId as keyof typeof globalPlans] || {};
                   return (
