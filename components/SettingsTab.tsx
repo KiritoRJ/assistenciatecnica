@@ -214,10 +214,17 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
     if (!isAdmin) return;
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/*';
+    input.accept = '*/*';
     input.onchange = (e: any) => {
       const file = e.target.files?.[0];
       if (file) {
+        // Validação: Apenas imagens
+        if (!file.type.startsWith('image/')) {
+          alert(`O arquivo "${file.name}" não é uma imagem e foi ignorado.`);
+          input.value = '';
+          return;
+        }
+
         setIsCompressing(true);
         const reader = new FileReader();
         reader.onloadend = async () => {
@@ -241,10 +248,17 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
     if (!isAdmin) return;
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/*';
+    input.accept = '*/*';
     input.onchange = (e: any) => {
       const file = e.target.files?.[0];
       if (file) {
+        // Validação: Apenas imagens
+        if (!file.type.startsWith('image/')) {
+          alert(`O arquivo "${file.name}" não é uma imagem e foi ignorado.`);
+          input.value = '';
+          return;
+        }
+
         setIsCompressing(true);
         const reader = new FileReader();
         reader.onloadend = async () => {

@@ -61,6 +61,13 @@ const StockTab: React.FC<Props> = ({ products, setProducts, onDeleteProduct, set
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Validação: Apenas imagens
+      if (!file.type.startsWith('image/')) {
+        alert(`O arquivo "${file.name}" não é uma imagem e foi ignorado.`);
+        e.target.value = '';
+        return;
+      }
+
       setIsCompressing(true);
       const reader = new FileReader();
       reader.onloadend = async () => {
@@ -388,7 +395,7 @@ const StockTab: React.FC<Props> = ({ products, setProducts, onDeleteProduct, set
                     {isCompressing ? <Loader2 className="animate-spin text-blue-500" /> : formData.photo ? <img src={formData.photo} className="w-full h-full object-cover" /> : <PackageOpen className="text-slate-200" size={32} />}
                   </div>
                   <div className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-2 rounded-full border-4 border-white shadow-lg"><Camera size={14} /></div>
-                  <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+                  <input type="file" accept="*/*" className="hidden" onChange={handleFileChange} />
                 </label>
                 <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Toque para foto</p>
               </div>
