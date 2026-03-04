@@ -204,29 +204,30 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
   };
 
   // --- LÓGICA DE ASSINATURA ---
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+  const startDrawing = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
     const canvas = e.currentTarget;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const rect = canvas.getBoundingClientRect();
-    const x = ('touches' in e) ? e.touches[0].clientX - rect.left : (e as React.MouseEvent).clientX - rect.left;
-    const y = ('touches' in e) ? e.touches[0].clientY - rect.top : (e as React.MouseEvent).clientY - rect.top;
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
 
     ctx.beginPath();
     ctx.moveTo(x, y);
     setIsSigning(true);
   };
 
-  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+  const draw = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isSigning) return;
     const canvas = e.currentTarget;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const rect = canvas.getBoundingClientRect();
-    const x = ('touches' in e) ? e.touches[0].clientX - rect.left : (e as React.MouseEvent).clientX - rect.left;
-    const y = ('touches' in e) ? e.touches[0].clientY - rect.top : (e as React.MouseEvent).clientY - rect.top;
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
 
     ctx.lineTo(x, y);
     ctx.strokeStyle = '#000';
@@ -235,9 +236,10 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
     ctx.stroke();
   };
 
-  const stopDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>, isFullScreen: boolean = false) => {
+  const stopDrawing = (e: React.PointerEvent<HTMLCanvasElement>, isFullScreen: boolean = false) => {
     if (!isSigning) return;
     setIsSigning(false);
+    e.currentTarget.releasePointerCapture(e.pointerId);
     const canvas = e.currentTarget;
     if (canvas && !isFullScreen) {
       setFormData(prev => ({ ...prev, signature: canvas.toDataURL('image/png') }));
@@ -923,13 +925,10 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
                       ref={signatureRef}
                       width={400}
                       height={128}
-                      onMouseDown={startDrawing}
-                      onMouseMove={draw}
-                      onMouseUp={stopDrawing}
-                      onMouseOut={stopDrawing}
-                      onTouchStart={startDrawing}
-                      onTouchMove={draw}
-                      onTouchEnd={stopDrawing}
+                      onPointerDown={startDrawing}
+                      onPointerMove={draw}
+                      onPointerUp={stopDrawing}
+                      onPointerOut={stopDrawing}
                       className="absolute inset-0 w-full h-full cursor-crosshair touch-none"
                     />
                   </div>
@@ -992,13 +991,10 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
                 ref={fullScreenSignatureRef}
                 width={window.innerWidth - 32}
                 height={window.innerHeight - 200}
-                onMouseDown={startDrawing}
-                onMouseMove={draw}
-                onMouseUp={(e) => stopDrawing(e, true)}
-                onMouseOut={(e) => stopDrawing(e, true)}
-                onTouchStart={startDrawing}
-                onTouchMove={draw}
-                onTouchEnd={(e) => stopDrawing(e, true)}
+                onPointerDown={startDrawing}
+                onPointerMove={draw}
+                onPointerUp={(e) => stopDrawing(e, true)}
+                onPointerOut={(e) => stopDrawing(e, true)}
                 className="absolute inset-0 w-full h-full cursor-crosshair touch-none"
               />
               <div className="absolute bottom-4 left-0 right-0 flex justify-center pointer-events-none">
