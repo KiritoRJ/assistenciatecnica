@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Smartphone, Package, ShoppingCart, BarChart3, Settings, LogOut, Menu, X, Loader2, ShieldCheck, KeyRound, ChevronRight } from 'lucide-react';
+import { Smartphone, Package, ShoppingCart, BarChart3, Settings, LogOut, Menu, X, Loader2, ShieldCheck, KeyRound, ChevronRight, Store, TrendingUp, Users, CheckCircle2, ArrowRight } from 'lucide-react';
 import { ServiceOrder, Product, Sale, Transaction, AppSettings, User } from './types';
 import ServiceOrderTab from './components/ServiceOrderTab';
 import StockTab from './components/StockTab';
@@ -577,69 +577,259 @@ const App: React.FC = () => {
 
   if (!session?.isLoggedIn) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
-        <div className="w-full max-w-sm space-y-8 animate-in fade-in zoom-in-95 duration-700">
-          <div className="text-center space-y-4">
-            <div className="w-20 h-20 bg-blue-600 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-2xl border border-slate-100">
-              <Smartphone size={40} className="text-white" />
+      <div className="min-h-screen bg-white flex font-sans">
+        {/* LADO ESQUERDO - VISUAL (Desktop) */}
+        <div className="hidden lg:flex w-1/2 bg-slate-900 relative overflow-hidden flex-col justify-between p-12 text-white">
+          {/* Imagem de Fundo com Overlay */}
+          <div className="absolute inset-0 z-0">
+            <img 
+              src="https://picsum.photos/seed/retail_store/1920/1080" 
+              className="w-full h-full object-cover opacity-40 mix-blend-overlay"
+              alt="Store Background"
+              referrerPolicy="no-referrer"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/80 to-slate-900/40"></div>
+          </div>
+
+          {/* Conteúdo de Marketing */}
+          <div className="relative z-10 animate-in slide-in-from-left-10 duration-700">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                <Smartphone className="text-white" size={24} />
+              </div>
+              <span className="font-black text-2xl tracking-tighter uppercase">Lojas Cloud</span>
             </div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">LOJAS CLOUD</h1>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              {isRegisterMode ? 'Crie sua loja grátis por 7 dias' : 'sua loja nas nuvens'}
+            
+            <h1 className="text-5xl font-black tracking-tight leading-tight mb-6">
+              Gerencie sua loja <br/>
+              <span className="text-blue-500">como um gigante.</span>
+            </h1>
+            <p className="text-slate-300 text-lg max-w-md leading-relaxed font-medium">
+              Controle total de estoque, vendas, ordens de serviço e financeiro. Tudo em um só lugar, acessível de qualquer dispositivo.
             </p>
           </div>
 
-          {isRegisterMode ? (
-            <form onSubmit={handleRegister} className="bg-white p-8 rounded-[3rem] border border-slate-100 space-y-4 shadow-2xl">
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Nome da Loja</label>
-                <input type="text" value={registerForm.storeName} onChange={e => setRegisterForm({...registerForm, storeName: e.target.value})} className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 font-bold text-slate-900 outline-none focus:border-blue-500 transition-colors text-xs" placeholder="Ex: Tech Cell" />
+          {/* Grid de Recursos */}
+          <div className="relative z-10 grid grid-cols-2 gap-4 mt-12 animate-in slide-in-from-bottom-10 duration-1000 delay-200">
+            <div className="bg-white/5 backdrop-blur-md p-5 rounded-3xl border border-white/10 hover:bg-white/10 transition-colors group cursor-default">
+              <div className="w-10 h-10 bg-blue-500/20 rounded-2xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <Package className="text-blue-400" size={20} />
               </div>
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Usuário Administrador</label>
-                <input type="text" value={registerForm.username} onChange={e => setRegisterForm({...registerForm, username: e.target.value.toLowerCase()})} className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 font-bold text-slate-900 outline-none focus:border-blue-500 transition-colors text-xs" placeholder="Seu usuário" />
+              <h3 className="font-bold text-sm mb-1">Controle de Estoque</h3>
+              <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Rastreie produtos e evite perdas</p>
+            </div>
+            <div className="bg-white/5 backdrop-blur-md p-5 rounded-3xl border border-white/10 hover:bg-white/10 transition-colors group cursor-default">
+              <div className="w-10 h-10 bg-emerald-500/20 rounded-2xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <ShoppingCart className="text-emerald-400" size={20} />
               </div>
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Senha</label>
-                <input type="password" value={registerForm.password} onChange={e => setRegisterForm({...registerForm, password: e.target.value})} className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 font-bold text-slate-900 outline-none focus:border-blue-500 transition-colors text-xs" placeholder="••••••" />
+              <h3 className="font-bold text-sm mb-1">PDV Rápido</h3>
+              <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Vendas ágeis e integradas</p>
+            </div>
+            <div className="bg-white/5 backdrop-blur-md p-5 rounded-3xl border border-white/10 hover:bg-white/10 transition-colors group cursor-default">
+              <div className="w-10 h-10 bg-purple-500/20 rounded-2xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <BarChart3 className="text-purple-400" size={20} />
               </div>
-              {loginError && (
-                <div className="flex items-center gap-2 text-red-400 bg-red-400/10 p-3 rounded-xl border border-red-400/20">
-                  <ShieldCheck size={14} className="shrink-0" />
-                  <p className="text-[9px] font-black uppercase tracking-tight">{loginError}</p>
+              <h3 className="font-bold text-sm mb-1">Relatórios Financeiros</h3>
+              <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Visão clara do seu lucro</p>
+            </div>
+            <div className="bg-white/5 backdrop-blur-md p-5 rounded-3xl border border-white/10 hover:bg-white/10 transition-colors group cursor-default">
+              <div className="w-10 h-10 bg-orange-500/20 rounded-2xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <Smartphone className="text-orange-400" size={20} />
+              </div>
+              <h3 className="font-bold text-sm mb-1">Acesso Mobile</h3>
+              <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Gerencie de onde estiver</p>
+            </div>
+          </div>
+
+          {/* Rodapé Visual */}
+          <div className="relative z-10 flex items-center justify-between text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-12">
+            <div className="flex gap-4">
+              <span>© 2024 Lojas Cloud</span>
+              <span>Termos de Uso</span>
+              <span>Privacidade</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+              <span className="text-emerald-500">Sistema Online</span>
+            </div>
+          </div>
+        </div>
+
+        {/* LADO DIREITO - FORMULÁRIO (Login/Registro) */}
+        <div className="w-full lg:w-1/2 flex flex-col justify-center p-4 lg:p-12 bg-white relative min-h-screen overflow-y-auto">
+          {/* Background Pattern (Mobile) */}
+          <div className="absolute inset-0 lg:hidden z-0 opacity-5 pointer-events-none">
+             <div className="absolute inset-0 bg-[radial-gradient(#2563eb_1px,transparent_1px)] [background-size:16px_16px]"></div>
+          </div>
+
+          <div className="w-full max-w-md mx-auto space-y-4 lg:space-y-8 animate-in slide-in-from-right-10 duration-700 relative z-10 py-4 lg:py-0">
+            {/* Cabeçalho Mobile */}
+            <div className="lg:hidden text-center mb-4">
+              <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto shadow-xl shadow-blue-500/30 mb-3 rotate-3">
+                <Smartphone className="text-white" size={24} />
+              </div>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tighter uppercase">Lojas Cloud</h1>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Gestão completa para o seu negócio</p>
+            </div>
+
+            {/* Título do Formulário */}
+            <div className="space-y-1 lg:space-y-2 text-center lg:text-left">
+              <h2 className="text-xl lg:text-3xl font-black text-slate-900 tracking-tight">
+                {isRegisterMode ? 'Crie sua conta grátis' : 'Bem-vindo'}
+              </h2>
+              <p className="text-xs lg:text-base text-slate-500 font-medium">
+                {isRegisterMode ? 'Comece seus 7 dias de teste agora mesmo.' : 'Digite suas credenciais para acessar o painel.'}
+              </p>
+            </div>
+
+            {/* Formulários */}
+            {isRegisterMode ? (
+              <form onSubmit={handleRegister} className="space-y-3 lg:space-y-5">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome da Loja</label>
+                  <div className="relative group">
+                    <Store className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={16} />
+                    <input 
+                      type="text" 
+                      value={registerForm.storeName} 
+                      onChange={e => setRegisterForm({...registerForm, storeName: e.target.value})} 
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-xs placeholder:text-slate-300" 
+                      placeholder="Ex: Tech Cell" 
+                    />
+                  </div>
                 </div>
-              )}
-              <button type="submit" disabled={isRegistering} className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-2xl active:scale-95 transition-all mt-4 disabled:opacity-50">
-                {isRegistering ? <Loader2 className="animate-spin mx-auto" size={20} /> : 'Criar Minha Loja'}
-              </button>
-              <button type="button" onClick={() => { setIsRegisterMode(false); setLoginError(null); }} className="w-full text-slate-400 font-black uppercase text-[9px] tracking-widest hover:text-slate-600 transition-colors">
-                Já tenho uma conta
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleLogin} className="bg-white p-8 rounded-[3rem] border border-slate-100 space-y-4 shadow-2xl">
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Usuário / Login</label>
-                <input type="text" autoFocus value={loginForm.username} onChange={e => setLoginForm({...loginForm, username: e.target.value.toLowerCase()})} className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 font-bold text-slate-900 outline-none focus:border-blue-500 transition-colors text-xs" placeholder="Seu usuário" />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Senha</label>
-                <input type="password" value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 font-bold text-slate-900 outline-none focus:border-blue-500 transition-colors text-xs" placeholder="••••••" />
-              </div>
-              {loginError && (
-                <div className={`flex items-center gap-2 ${loginError.includes('sucesso') ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' : 'text-red-400 bg-red-400/10 border-red-400/20'} p-3 rounded-xl border`}>
-                  <ShieldCheck size={14} className="shrink-0" />
-                  <p className="text-[9px] font-black uppercase tracking-tight">{loginError}</p>
+                
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Usuário Administrador</label>
+                  <div className="relative group">
+                    <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={16} />
+                    <input 
+                      type="text" 
+                      value={registerForm.username} 
+                      onChange={e => setRegisterForm({...registerForm, username: e.target.value.toLowerCase()})} 
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-xs placeholder:text-slate-300" 
+                      placeholder="seu.usuario" 
+                    />
+                  </div>
                 </div>
-              )}
-              <button type="submit" disabled={isLoggingIn} className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-2xl active:scale-95 transition-all mt-4 disabled:opacity-50">
-                {isLoggingIn ? <Loader2 className="animate-spin mx-auto" size={20} /> : 'Acessar Sistema'}
-              </button>
-              <button type="button" onClick={() => { setIsRegisterMode(true); setLoginError(null); }} className="w-full text-slate-400 font-black uppercase text-[9px] tracking-widest hover:text-slate-600 transition-colors">
-                Criar nova loja grátis
-              </button>
-            </form>
-          )}
+
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Senha</label>
+                  <div className="relative group">
+                    <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={16} />
+                    <input 
+                      type="password" 
+                      value={registerForm.password} 
+                      onChange={e => setRegisterForm({...registerForm, password: e.target.value})} 
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-xs placeholder:text-slate-300" 
+                      placeholder="••••••" 
+                    />
+                  </div>
+                </div>
+
+                {loginError && (
+                  <div className="flex items-center gap-3 text-red-500 bg-red-50 p-3 rounded-xl border border-red-100 animate-in slide-in-from-top-2">
+                    <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center shrink-0">
+                      <ShieldCheck size={14} />
+                    </div>
+                    <p className="text-[9px] font-black uppercase tracking-tight leading-tight">{loginError}</p>
+                  </div>
+                )}
+
+                <button 
+                  type="submit" 
+                  disabled={isRegistering} 
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-blue-600/20 active:scale-95 transition-all mt-4 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
+                >
+                  {isRegistering ? <Loader2 className="animate-spin" size={16} /> : (
+                    <>
+                      <span>Criar Minha Loja</span>
+                      <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                    </>
+                  )}
+                </button>
+
+                <div className="relative py-2">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100"></div></div>
+                  <div className="relative flex justify-center"><span className="bg-white px-4 text-[9px] font-black text-slate-300 uppercase tracking-widest">Ou</span></div>
+                </div>
+
+                <button 
+                  type="button" 
+                  onClick={() => { setIsRegisterMode(false); setLoginError(null); }} 
+                  className="w-full bg-slate-50 hover:bg-slate-100 text-slate-600 py-3 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all border border-slate-100"
+                >
+                  Já tenho uma conta
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleLogin} className="space-y-3 lg:space-y-5">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Usuário / Login</label>
+                  <div className="relative group">
+                    <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={16} />
+                    <input 
+                      type="text" 
+                      autoFocus 
+                      value={loginForm.username} 
+                      onChange={e => setLoginForm({...loginForm, username: e.target.value.toLowerCase()})} 
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-xs placeholder:text-slate-300" 
+                      placeholder="seu.usuario" 
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Senha</label>
+                  <div className="relative group">
+                    <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={16} />
+                    <input 
+                      type="password" 
+                      value={loginForm.password} 
+                      onChange={e => setLoginForm({...loginForm, password: e.target.value})} 
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-xs placeholder:text-slate-300" 
+                      placeholder="••••••" 
+                    />
+                  </div>
+                </div>
+
+                {loginError && (
+                  <div className={`flex items-center gap-3 ${loginError.includes('sucesso') ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-red-500 bg-red-50 border-red-100'} p-3 rounded-xl border animate-in slide-in-from-top-2`}>
+                    <div className={`w-6 h-6 ${loginError.includes('sucesso') ? 'bg-emerald-100' : 'bg-red-100'} rounded-full flex items-center justify-center shrink-0`}>
+                      <ShieldCheck size={14} />
+                    </div>
+                    <p className="text-[9px] font-black uppercase tracking-tight leading-tight">{loginError}</p>
+                  </div>
+                )}
+
+                <button 
+                  type="submit" 
+                  disabled={isLoggingIn} 
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-blue-600/20 active:scale-95 transition-all mt-4 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
+                >
+                  {isLoggingIn ? <Loader2 className="animate-spin" size={16} /> : (
+                    <>
+                      <span>Acessar Sistema</span>
+                      <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                    </>
+                  )}
+                </button>
+
+                <div className="relative py-2">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100"></div></div>
+                  <div className="relative flex justify-center"><span className="bg-white px-4 text-[9px] font-black text-slate-300 uppercase tracking-widest">Ou</span></div>
+                </div>
+
+                <button 
+                  type="button" 
+                  onClick={() => { setIsRegisterMode(true); setLoginError(null); }} 
+                  className="w-full bg-slate-50 hover:bg-slate-100 text-slate-600 py-3 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all border border-slate-100"
+                >
+                  Criar nova loja grátis
+                </button>
+              </form>
+            )}
+          </div>
         </div>
       </div>
     );
