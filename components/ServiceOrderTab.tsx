@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Search, Trash2, Camera, X, Eye, Loader2, Smartphone, AlertTriangle, Calculator, CheckCircle, Image as ImageIcon, Calendar, KeyRound, Lock, Download, Maximize2, Layout, Check } from 'lucide-react';
-import { ServiceOrder, AppSettings } from '../types';
+import { ServiceOrder, AppSettings, User } from '../types';
 import { formatCurrency, parseCurrencyString, formatDate } from '../utils';
+import { OnlineDB } from '../utils/api';
 
 interface Props {
   orders: ServiceOrder[];
@@ -12,6 +13,7 @@ interface Props {
   onDeleteOrder: (id: string) => void;
   tenantId: string;
   maxOS?: number;
+  currentUser: User | null;
 }
 
 const COMMON_DEFECTS = [
@@ -20,7 +22,7 @@ const COMMON_DEFECTS = [
   'Wi-Fi não conecta', 'Software/Travando', 'Oxidação/Molhou', 'Vidro Traseiro'
 ];
 
-const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdateSettings, onDeleteOrder, tenantId, maxOS }) => {
+const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdateSettings, onDeleteOrder, tenantId, maxOS, currentUser }) => {
   // --- ESTADOS DE CONTROLE DE INTERFACE ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -164,7 +166,25 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
     
     let newOrdersList: ServiceOrder[];
     if (editingOrder) {
-      newOrdersList = orders.map(o => o.id === editingOrder.id ? { ...o, ...formData } as ServiceOrder : o);
+      const updatedOrder = { ...editingOrder, ...formData } as ServiceOrder;
+      
+      // Se o status mudou para Concluído ou Entregue, calcula comissão
+      if ((updatedOrder.status === 'Concluído' || updatedOrder.status === 'Entregue') && 
+          (editingOrder.status !== 'Concluído' && editingOrder.status !== 'Entregue')) {
+          
+          if (tenantId && currentUser?.id) {
+             // Atribui o técnico logado se não houver um definido
+             if (!updatedOrder.technicianId) {
+                 updatedOrder.technicianId = currentUser.id;
+             }
+             // Calcula comissão para o técnico responsável (se houver)
+             if (updatedOrder.technicianId) {
+                OnlineDB.calculateAndLogCommission(tenantId, updatedOrder, 'service_order', updatedOrder.technicianId);
+             }
+          }
+      }
+
+      newOrdersList = orders.map(o => o.id === editingOrder.id ? updatedOrder : o);
     } else {
       // Calculate next ID based on the highest existing ID to avoid collisions with deleted orders
       const maxId = orders.reduce((max, o) => {
@@ -173,12 +193,16 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
       }, 0);
       const nextIdNumber = maxId + 1;
       const formattedId = nextIdNumber.toString().padStart(2, '0');
+      
       const newOrder: ServiceOrder = {
         ...formData, 
         id: formattedId,
         date: new Date().toISOString(), 
         total: formData.total || (formData.partsCost || 0) + (formData.serviceCost || 0),
+        sellerId: currentUser?.id, // Quem abriu a OS
+        technicianId: null // Técnico será atribuído ao concluir
       } as ServiceOrder;
+      
       newOrdersList = [newOrder, ...orders];
     }
     

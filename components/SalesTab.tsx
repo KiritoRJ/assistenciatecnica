@@ -6,6 +6,7 @@ import html2pdf from 'html2pdf.js';
 import html2canvas from 'html2canvas';
 import { Product, Sale, AppSettings, User } from '../types';
 import { formatCurrency, parseCurrencyString, formatDate, formatDateTime, playBeepSound } from '../utils';
+import { OnlineDB } from '../utils/api';
 import { Html5Qrcode } from 'html5-qrcode';
 
 interface Props {
@@ -341,7 +342,7 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
       const nextIdNumber = sales.length + index + 1;
       const formattedId = nextIdNumber.toString().padStart(2, '0');
 
-      return {
+      const newSale: Sale = {
         id: formattedId,
         productId: item.product.id,
         productName: item.product.name,
@@ -351,13 +352,21 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
         discount: itemDiscount,
         surcharge: itemSurcharge,
         finalPrice: itemTotal - itemDiscount + itemSurcharge,
-        costAtSale: item.product.costPrice,
+        costAtSale: item.product.costPrice * item.quantity,
         paymentMethod: paymentEntries.map(p => p.method === 'Cartão' && p.installments && p.installments > 1 ? `${p.method} (${p.installments}x)` : p.method).join(', '),
         paymentEntriesJson: JSON.stringify(paymentEntries),
         change: change,
         sellerName: currentUser?.name || 'Sistema',
+        sellerId: currentUser?.id,
         transactionId
       };
+
+      // Calcula comissão em background
+      if (tenantId && currentUser?.id) {
+        OnlineDB.calculateAndLogCommission(tenantId, newSale, 'sale', currentUser.id);
+      }
+
+      return newSale;
     });
 
     const updatedProducts = products.map(p => {

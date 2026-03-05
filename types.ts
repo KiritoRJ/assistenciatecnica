@@ -62,6 +62,8 @@ export interface ServiceOrder {
   checklist?: string[];
   signature?: string;
   isDeleted?: boolean;
+  technicianId?: string;
+  sellerId?: string;
 }
 
 export interface Product {
@@ -94,6 +96,7 @@ export interface Sale {
   paymentEntriesJson?: string;
   change?: number;
   sellerName?: string;
+  sellerId?: string;
   transactionId?: string;
   isDeleted?: boolean;
 }
@@ -159,4 +162,86 @@ export interface AppSettings {
   enableLowStockNotifications?: boolean;
   enableNewOSNotifications?: boolean;
   enableNewSaleNotifications?: boolean;
+}
+
+export interface Employee {
+  id: string;
+  tenantId: string;
+  userId?: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  cpf?: string;
+  rg?: string;
+  birthDate?: string;
+  address?: {
+    street: string;
+    number: string;
+    complement?: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+    zipCode: string;
+  };
+  pixKey?: string;
+  pixKeyType?: 'cpf' | 'email' | 'phone' | 'random';
+  role: 'tecnico' | 'vendedor' | 'atendente' | 'gerente' | 'administrador';
+  status: 'active' | 'inactive';
+  admissionDate: string;
+  photoUrl?: string;
+  salaryBase: number;
+  // Commission Settings
+  commissionType: 'sales_percent' | 'profit_percent' | 'mixed';
+  defaultCommissionPercent: number; // Used for sales (or profit if type is profit_percent)
+  serviceCommissionPercent: number; // Specific for services
+  goalMonthly: number;
+  permissions: {
+    open_os: boolean;
+    sell: boolean;
+    view_finance: boolean;
+    edit_price: boolean;
+    cancel_sale: boolean;
+  };
+}
+
+export interface CommissionRule {
+  id: string;
+  tenantId: string;
+  name: string;
+  description?: string;
+  targetType: 'global' | 'category' | 'product' | 'service';
+  targetId?: string; // ID of category, product or service
+  employeeId?: string; // If null, applies to all
+  ruleType: 'percent' | 'fixed';
+  calculationBase: 'gross_sale' | 'net_profit';
+  value: number; // Percent or fixed value
+  minAmount?: number; // Minimum sale amount for rule to apply
+  requiresGoalMet?: boolean; // If true, only applies if monthly goal is met
+  priority: number;
+  isActive: boolean;
+}
+
+export interface GoalTier {
+  id: string;
+  tenantId: string;
+  employeeId?: string; // If null, it's a global tier
+  name: string;
+  minAmount: number;
+  bonusType: 'percent' | 'fixed';
+  bonusValue: number;
+  calculationBase: 'gross_sale' | 'net_profit';
+}
+
+export interface CommissionLog {
+  id: string;
+  employeeId: string;
+  originType: 'sale' | 'service_order' | 'bonus';
+  originId: string;
+  description: string;
+  saleAmount: number;
+  profitAmount: number;
+  commissionAmount: number;
+  status: 'pending' | 'paid' | 'cancelled';
+  paymentDate?: string;
+  createdAt: string;
 }

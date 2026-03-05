@@ -7,6 +7,7 @@ import StockTab from './components/StockTab';
 import SalesTab from './components/SalesTab';
 import FinanceTab from './components/FinanceTab';
 import SettingsTab from './components/SettingsTab';
+import EmployeeManagementTab from './components/EmployeeManagementTab';
 import SuperAdminDashboard from './components/SuperAdminDashboard';
 import SubscriptionView from './components/SubscriptionView';
 import CustomerCatalog from './components/CustomerCatalog';
@@ -15,7 +16,7 @@ import { OfflineSync } from './utils/offlineSync';
 import { db } from './utils/localDb';
 import { useAppNotifications } from './utils/useAppNotifications';
 
-type Tab = 'os' | 'estoque' | 'vendas' | 'financeiro' | 'config';
+type Tab = 'os' | 'estoque' | 'vendas' | 'financeiro' | 'config' | 'team';
 
 const DEFAULT_SETTINGS: AppSettings = {
   storeName: 'Minha Assistência',
@@ -306,6 +307,16 @@ const App: React.FC = () => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'transactions', filter: `tenant_id=eq.${tenantId}` },
+        debouncedLoad
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'users', filter: `tenant_id=eq.${tenantId}` },
+        debouncedLoad
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'employees', filter: `tenant_id=eq.${tenantId}` },
         debouncedLoad
       )
       .subscribe();
@@ -941,6 +952,7 @@ const App: React.FC = () => {
     { id: 'estoque', label: 'Estoque', icon: Package, roles: ['admin'], feature: 'stockTab' },
     { id: 'vendas', label: 'Vendas', icon: ShoppingCart, roles: ['admin', 'colaborador'], feature: 'salesTab' },
     { id: 'financeiro', label: 'Finanças', icon: BarChart3, roles: ['admin'], feature: 'financeTab' },
+    { id: 'team', label: 'Equipe', icon: Users, roles: ['admin'], feature: 'financeTab' },
     { id: 'config', label: 'Ajustes', icon: Settings, roles: ['admin', 'colaborador'] },
   ];
   
@@ -1041,10 +1053,11 @@ const App: React.FC = () => {
           </div>
         )}
         <div className={`flex-1 overflow-y-auto p-4 pt-4 pb-24 md:pt-10 md:pb-4 max-w-7xl mx-auto w-full animate-in fade-in duration-700 hide-scrollbar [&::-webkit-scrollbar]:hidden ${isSidebarCollapsed ? 'md:pl-20' : 'md:pl-4'}`}>
-          {activeTab === 'os' && <ServiceOrderTab orders={orders} setOrders={saveOrders} settings={settings} onUpdateSettings={saveSettings} onDeleteOrder={removeOrder} tenantId={session.tenantId || ''} maxOS={session.maxOS} />}
+          {activeTab === 'os' && <ServiceOrderTab orders={orders} setOrders={saveOrders} settings={settings} onUpdateSettings={saveSettings} onDeleteOrder={removeOrder} tenantId={session.tenantId || ''} maxOS={session.maxOS} currentUser={currentUser} />}
           {activeTab === 'estoque' && <StockTab products={products} setProducts={saveProducts} onDeleteProduct={removeProduct} settings={settings} onUpdateSettings={saveSettings} maxProducts={session.maxProducts} />}
           {activeTab === 'vendas' && <SalesTab products={products} setProducts={saveProducts} sales={sales.filter(s => !s.isDeleted)} setSales={saveSales} settings={settings} onUpdateSettings={saveSettings} currentUser={currentUser} onDeleteSale={removeSale} tenantId={session.tenantId || ''} />}
           {activeTab === 'financeiro' && <FinanceTab orders={orders} sales={sales} products={products} transactions={transactions} setTransactions={saveTransactions} setOrders={saveOrders} onDeleteTransaction={removeTransaction} onDeleteSale={removeSale} tenantId={session.tenantId || ''} settings={settings} enabledFeatures={session.enabledFeatures} />}
+          {activeTab === 'team' && <EmployeeManagementTab tenantId={session.tenantId || ''} />}
           {activeTab === 'config' && <SettingsTab products={products} setProducts={saveProducts} settings={settings} setSettings={saveSettings} isCloudConnected={isCloudConnected} currentUser={currentUser} onSwitchProfile={handleSwitchProfile} tenantId={session.tenantId} deferredPrompt={deferredPrompt} onInstallApp={handleInstallApp} subscriptionStatus={session.subscriptionStatus} subscriptionExpiresAt={session.subscriptionExpiresAt} lastPlanType={session.lastPlanType} enabledFeatures={session.enabledFeatures} maxUsers={session.maxUsers} maxOS={session.maxOS} maxProducts={session.maxProducts} onLogout={() => setIsLogoutModalOpen(true)} />}
         </div>
       </main>

@@ -908,6 +908,12 @@ export class OnlineDB {
   // Remove um usuário colaborador
   static async deleteRemoteUser(id: string) {
     try {
+      // Primeiro remove da tabela employees para evitar erro de chave estrangeira
+      await supabase
+        .from('employees')
+        .delete()
+        .eq('user_id', id);
+
       const { error } = await supabase
         .from('users')
         .delete()
@@ -956,4 +962,376 @@ export class OnlineDB {
       return { success: true };
     } catch (e) { return { success: false }; }
   }
+
+  // --- GESTÃO DE FUNCIONÁRIOS E COMISSÕES ---
+
+  // Busca funcionários (integrado com usuários)
+  static async fetchEmployees(tenantId: string) {
+    if (!tenantId) return [];
+    try {
+      // 1. Busca usuários do sistema (auth/perfis)
+      const { data: users, error: usersError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('tenant_id', tenantId);
+
+      if (usersError) throw usersError;
+
+      // 2. Busca dados estendidos de funcionários (RH/Comissões)
+      const { data: employees, error: empError } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('tenant_id', tenantId);
+
+      if (empError) throw empError;
+
+      // 3. Mescla os dados. Se um usuário não tiver registro em employees, cria um objeto temporário
+      const mergedList = (users || []).map(u => {
+        const emp = employees?.find(e => e.user_id === u.id || e.email === u.username); // Tenta vincular por ID ou email/username
+        
+        // Se não existir registro em employees, vamos criar um "virtual" para exibição
+        // O ideal seria criar no banco, mas vamos deixar o usuário salvar para persistir
+        return {
+          id: emp?.id || u.id, // Usa ID do employee se existir, senão do user (mas cuidado ao salvar)
+          tenantId: tenantId,
+          userId: u.id, // Referência ao usuário original
+          name: u.name, // Nome vem do usuário (fonte da verdade)
+          email: u.username,
+          phone: emp?.phone,
+          role: emp?.role || (u.role === 'admin' ? 'administrador' : (u.specialty === 'Técnico' ? 'tecnico' : 'vendedor')),
+          status: emp?.status || 'active',
+          admissionDate: emp?.admission_date || new Date().toISOString().split('T')[0],
+          photoUrl: u.photo || emp?.photo_url,
+          salaryBase: Number(emp?.salary_base || 0),
+          commissionType: emp?.commission_type || 'sales_percent',
+          defaultCommissionPercent: Number(emp?.default_commission_percent || 0),
+          serviceCommissionPercent: Number(emp?.service_commission_percent || 0),
+          goalMonthly: Number(emp?.goal_monthly || 0),
+          permissions: emp?.permissions || { open_os: true, sell: true, view_finance: false, edit_price: false, cancel_sale: false }
+        };
+      });
+
+      return mergedList.sort((a, b) => a.name.localeCompare(b.name));
+    } catch (e) {
+      console.error("Erro ao buscar funcionários:", e);
+      return [];
+    }
+  }
+
+  // Salva/Atualiza funcionário
+  static async upsertEmployee(tenantId: string, employee: any) {
+    try {
+      // Prepara payload para tabela employees
+      const payload: any = {
+        tenant_id: tenantId,
+        user_id: employee.userId, // Importante vincular
+        name: employee.name,
+        email: employee.email,
+        phone: employee.phone,
+        cpf: employee.cpf,
+        rg: employee.rg,
+        birth_date: employee.birthDate,
+        address: employee.address, // Supabase JSONB
+        pix_key: employee.pixKey,
+        pix_key_type: employee.pixKeyType,
+        role: employee.role,
+        status: employee.status,
+        admission_date: employee.admissionDate,
+        photo_url: employee.photoUrl,
+        salary_base: employee.salaryBase,
+        commission_type: employee.commissionType,
+        default_commission_percent: employee.defaultCommissionPercent,
+        service_commission_percent: employee.serviceCommissionPercent,
+        goal_monthly: employee.goalMonthly,
+        permissions: employee.permissions
+      };
+
+      if (employee.id && employee.id.length > 10) { // Verifica se é um ID válido (UUID ou longo)
+         // Se o ID for igual ao userId, significa que é um registro novo virtual, então deixamos o banco gerar o ID do employee
+         if (employee.id !== employee.userId) {
+            payload.id = employee.id;
+         }
+      } else if (employee.id) {
+         // Se tiver ID curto, usa ele mesmo
+         payload.id = employee.id;
+      }
+
+      const { data, error } = await supabase
+        .from('employees')
+        .upsert(payload) // Se tiver ID, atualiza. Se não, cria.
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (e: any) {
+      return { success: false, message: e.message };
+    }
+  }
+
+  // Busca Regras de Comissão
+  static async fetchCommissionRules(tenantId: string) {
+    try {
+      const { data, error } = await supabase.from('commission_rules').select('*').eq('tenant_id', tenantId).order('priority', { ascending: false });
+      if (error) throw error;
+      return (data || []).map(d => ({
+        id: d.id,
+        tenantId: d.tenant_id,
+        name: d.name,
+        description: d.description,
+        targetType: d.target_type,
+        targetId: d.target_id,
+        employeeId: d.employee_id,
+        ruleType: d.rule_type,
+        calculationBase: d.calculation_base,
+        value: Number(d.value || 0),
+        minAmount: Number(d.min_amount || 0),
+        priority: Number(d.priority || 0),
+        isActive: d.is_active
+      }));
+    } catch (e) { return []; }
+  }
+
+  // Salva Regra de Comissão
+  static async upsertCommissionRule(tenantId: string, rule: any) {
+    try {
+      const payload: any = {
+        tenant_id: tenantId,
+        name: rule.name,
+        description: rule.description,
+        target_type: rule.targetType,
+        target_id: rule.targetId,
+        employee_id: rule.employeeId,
+        rule_type: rule.ruleType,
+        calculation_base: rule.calculationBase,
+        value: rule.value,
+        min_amount: rule.minAmount,
+        priority: rule.priority,
+        is_active: rule.isActive
+      };
+      
+      if (rule.id) {
+        payload.id = rule.id;
+      }
+      
+      const { error } = await supabase.from('commission_rules').upsert(payload);
+      if (error) throw error;
+      return { success: true };
+    } catch (e) { return { success: false }; }
+  }
+
+  // Busca Metas (GoalTiers)
+  static async fetchGoalTiers(tenantId: string) {
+    try {
+      const { data, error } = await supabase.from('goal_tiers').select('*').eq('tenant_id', tenantId).order('min_amount', { ascending: true });
+      if (error) throw error;
+      return (data || []).map(d => ({
+        id: d.id,
+        tenantId: d.tenant_id,
+        employeeId: d.employee_id,
+        name: d.name,
+        minAmount: Number(d.min_amount || 0),
+        bonusType: d.bonus_type,
+        bonusValue: Number(d.bonus_value || 0),
+        calculationBase: d.calculation_base
+      }));
+    } catch (e) { return []; }
+  }
+
+  // Salva Meta
+  static async upsertGoalTier(tenantId: string, tier: any) {
+    try {
+      const payload: any = {
+        tenant_id: tenantId,
+        employee_id: tier.employeeId,
+        name: tier.name,
+        min_amount: tier.minAmount,
+        bonus_type: tier.bonusType,
+        bonus_value: tier.bonusValue,
+        calculation_base: tier.calculationBase
+      };
+      if (tier.id) payload.id = tier.id;
+      const { error } = await supabase.from('goal_tiers').upsert(payload);
+      if (error) throw error;
+      return { success: true };
+    } catch (e) { return { success: false }; }
+  }
+
+  // Deleta Meta
+  static async deleteGoalTier(tierId: string) {
+    try {
+      await supabase.from('goal_tiers').delete().eq('id', tierId);
+      return { success: true };
+    } catch (e) { return { success: false }; }
+  }
+
+  // Deleta Regra de Comissão
+  static async deleteCommissionRule(ruleId: string) {
+    try {
+      await supabase.from('commission_rules').delete().eq('id', ruleId);
+      return { success: true };
+    } catch (e) { return { success: false }; }
+  }
+
+  // Busca Log de Comissões
+  static async fetchCommissionLogs(tenantId: string, startDate?: Date, endDate?: Date) {
+    try {
+      let query = supabase.from('commissions_log').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false });
+      
+      if (startDate) query = query.gte('created_at', startDate.toISOString());
+      if (endDate) query = query.lte('created_at', endDate.toISOString());
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      return (data || []).map(d => ({
+        id: d.id,
+        employeeId: d.employee_id,
+        originType: d.origin_type,
+        originId: d.origin_id,
+        description: d.description,
+        saleAmount: Number(d.sale_amount || 0),
+        profitAmount: Number(d.profit_amount || 0),
+        commissionAmount: Number(d.commission_amount || 0),
+        status: d.status,
+        paymentDate: d.payment_date,
+        createdAt: d.created_at
+      }));
+    } catch (e) { return []; }
+  }
+
+  // Registra Comissão (Chamado ao finalizar venda/OS)
+  static async logCommission(tenantId: string, log: any) {
+    try {
+      const { error } = await supabase.from('commissions_log').insert({
+        tenant_id: tenantId,
+        employee_id: log.employeeId,
+        origin_type: log.originType,
+        origin_id: log.originId,
+        description: log.description,
+        sale_amount: log.saleAmount,
+        profit_amount: log.profitAmount,
+        commission_amount: log.commissionAmount,
+        status: log.status || 'pending',
+        created_at: new Date().toISOString()
+      });
+      if (error) throw error;
+      return { success: true };
+    } catch (e) { return { success: false }; }
+  }
+
+  // Calcula e registra comissão automaticamente usando regras inteligentes
+  static async calculateAndLogCommission(tenantId: string, item: any, type: 'sale' | 'service_order', userId: string) {
+    try {
+      // 1. Busca o funcionário vinculado ao usuário
+      const { data: employee } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (!employee) return { success: false, message: 'Funcionário não encontrado para este usuário.' };
+
+      // 2. Busca todas as regras ativas para este tenant
+      const rules = await this.fetchCommissionRules(tenantId);
+      const activeRules = rules.filter(r => r.isActive);
+
+      // 2.1 Calcula vendas do mês para verificar se bateu a meta (se houver regras que dependam disso)
+      let monthlySales = 0;
+      const hasGoalDependentRules = activeRules.some(r => r.requiresGoalMet);
+      if (hasGoalDependentRules || employee.goal_monthly > 0) {
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+        
+        const { data: monthlyLogs } = await supabase
+          .from('commissions_log')
+          .select('sale_amount')
+          .eq('employee_id', employee.id)
+          .gte('created_at', startOfMonth.toISOString());
+        
+        monthlySales = (monthlyLogs || []).reduce((acc, curr) => acc + curr.sale_amount, 0);
+      }
+
+      const isGoalMet = monthlySales >= (employee.goal_monthly || 0);
+
+      let commissionAmount = 0;
+      let saleAmount = 0;
+      let profitAmount = 0;
+      let description = '';
+
+      if (type === 'sale') {
+        saleAmount = item.finalPrice;
+        const cost = item.costAtSale || 0;
+        profitAmount = saleAmount - cost;
+        description = `Venda: ${item.productName}`;
+      } else {
+        saleAmount = item.total;
+        profitAmount = item.total - (item.partsCost || 0);
+        description = `OS #${item.id} - ${item.deviceModel}`;
+      }
+
+      // 3. Tenta encontrar a regra mais específica (maior prioridade)
+      // Ordem de prioridade: Produto/Serviço específico > Categoria > Global
+      const applicableRules = activeRules.filter(rule => {
+        // Filtra por funcionário se a regra for específica
+        if (rule.employeeId && rule.employeeId !== employee.id) return false;
+        
+        // Filtra por valor mínimo da venda
+        if (rule.minAmount && saleAmount < rule.minAmount) return false;
+
+        // Filtra por meta batida
+        if (rule.requiresGoalMet && !isGoalMet) return false;
+
+        // Filtra por tipo de alvo
+        if (type === 'sale') {
+          if (rule.targetType === 'product' && rule.targetId === item.productId) return true;
+          if (rule.targetType === 'category' && rule.targetId === item.category) return true;
+          if (rule.targetType === 'global') return true;
+        } else {
+          if (rule.targetType === 'service') return true;
+          if (rule.targetType === 'global') return true;
+        }
+        return false;
+      }).sort((a, b) => b.priority - a.priority);
+
+      if (applicableRules.length > 0) {
+        const rule = applicableRules[0];
+        const base = rule.calculationBase === 'net_profit' ? profitAmount : saleAmount;
+        
+        if (rule.ruleType === 'percent') {
+          commissionAmount = base * (rule.value / 100);
+        } else {
+          commissionAmount = rule.value;
+        }
+      } else {
+        // Fallback para comissão padrão do funcionário
+        const base = employee.commission_type === 'profit_percent' ? profitAmount : saleAmount;
+        const percent = type === 'sale' ? employee.default_commission_percent : (employee.service_commission_percent || employee.default_commission_percent);
+        commissionAmount = base * (Number(percent) / 100);
+      }
+
+      // 4. Registra no log
+      if (commissionAmount > 0) {
+        await this.logCommission(tenantId, {
+          employeeId: employee.id,
+          originType: type,
+          originId: item.id,
+          description,
+          saleAmount,
+          profitAmount,
+          commissionAmount,
+          status: 'pending'
+        });
+      }
+
+      return { success: true };
+    } catch (e: any) {
+      console.error("Erro ao calcular comissão:", e);
+      return { success: false, message: e.message };
+    }
+  }
+
+
 }

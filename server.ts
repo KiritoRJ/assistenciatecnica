@@ -203,11 +203,21 @@ app.post('/api/auth/upsert-user', async (req, res) => {
     const baseName = user.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_');
     const username = (user.username || baseName + '_' + Math.random().toString(36).substr(2, 4)).trim().toLowerCase();
     
-    let password = user.password || '123456';
-    // Only hash if it's not already hashed (though in upsert it's usually plain text from the form)
-    if (!password.startsWith('$2a$') && !password.startsWith('$2b$')) {
-      password = await hashPassword(password.trim());
+    let passwordHash: string | undefined;
+
+    if (user.password) {
+      // Se senha fornecida, faz hash
+      let pwd = user.password.trim();
+      if (!pwd.startsWith('$2a$') && !pwd.startsWith('$2b$')) {
+        passwordHash = await hashPassword(pwd);
+      } else {
+        passwordHash = pwd;
+      }
+    } else if (!user.id) {
+      // Se novo usuário sem senha, usa padrão
+      passwordHash = await hashPassword('123456');
     }
+    // Se update sem senha, passwordHash fica undefined e não entra no payload
 
     const payload: any = {
       id: user.id,
@@ -217,16 +227,21 @@ app.post('/api/auth/upsert-user', async (req, res) => {
       tenant_id: tenantId,
       store_name: storeName,
       photo: user.photo,
-      password: password,
       specialty: user.specialty
     };
 
-    const { error } = await supabase
+    if (passwordHash) {
+      payload.password = passwordHash;
+    }
+
+    const { data, error } = await supabase
       .from('users')
-      .upsert(payload, { onConflict: 'id' });
+      .upsert(payload, { onConflict: 'id' })
+      .select()
+      .single();
 
     if (error) throw error;
-    res.json({ success: true, username });
+    res.json({ success: true, username, user: data });
   } catch (e: any) {
     console.error('Upsert user error:', e);
     res.status(500).json({ success: false, message: e.message });

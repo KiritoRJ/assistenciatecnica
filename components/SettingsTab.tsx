@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Image as ImageIcon, Camera, FileText, Palette, MoveHorizontal, MoreVertical, ArrowLeft, Check, Layout, Pipette, X, AlertCircle, Users, Shield, UserPlus, Trash2, User as UserIcon, Loader2, Lock, MapPin, Phone, KeyRound, Briefcase, Smartphone, Download, Upload, LogOut, Bell, Package } from 'lucide-react';
-import { AppSettings, User, ServiceOrder, Product, Sale, Transaction } from '../types';
+import { Image as ImageIcon, Camera, FileText, Palette, MoveHorizontal, MoreVertical, ArrowLeft, Check, Layout, Pipette, X, AlertCircle, Users, Shield, UserPlus, Trash2, User as UserIcon, Loader2, Lock, MapPin, Phone, KeyRound, Briefcase, Smartphone, Download, Upload, LogOut, Bell, Package, DollarSign, Percent, Save, Edit2 } from 'lucide-react';
+import { AppSettings, User, ServiceOrder, Product, Sale, Transaction, Employee } from '../types';
 import { OnlineDB } from '../utils/api';
 import { OfflineSync } from '../utils/offlineSync';
 import { db } from '../utils/localDb';
@@ -80,6 +80,23 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
   const [newUserName, setNewUserName] = useState('');
   const [newUserPhoto, setNewUserPhoto] = useState<string | null>(null);
   const [newUserSpecialty, setNewUserSpecialty] = useState<'Vendedor' | 'Técnico' | 'Outros'>('Técnico');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [isEditingUser, setIsEditingUser] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [employeeFormData, setEmployeeFormData] = useState<Partial<Employee>>({
+    role: 'vendedor',
+    status: 'active',
+    commissionType: 'sales_percent',
+    permissions: { open_os: true, sell: true, view_finance: false, edit_price: false, cancel_sale: false }
+  });
+
+  useEffect(() => {
+    if (view === 'users' && tenantId) {
+      OnlineDB.fetchEmployees(tenantId).then(setEmployees);
+    }
+  }, [view, tenantId]);
 
   const [userToDelete, setUserToDelete] = useState<{ id: string, name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -283,24 +300,27 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
     if (!newUserName) return alert('O nome é obrigatório.');
     if (!tenantId) return alert('Erro interno: Tenant ID não encontrado.');
 
-    // Verificar limite de usuários
-    const activeProfiles = settings.users?.length || 0;
-    const limit = maxUsers || 999;
-    if (activeProfiles >= limit) {
-      alert(`Limite de usuários atingido (${limit}). Seu plano atual permite apenas ${limit} usuários ativos.`);
-      return;
+    // Verificar limite de usuários (apenas se for novo)
+    if (!isEditingUser) {
+      const activeProfiles = settings.users?.length || 0;
+      const limit = maxUsers || 999;
+      if (activeProfiles >= limit) {
+        alert(`Limite de usuários atingido (${limit}). Seu plano atual permite apenas ${limit} usuários ativos.`);
+        return;
+      }
     }
     
     setIsSaving(true);
-    const userId = 'USR_' + Math.random().toString(36).substr(2, 6).toUpperCase();
+    const userId = isEditingUser ? editingUserId! : 'USR_' + Math.random().toString(36).substr(2, 6).toUpperCase();
     
     const newUser: User = {
       id: userId,
       name: newUserName,
       role: 'colaborador',
-      password: '', // Sem senha para colaboradores simples por padrão
+      password: newUserPassword || undefined,
       photo: newUserPhoto,
-      specialty: newUserSpecialty
+      specialty: newUserSpecialty,
+      tenantId: tenantId
     };
 
     try {
@@ -308,15 +328,47 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
       
       if (res.success) {
         const newUserWithUsername = { ...newUser, username: res.username };
-        const updatedUsers = [...settings.users, newUserWithUsername];
+        
+        // Upsert Employee
+        const employeeData: Partial<Employee> = {
+          ...employeeFormData,
+          id: isEditingUser ? employees.find(e => e.userId === userId)?.id : undefined,
+          userId: userId,
+          name: newUserName,
+          photoUrl: newUserPhoto || undefined,
+          tenantId: tenantId as any
+        };
+        const empRes = await OnlineDB.upsertEmployee(tenantId, employeeData);
+        if (!empRes.success) throw new Error(empRes.message);
+
+        let updatedUsers = [...settings.users];
+        if (isEditingUser) {
+          updatedUsers = updatedUsers.map(u => u.id === userId ? newUserWithUsername : u);
+        } else {
+          updatedUsers.push(newUserWithUsername);
+        }
+        
         setSettings({ ...settings, users: updatedUsers });
         await OfflineSync.saveUser(tenantId, newUserWithUsername);
         
+        // Refresh employees list
+        const updatedEmps = await OnlineDB.fetchEmployees(tenantId);
+        setEmployees(updatedEmps);
+
         setIsUserModalOpen(false);
         setNewUserName('');
         setNewUserPhoto(null);
         setNewUserSpecialty('Técnico');
-        triggerSaveFeedback("Perfil Criado!");
+        setNewUserPassword('');
+        setIsEditingUser(false);
+        setEditingUserId(null);
+        setEmployeeFormData({
+          role: 'vendedor',
+          status: 'active',
+          commissionType: 'sales_percent',
+          permissions: { open_os: true, sell: true, view_finance: false, edit_price: false, cancel_sale: false }
+        });
+        triggerSaveFeedback(isEditingUser ? "Perfil Atualizado!" : "Perfil Criado!");
       } else {
         alert("Erro no Banco: " + res.message);
       }
@@ -325,6 +377,28 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const openEditUserModal = (user: User) => {
+    const emp = employees.find(e => e.userId === user.id);
+    setIsEditingUser(true);
+    setEditingUserId(user.id);
+    setNewUserName(user.name);
+    setNewUserPhoto(user.photo);
+    setNewUserSpecialty(user.specialty || 'Técnico');
+    setNewUserPassword('');
+    
+    if (emp) {
+      setEmployeeFormData(emp);
+    } else {
+      setEmployeeFormData({
+        role: 'vendedor',
+        status: 'active',
+        commissionType: 'sales_percent',
+        permissions: { open_os: true, sell: true, view_finance: false, edit_price: false, cancel_sale: false }
+      });
+    }
+    setIsUserModalOpen(true);
   };
 
   const handleConfirmDelete = async () => {
@@ -505,65 +579,95 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
         </div>
 
         <div className="space-y-3">
-          {settings.users.map(user => (
-            <div 
-              key={user.id} 
-              onClick={() => handleSwitchAttempt(user)} 
-              className={`p-5 rounded-[2.5rem] border transition-all cursor-pointer relative flex items-center justify-between shadow-sm overflow-hidden ${user.id === currentUser.id ? 'bg-white border-blue-500 ring-4 ring-blue-50' : 'bg-[#f1f1f1] border-transparent hover:bg-white hover:border-blue-200'}`}
-            >
-              <div className="flex items-center gap-5">
-                <div className="relative shrink-0">
-                  {user.photo ? (
-                    <img src={user.photo} className="w-14 h-14 rounded-3xl object-cover border-2 border-white shadow-sm" />
-                  ) : (
-                    <div className="w-14 h-14 bg-slate-200 text-slate-400 rounded-3xl flex items-center justify-center border-2 border-white">
-                      <UserIcon size={24} />
-                    </div>
-                  )}
-                  {user.role === 'admin' && (
-                    <div className="absolute -bottom-1 -right-1 bg-blue-600 text-white p-1 rounded-lg border-2 border-white shadow-sm">
-                      <Shield size={10} />
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <h3 className={`font-black uppercase text-xs tracking-tight mb-1 ${user.id === currentUser.id ? 'text-blue-600' : 'text-slate-800'}`}>
-                    {user.name}
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      {user.specialty || (user.role === 'admin' ? 'Administrador' : 'Colaborador')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                {user.id === currentUser.id ? (
-                  <div className="flex flex-col items-end gap-2">
-                    <span className="text-[9px] font-black text-white bg-blue-600 px-5 py-2 rounded-2xl uppercase tracking-widest shadow-lg shadow-blue-500/20">Logado</span>
+          {settings.users.map(user => {
+            const emp = employees.find(e => e.userId === user.id);
+            return (
+              <div 
+                key={user.id} 
+                className={`p-5 rounded-[2.5rem] border transition-all relative flex items-center justify-between shadow-sm overflow-hidden ${user.id === currentUser.id ? 'bg-white border-blue-500 ring-4 ring-blue-50' : 'bg-[#f1f1f1] border-transparent hover:bg-white hover:border-blue-200'}`}
+              >
+                <div className="flex items-center gap-5">
+                  <div className="relative shrink-0">
+                    {user.photo ? (
+                      <img src={user.photo} className="w-14 h-14 rounded-3xl object-cover border-2 border-white shadow-sm" />
+                    ) : (
+                      <div className="w-14 h-14 bg-slate-200 text-slate-400 rounded-3xl flex items-center justify-center border-2 border-white">
+                        <UserIcon size={24} />
+                      </div>
+                    )}
                     {user.role === 'admin' && (
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); setIsPasswordModalOpen(true); }}
-                        className="text-[8px] font-black text-blue-600 uppercase tracking-widest bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-100 hover:bg-blue-600 hover:text-white transition-all"
-                      >
-                        Alterar Senha
-                      </button>
+                      <div className="absolute -bottom-1 -right-1 bg-blue-600 text-white p-1 rounded-lg border-2 border-white shadow-sm">
+                        <Shield size={10} />
+                      </div>
                     )}
                   </div>
-                ) : (
-                  isAdmin && (user.role === 'colaborador') && (
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); setUserToDelete({ id: user.id, name: user.name }); }} 
-                      className="p-3 bg-white text-red-500 rounded-xl border border-slate-200 shadow-sm active:scale-90 transition-all hover:bg-red-500 hover:text-white"
-                    >
-                      <Trash2 size={20} />
-                    </button>
-                  )
-                )}
+                  <div>
+                    <h3 className={`font-black uppercase text-xs tracking-tight mb-1 ${user.id === currentUser.id ? 'text-blue-600' : 'text-slate-800'}`}>
+                      {user.name}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        {emp?.role || user.specialty || (user.role === 'admin' ? 'Administrador' : 'Colaborador')}
+                      </p>
+                      {emp?.status === 'inactive' && (
+                        <span className="text-[8px] font-black bg-red-100 text-red-600 px-2 py-0.5 rounded-md uppercase tracking-widest">Inativo</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  {user.id === currentUser.id ? (
+                    <div className="flex flex-col items-end gap-2">
+                      <span className="text-[9px] font-black text-white bg-blue-600 px-5 py-2 rounded-2xl uppercase tracking-widest shadow-lg shadow-blue-500/20">Logado</span>
+                      {user.role === 'admin' && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setIsPasswordModalOpen(true); }}
+                          className="text-[8px] font-black text-blue-600 uppercase tracking-widest bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-100 hover:bg-blue-600 hover:text-white transition-all"
+                        >
+                          Alterar Minha Senha
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => {
+                          if (isAdmin) {
+                            onSwitchProfile(user);
+                          } else {
+                            setPendingUserToSwitch(user);
+                            setIsAuthModalOpen(true);
+                          }
+                        }}
+                        className="px-4 py-2.5 bg-blue-600 text-white rounded-xl font-black uppercase text-[9px] tracking-widest shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center gap-2"
+                      >
+                        <LogOut size={14} className="rotate-180" /> Logar
+                      </button>
+                      {isAdmin && (
+                        <>
+                          <button 
+                            onClick={() => openEditUserModal(user)}
+                            className="p-3 bg-white text-slate-600 rounded-xl border border-slate-200 shadow-sm active:scale-90 transition-all hover:bg-slate-50"
+                          >
+                            <Edit2 size={18} />
+                          </button>
+                          {user.role === 'colaborador' && (
+                            <button 
+                              onClick={() => setUserToDelete({ id: user.id, name: user.name })} 
+                              className="p-3 bg-white text-red-500 rounded-xl border border-slate-200 shadow-sm active:scale-90 transition-all hover:bg-red-500 hover:text-white"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {userToDelete && isAdmin && (
@@ -710,47 +814,159 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
 
         {isUserModalOpen && isAdmin && (
           <div className="fixed inset-0 bg-slate-950/80 z-[100] flex flex-col justify-end md:justify-center p-4 backdrop-blur-md">
-            <div className="bg-white w-full max-w-sm mx-auto rounded-[3.5rem] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-10 border border-slate-100">
-              <div className="p-8 border-b border-slate-50 flex items-center justify-between">
-                <h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter">Novo Colaborador</h3>
-                <button onClick={() => setIsUserModalOpen(false)} className="text-slate-400 p-3 bg-slate-50 rounded-full active:scale-90"><X size={20} /></button>
+            <div className="bg-white w-full max-w-2xl mx-auto rounded-[3.5rem] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-10 border border-slate-100 flex flex-col max-h-[90vh]">
+              <div className="p-8 border-b border-slate-50 flex items-center justify-between shrink-0">
+                <h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter">{isEditingUser ? 'Editar Colaborador' : 'Novo Colaborador'}</h3>
+                <button onClick={() => { setIsUserModalOpen(false); setIsEditingUser(false); }} className="text-slate-400 p-3 bg-slate-50 rounded-full active:scale-90"><X size={20} /></button>
               </div>
-              <div className="p-8 space-y-8">
-                <div className="flex flex-col items-center gap-3">
-                  <button onClick={triggerUserPhotoUpload} className="relative group">
-                    <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] border-4 border-dashed border-slate-200 flex items-center justify-center overflow-hidden active:scale-95 transition-transform">
-                      {isCompressing ? <Loader2 className="animate-spin text-blue-500" /> : newUserPhoto ? <img src={newUserPhoto} className="w-full h-full object-cover" /> : <Camera className="text-slate-200" size={32} />}
+              
+              <div className="p-8 space-y-8 overflow-y-auto flex-1 hide-scrollbar">
+                {/* Cabeçalho com Foto e Nome */}
+                <div className="flex flex-col md:flex-row items-center gap-8">
+                  <div className="flex flex-col items-center gap-3">
+                    <button onClick={triggerUserPhotoUpload} className="relative group">
+                      <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] border-4 border-dashed border-slate-200 flex items-center justify-center overflow-hidden active:scale-95 transition-transform">
+                        {isCompressing ? <Loader2 className="animate-spin text-blue-500" /> : newUserPhoto ? <img src={newUserPhoto} className="w-full h-full object-cover" /> : <Camera className="text-slate-200" size={32} />}
+                      </div>
+                    </button>
+                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Foto do Perfil</p>
+                  </div>
+                  
+                  <div className="flex-1 w-full space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Nome Completo</label>
+                      <input 
+                        value={newUserName} 
+                        onChange={(e) => setNewUserName(e.target.value)} 
+                        placeholder="NOME DO PROFISSIONAL" 
+                        className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-3xl outline-none font-black uppercase text-xs focus:ring-4 focus:ring-slate-100 transition-all" 
+                      />
                     </div>
-                  </button>
-                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Foto do Perfil</p>
+                  </div>
                 </div>
-                
-                <div className="space-y-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Nome Completo</label>
-                    <input 
-                      value={newUserName} 
-                      onChange={(e) => setNewUserName(e.target.value)} 
-                      placeholder="NOME DO PROFISSIONAL" 
-                      className="w-full px-6 py-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none font-black uppercase text-xs focus:ring-4 focus:ring-slate-100 transition-all" 
-                    />
+
+                {/* Dados do Funcionário */}
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Cargo</label>
+                      <select 
+                        value={employeeFormData.role}
+                        onChange={e => setEmployeeFormData({...employeeFormData, role: e.target.value as any})}
+                        className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-3xl outline-none font-black uppercase text-xs focus:ring-4 focus:ring-slate-100 transition-all"
+                      >
+                        <option value="vendedor">Vendedor</option>
+                        <option value="tecnico">Técnico</option>
+                        <option value="atendente">Atendente</option>
+                        <option value="gerente">Gerente</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Status</label>
+                      <select 
+                        value={employeeFormData.status}
+                        onChange={e => setEmployeeFormData({...employeeFormData, status: e.target.value as any})}
+                        className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-3xl outline-none font-black uppercase text-xs focus:ring-4 focus:ring-slate-100 transition-all"
+                      >
+                        <option value="active">Ativo</option>
+                        <option value="inactive">Inativo</option>
+                      </select>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Cargo / Função</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {['Vendedor', 'Técnico', 'Outros'].map((spec) => (
-                        <button
-                          key={spec}
-                          onClick={() => setNewUserSpecialty(spec as any)}
-                          className={`py-4 rounded-2xl text-[9px] font-black uppercase border transition-all ${
-                            newUserSpecialty === spec 
-                            ? 'bg-slate-900 border-slate-900 text-white shadow-xl' 
-                            : 'bg-white border-slate-100 text-slate-400'
-                          }`}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">CPF</label>
+                      <input 
+                        value={employeeFormData.cpf || ''}
+                        onChange={e => setEmployeeFormData({...employeeFormData, cpf: e.target.value})}
+                        placeholder="000.000.000-00"
+                        className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-3xl outline-none font-black uppercase text-xs focus:ring-4 focus:ring-slate-100 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Telefone</label>
+                      <input 
+                        value={employeeFormData.phone || ''}
+                        onChange={e => setEmployeeFormData({...employeeFormData, phone: e.target.value})}
+                        placeholder="(00) 00000-0000"
+                        className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-3xl outline-none font-black uppercase text-xs focus:ring-4 focus:ring-slate-100 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Financeiro */}
+                  <div className="p-6 bg-slate-50 rounded-[2.5rem] space-y-4 border border-slate-100">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      <DollarSign size={14} /> Financeiro e Comissões
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Salário Base</label>
+                        <input 
+                          type="number"
+                          value={employeeFormData.salaryBase || 0}
+                          onChange={e => setEmployeeFormData({...employeeFormData, salaryBase: Number(e.target.value)})}
+                          className="w-full px-5 py-3 bg-white border border-slate-100 rounded-2xl outline-none font-black text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Meta Mensal</label>
+                        <input 
+                          type="number"
+                          value={employeeFormData.goalMonthly || 0}
+                          onChange={e => setEmployeeFormData({...employeeFormData, goalMonthly: Number(e.target.value)})}
+                          className="w-full px-5 py-3 bg-white border border-slate-100 rounded-2xl outline-none font-black text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Tipo de Comissão</label>
+                        <select 
+                          value={employeeFormData.commissionType}
+                          onChange={e => setEmployeeFormData({...employeeFormData, commissionType: e.target.value as any})}
+                          className="w-full px-5 py-3 bg-white border border-slate-100 rounded-2xl outline-none font-black text-[10px] uppercase"
                         >
-                          {spec}
-                        </button>
+                          <option value="sales_percent">% Sobre Venda</option>
+                          <option value="profit_percent">% Sobre Lucro</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Comissão (%)</label>
+                        <input 
+                          type="number"
+                          value={employeeFormData.defaultCommissionPercent || 0}
+                          onChange={e => setEmployeeFormData({...employeeFormData, defaultCommissionPercent: Number(e.target.value)})}
+                          className="w-full px-5 py-3 bg-white border border-slate-100 rounded-2xl outline-none font-black text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Permissões */}
+                  <div className="space-y-4">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      <Shield size={14} /> Permissões de Acesso
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {[
+                        { key: 'open_os', label: 'Abrir O.S.' },
+                        { key: 'sell', label: 'Realizar Vendas' },
+                        { key: 'view_finance', label: 'Ver Financeiro' },
+                        { key: 'edit_price', label: 'Editar Preços' },
+                        { key: 'cancel_sale', label: 'Cancelar Vendas' },
+                      ].map(perm => (
+                        <label key={perm.key} className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-100 rounded-2xl cursor-pointer hover:bg-white transition-all">
+                          <input 
+                            type="checkbox"
+                            checked={(employeeFormData.permissions as any)?.[perm.key]}
+                            onChange={e => setEmployeeFormData({
+                              ...employeeFormData,
+                              permissions: { ...employeeFormData.permissions, [perm.key]: e.target.checked } as any
+                            })}
+                            className="w-5 h-5 text-blue-600 rounded-lg border-slate-200 focus:ring-blue-500"
+                          />
+                          <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{perm.label}</span>
+                        </label>
                       ))}
                     </div>
                   </div>
@@ -759,9 +975,14 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
                 <button 
                   onClick={handleCreateUser} 
                   disabled={isSaving} 
-                  className="w-full py-6 bg-slate-900 text-white rounded-[2rem] font-black uppercase text-[11px] tracking-widest shadow-2xl active:scale-95 transition-all flex items-center justify-center"
+                  className="w-full py-6 bg-slate-900 text-white rounded-[2.5rem] font-black uppercase text-[11px] tracking-widest shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3"
                 >
-                  {isSaving ? <Loader2 className="animate-spin" /> : 'Cadastrar Perfil'}
+                  {isSaving ? <Loader2 className="animate-spin" /> : (
+                    <>
+                      <Save size={18} />
+                      {isEditingUser ? 'Salvar Alterações' : 'Cadastrar Colaborador'}
+                    </>
+                  )}
                 </button>
               </div>
             </div>

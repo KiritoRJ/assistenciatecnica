@@ -7,7 +7,7 @@ import { OnlineDB } from '../utils/api';
 import { jsPDF } from 'jspdf';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { addMonths, subMonths, startOfDay, endOfDay, isBefore, isAfter, format, startOfMonth, endOfMonth, isWithinInterval, parseISO } from 'date-fns';
+import { addMonths, subMonths, startOfDay, endOfDay, isBefore, isAfter, format, startOfMonth, endOfMonth, isWithinInterval, parseISO, getDaysInMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useFinanceCalculations, FinancialTransaction } from '../utils/finance';
 
@@ -63,6 +63,7 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
   const [isCancellationReportModalOpen, setIsCancellationReportModalOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProjectionInfoOpen, setIsProjectionInfoOpen] = useState(false);
+  const [isProfitProjectionInfoOpen, setIsProfitProjectionInfoOpen] = useState(false);
   const [isMarginInfoOpen, setIsMarginInfoOpen] = useState(false);
   const [isTicketInfoOpen, setIsTicketInfoOpen] = useState(false);
   const [isRevenueDetailOpen, setIsRevenueDetailOpen] = useState(false);
@@ -563,20 +564,39 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
           {/* Inteligência de Negócio - Nível 2 */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             {/* Projeção */}
-            <div 
-              onClick={() => setIsProjectionInfoOpen(true)}
-              className="bg-white p-4 rounded-3xl border border-slate-50 shadow-sm flex flex-col justify-between cursor-pointer hover:bg-slate-50 transition-colors group"
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <Zap size={14} className="text-purple-500 group-hover:scale-110 transition-transform" />
-                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest group-hover:text-purple-500 transition-colors">Projeção Mensal</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <div 
+                onClick={() => setIsProjectionInfoOpen(true)}
+                className="bg-white p-4 rounded-3xl border border-slate-50 shadow-sm flex flex-col justify-between cursor-pointer hover:bg-slate-50 transition-colors group"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Zap size={14} className="text-purple-500 group-hover:scale-110 transition-transform" />
+                  <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest group-hover:text-purple-500 transition-colors">Projeção Receita</h3>
+                </div>
+                <div>
+                  <p className="text-xl font-black text-slate-800">{formatCurrency(summary.projectedRevenue)}</p>
+                  <p className="text-[8px] text-slate-400 font-bold mt-1 group-hover:text-purple-400 transition-colors">Estimativa baseada no ritmo atual</p>
+                </div>
+                <div className="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
+                  <div className="bg-purple-500 h-full rounded-full" style={{ width: `${Math.min((summary.revenue.total / (summary.projectedRevenue || 1)) * 100, 100)}%` }}></div>
+                </div>
               </div>
-              <div>
-                <p className="text-2xl font-black text-slate-800">{formatCurrency(summary.projectedRevenue)}</p>
-                <p className="text-[9px] text-slate-400 font-bold mt-1 group-hover:text-purple-400 transition-colors">Estimativa baseada no ritmo atual</p>
-              </div>
-              <div className="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
-                <div className="bg-purple-500 h-full rounded-full" style={{ width: `${Math.min((summary.revenue.total / (summary.projectedRevenue || 1)) * 100, 100)}%` }}></div>
+
+              <div 
+                onClick={() => setIsProfitProjectionInfoOpen(true)}
+                className="bg-white p-4 rounded-3xl border border-slate-50 shadow-sm flex flex-col justify-between cursor-pointer hover:bg-slate-50 transition-colors group"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Target size={14} className="text-emerald-500 group-hover:scale-110 transition-transform" />
+                  <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest group-hover:text-emerald-500 transition-colors">Projeção Lucro</h3>
+                </div>
+                <div>
+                  <p className="text-xl font-black text-emerald-600">{formatCurrency(summary.projectedRevenue * (summary.margin / 100))}</p>
+                  <p className="text-[8px] text-slate-400 font-bold mt-1 group-hover:text-emerald-400 transition-colors">Lucro estimado para o fim do mês</p>
+                </div>
+                <div className="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
+                  <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min((summary.netProfit / ((summary.projectedRevenue * (summary.margin / 100)) || 1)) * 100, 100)}%` }}></div>
+                </div>
               </div>
             </div>
 
@@ -1373,6 +1393,57 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
         </div>
       )}
 
+      {/* MODAL DE EXPLICAÇÃO DA PROJEÇÃO DE LUCRO */}
+      {isProfitProjectionInfoOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 z-[200] flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95">
+            <div className="p-6 border-b border-slate-50 flex justify-between items-center">
+              <h3 className="font-black text-slate-800 text-sm uppercase tracking-widest">Entenda o Lucro Projetado</h3>
+              <button onClick={() => setIsProfitProjectionInfoOpen(false)} className="p-2 text-slate-400 bg-slate-50 rounded-full"><X size={16} /></button>
+            </div>
+            <div className="p-8 space-y-6">
+              <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+                <Target size={32} />
+              </div>
+              
+              <div className="space-y-4">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2">Como funciona?</h4>
+                  <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+                    O sistema pega sua <strong>Receita Projetada</strong> (quanto você deve faturar até o fim do mês) e aplica sua <strong>Margem de Lucro Atual</strong>.
+                  </p>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2">A Fórmula</h4>
+                  <div className="font-mono text-[9px] font-bold text-slate-500 bg-white p-3 rounded-xl border border-slate-100 text-center shadow-sm flex flex-col gap-1">
+                    <span>Receita Proj. × (Margem Líquida ÷ 100)</span>
+                    <span className="text-emerald-600 border-t border-slate-100 pt-1 mt-1">
+                      {formatCurrency(summary.projectedRevenue)} × ({summary.margin.toFixed(1)}% ÷ 100)
+                    </span>
+                    <span className="text-xs font-black text-slate-800">
+                      = {formatCurrency(summary.projectedRevenue * (summary.margin / 100))}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
+                  <h4 className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-2">Dica Importante</h4>
+                  <p className="text-[10px] text-emerald-600 leading-relaxed font-bold">
+                    Para aumentar este número, você pode vender mais (aumentar receita) ou reduzir custos (aumentar margem).
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="p-6 bg-slate-50 border-t border-slate-100">
+               <button onClick={() => setIsProfitProjectionInfoOpen(false)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[9px] tracking-widest shadow-xl active:scale-95 transition-all">
+                Entendi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL DE EXPLICAÇÃO DA PROJEÇÃO */}
       {isProjectionInfoOpen && (
         <div className="fixed inset-0 bg-slate-950/80 z-[200] flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in">
@@ -1396,8 +1467,14 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
 
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                   <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2">A Fórmula</h4>
-                  <div className="font-mono text-[9px] font-bold text-slate-500 bg-white p-3 rounded-xl border border-slate-100 text-center shadow-sm">
-                    (Receita Atual ÷ Dias Passados) × Dias do Mês
+                  <div className="font-mono text-[9px] font-bold text-slate-500 bg-white p-3 rounded-xl border border-slate-100 text-center shadow-sm flex flex-col gap-1">
+                    <span>(Receita Atual ÷ Dias Passados) × Dias do Mês</span>
+                    <span className="text-purple-600 border-t border-slate-100 pt-1 mt-1">
+                      ({formatCurrency(summary.revenue.total)} ÷ {Math.max(1, new Date().getDate())}) × {getDaysInMonth(new Date())}
+                    </span>
+                    <span className="text-xs font-black text-slate-800">
+                      = {formatCurrency((summary.revenue.total / Math.max(1, new Date().getDate())) * getDaysInMonth(new Date()))}
+                    </span>
                   </div>
                 </div>
 
