@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { User, Plus, Edit2, Trash2, DollarSign, TrendingUp, Award, Shield, Save, X, Search, ChevronRight, Briefcase, Percent, BarChart3, PieChart, Settings, Target, Zap, Filter, CheckCircle2, AlertCircle } from 'lucide-react';
+import { User, Plus, Edit2, Trash2, DollarSign, TrendingUp, Award, Shield, Save, X, Search, ChevronRight, Briefcase, Percent, BarChart3, PieChart, Settings, Target, Zap, Filter, CheckCircle2, AlertCircle, Users, Menu } from 'lucide-react';
 import { OnlineDB } from '../utils/api';
 import { Employee, CommissionRule, CommissionLog, GoalTier, Product } from '../types';
 import { formatCurrency } from '../utils';
@@ -11,6 +11,7 @@ interface Props {
 
 const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
   const [activeTab, setActiveTab] = useState<'employees' | 'rules' | 'commissions' | 'dashboard'>('dashboard');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [rules, setRules] = useState<CommissionRule[]>([]);
   const [goalTiers, setGoalTiers] = useState<GoalTier[]>([]);
@@ -85,7 +86,7 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
       setIsRuleModalOpen(false);
       loadData();
     } else {
-      alert('Erro ao salvar regra');
+      alert('Erro ao salvar regra: ' + (result.message || 'Erro desconhecido'));
     }
   };
 
@@ -102,7 +103,7 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
       setIsGoalModalOpen(false);
       loadData();
     } else {
-      alert('Erro ao salvar meta');
+      alert('Erro ao salvar meta: ' + (result.message || 'Erro desconhecido'));
     }
   };
 
@@ -152,9 +153,14 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
     setIsEmployeeModalOpen(true);
   };
 
+  const activeLogs = useMemo(() => {
+    const activeEmployeeIds = new Set(employees.map(e => e.id));
+    return logs.filter(l => activeEmployeeIds.has(l.employeeId));
+  }, [employees, logs]);
+
   const dashboardData = useMemo(() => {
     const employeeStats = employees.map(emp => {
-      const empLogs = logs.filter(l => l.employeeId === emp.id);
+      const empLogs = activeLogs.filter(l => l.employeeId === emp.id);
       const totalSales = empLogs.reduce((acc, l) => acc + l.saleAmount, 0);
       const totalCommission = empLogs.reduce((acc, l) => acc + l.commissionAmount, 0);
       return {
@@ -167,112 +173,141 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
     }).sort((a, b) => b.sales - a.sales);
 
     const salesByType = [
-      { name: 'Vendas', value: logs.filter(l => l.originType === 'sale').reduce((acc, l) => acc + l.commissionAmount, 0) },
-      { name: 'Serviços', value: logs.filter(l => l.originType === 'service_order').reduce((acc, l) => acc + l.commissionAmount, 0) },
-      { name: 'Bônus', value: logs.filter(l => l.originType === 'bonus').reduce((acc, l) => acc + l.commissionAmount, 0) },
+      { name: 'Vendas', value: activeLogs.filter(l => l.originType === 'sale').reduce((acc, l) => acc + l.commissionAmount, 0) },
+      { name: 'Serviços', value: activeLogs.filter(l => l.originType === 'service_order').reduce((acc, l) => acc + l.commissionAmount, 0) },
+      { name: 'Bônus', value: activeLogs.filter(l => l.originType === 'bonus').reduce((acc, l) => acc + l.commissionAmount, 0) },
     ].filter(i => i.value > 0);
 
-    return { employeeStats, salesByType };
-  }, [employees, logs]);
+    const totalCommission = activeLogs.reduce((acc, l) => acc + l.commissionAmount, 0);
+    const totalSales = activeLogs.reduce((acc, l) => acc + l.saleAmount, 0);
+
+    return { employeeStats, salesByType, totalCommission, totalSales };
+  }, [employees, activeLogs]);
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
   return (
     <div className="space-y-6 pb-20 animate-in fade-in duration-500">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-black text-slate-800 tracking-tight">Gestão de Equipe</h2>
-          <p className="text-sm text-slate-500 font-medium">Gerencie funcionários, metas e comissões</p>
+      {/* Header & Menu */}
+      <div className="flex items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+            <Users size={20} />
+          </div>
+          <div>
+            <h2 className="text-lg font-black text-slate-800 tracking-tight leading-none">Equipe</h2>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Gestão e Metas</p>
+          </div>
         </div>
+        <button 
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          className={`p-2.5 rounded-xl transition-colors ${isMenuOpen ? 'bg-slate-800 text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}
+        >
+          <Menu size={20} />
+        </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex p-1 bg-slate-100 rounded-xl w-fit overflow-x-auto">
-        {[
-          { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-          { id: 'employees', label: 'Funcionários', icon: User },
-          { id: 'rules', label: 'Regras de Comissão', icon: Percent },
-          { id: 'commissions', label: 'Relatório de Pagamentos', icon: DollarSign },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-          >
-            <tab.icon size={14} />
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {isMenuOpen && (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-lg p-2 grid grid-cols-2 gap-2 animate-in slide-in-from-top-2">
+          {[
+            { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+            { id: 'employees', label: 'Equipe', icon: User },
+            { id: 'rules', label: 'Regras', icon: Percent },
+            { id: 'commissions', label: 'Relatório', icon: DollarSign },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => { setActiveTab(tab.id as any); setIsMenuOpen(false); }}
+              className={`px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex flex-col items-center justify-center gap-2 transition-all ${activeTab === tab.id ? 'bg-slate-800 text-white shadow-md' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
+            >
+              <tab.icon size={16} />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Content */}
       {activeTab === 'dashboard' && (
         <div className="space-y-6">
           {/* Top Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2"><Award size={14}/> Melhor Vendedor</h3>
-               <p className="text-xl font-black text-slate-800 truncate">{dashboardData.employeeStats[0]?.name || 'N/A'}</p>
-               <p className="text-xs text-emerald-600 font-bold mt-1">
-                 {formatCurrency(dashboardData.employeeStats[0]?.sales || 0)} em vendas
-               </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+             <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between col-span-2 sm:col-span-1">
+               <div className="flex items-center gap-2 mb-2">
+                 <div className="p-1.5 bg-amber-50 text-amber-500 rounded-lg"><Award size={14}/></div>
+                 <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Melhor Vendedor</h3>
+               </div>
+               <div>
+                 <p className="text-base font-black text-slate-800 truncate">{dashboardData.employeeStats[0]?.name || 'N/A'}</p>
+                 <p className="text-[10px] text-emerald-600 font-bold mt-0.5">
+                   {formatCurrency(dashboardData.employeeStats[0]?.sales || 0)}
+                 </p>
+               </div>
              </div>
-             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2"><TrendingUp size={14}/> Total Comissões</h3>
-               <p className="text-xl font-black text-slate-800">
-                 {formatCurrency(logs.reduce((acc, l) => acc + l.commissionAmount, 0))}
-               </p>
-               <p className="text-xs text-slate-400 font-bold mt-1">Neste mês</p>
+             <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
+               <div className="flex items-center gap-2 mb-2">
+                 <div className="p-1.5 bg-emerald-50 text-emerald-500 rounded-lg"><TrendingUp size={14}/></div>
+                 <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Comissões</h3>
+               </div>
+               <div>
+                 <p className="text-base font-black text-slate-800">
+                   {formatCurrency(dashboardData.totalCommission)}
+                 </p>
+               </div>
              </div>
-             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2"><Briefcase size={14}/> Total Vendas</h3>
-               <p className="text-xl font-black text-slate-800">
-                 {formatCurrency(logs.reduce((acc, l) => acc + l.saleAmount, 0))}
-               </p>
-               <p className="text-xs text-slate-400 font-bold mt-1">Geradas pela equipe</p>
+             <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
+               <div className="flex items-center gap-2 mb-2">
+                 <div className="p-1.5 bg-blue-50 text-blue-500 rounded-lg"><Briefcase size={14}/></div>
+                 <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vendas Totais</h3>
+               </div>
+               <div>
+                 <p className="text-base font-black text-slate-800">
+                   {formatCurrency(dashboardData.totalSales)}
+                 </p>
+               </div>
              </div>
           </div>
 
           {/* Charts Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Ranking Chart */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm min-h-[300px]">
-              <h3 className="font-black text-slate-800 mb-6">Ranking de Vendas</h3>
-              <div className="h-[250px] w-full">
+            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Ranking de Vendas</h3>
+              <div className="h-[200px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dashboardData.employeeStats} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                  <BarChart data={dashboardData.employeeStats} layout="vertical" margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
                     <XAxis type="number" hide />
-                    <YAxis dataKey="name" type="category" width={80} tick={{fontSize: 10}} />
-                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                    <Bar dataKey="sales" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} />
+                    <YAxis dataKey="name" type="category" width={70} tick={{fontSize: 9, fill: '#64748b', fontWeight: 600}} axisLine={false} tickLine={false} />
+                    <Tooltip formatter={(value) => formatCurrency(Number(value))} cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
+                    <Bar dataKey="sales" fill="#0f172a" radius={[0, 4, 4, 0]} barSize={16} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
             {/* Commission Distribution */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm min-h-[300px]">
-              <h3 className="font-black text-slate-800 mb-6">Distribuição de Comissões</h3>
-              <div className="h-[250px] w-full flex items-center justify-center">
+            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Distribuição</h3>
+              <div className="h-[200px] w-full flex items-center justify-center">
                 <ResponsiveContainer width="100%" height="100%">
                   <RePieChart>
                     <Pie
                       data={dashboardData.salesByType}
                       cx="50%"
                       cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
+                      innerRadius={50}
+                      outerRadius={70}
                       paddingAngle={5}
                       dataKey="value"
+                      stroke="none"
                     >
                       {dashboardData.salesByType.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                    <Legend />
+                    <Tooltip formatter={(value) => formatCurrency(Number(value))} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
+                    <Legend iconType="circle" wrapperStyle={{fontSize: '9px', fontWeight: 600, color: '#64748b'}} />
                   </RePieChart>
                 </ResponsiveContainer>
               </div>
@@ -534,15 +569,15 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Total Pago (Mês)</h3>
-              <p className="text-3xl font-black text-slate-800">{formatCurrency(logs.reduce((acc, curr) => acc + curr.commissionAmount, 0))}</p>
+              <p className="text-3xl font-black text-slate-800">{formatCurrency(activeLogs.reduce((acc, curr) => acc + curr.commissionAmount, 0))}</p>
             </div>
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Vendas Totais</h3>
-              <p className="text-3xl font-black text-blue-600">{formatCurrency(logs.reduce((acc, curr) => acc + curr.saleAmount, 0))}</p>
+              <p className="text-3xl font-black text-blue-600">{formatCurrency(activeLogs.reduce((acc, curr) => acc + curr.saleAmount, 0))}</p>
             </div>
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Lucro Gerado</h3>
-              <p className="text-3xl font-black text-emerald-600">{formatCurrency(logs.reduce((acc, curr) => acc + curr.profitAmount, 0))}</p>
+              <p className="text-3xl font-black text-emerald-600">{formatCurrency(activeLogs.reduce((acc, curr) => acc + curr.profitAmount, 0))}</p>
             </div>
           </div>
 
@@ -551,7 +586,7 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
               <h3 className="font-black text-slate-800">Extrato de Comissões</h3>
             </div>
             <div className="divide-y divide-slate-100">
-              {logs.map(log => (
+              {activeLogs.map(log => (
                 <div key={log.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
                   <div className="flex items-center gap-4">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${log.originType === 'sale' ? 'bg-blue-50 text-blue-500' : 'bg-purple-50 text-purple-500'}`}>
@@ -574,7 +609,7 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
                   </div>
                 </div>
               ))}
-              {logs.length === 0 && (
+              {activeLogs.length === 0 && (
                 <div className="p-12 text-center text-slate-400 font-medium">
                   Nenhum registro de comissão encontrado.
                 </div>

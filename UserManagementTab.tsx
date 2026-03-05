@@ -40,7 +40,7 @@ const UserManagementTab: React.FC<Props> = ({ settings, setSettings, currentUser
       name: newName,
       role: 'colaborador',
       photo: newPhoto,
-      password: ''
+      password: Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
     };
     setSettings({ ...settings, users: [...settings.users, newUser] });
     setIsModalOpen(false);

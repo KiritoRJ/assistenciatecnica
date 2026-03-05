@@ -22,10 +22,20 @@ CREATE TABLE IF NOT EXISTS public.employees (
 CREATE TABLE IF NOT EXISTS public.commission_rules (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     tenant_id TEXT NOT NULL,
-    category_name TEXT NOT NULL,
+    name TEXT,
+    description TEXT,
+    target_type TEXT,
+    target_id TEXT,
+    employee_id UUID REFERENCES public.employees(id),
+    category_name TEXT,
     commission_percent NUMERIC(5, 2) DEFAULT 0,
     fixed_value NUMERIC(10, 2) DEFAULT 0,
     rule_type TEXT CHECK (rule_type IN ('percent', 'fixed')) DEFAULT 'percent',
+    calculation_base TEXT DEFAULT 'gross_sale',
+    value NUMERIC(10, 2) DEFAULT 0,
+    min_amount NUMERIC(10, 2) DEFAULT 0,
+    priority INTEGER DEFAULT 1,
+    is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -33,9 +43,14 @@ CREATE TABLE IF NOT EXISTS public.commission_rules (
 CREATE TABLE IF NOT EXISTS public.goal_tiers (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     tenant_id TEXT NOT NULL,
+    employee_id UUID REFERENCES public.employees(id),
+    name TEXT,
     min_amount NUMERIC(10, 2) NOT NULL,
     bonus_percent NUMERIC(5, 2) DEFAULT 0,
     bonus_fixed NUMERIC(10, 2) DEFAULT 0,
+    bonus_type TEXT CHECK (bonus_type IN ('percent', 'fixed')) DEFAULT 'percent',
+    bonus_value NUMERIC(10, 2) DEFAULT 0,
+    calculation_base TEXT DEFAULT 'gross_sale',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 

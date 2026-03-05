@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Smartphone, Package, ShoppingCart, BarChart3, Settings, LogOut, Menu, X, Loader2, ShieldCheck, KeyRound, ChevronRight, Store, TrendingUp, Users, CheckCircle2, ArrowRight } from 'lucide-react';
 import { ServiceOrder, Product, Sale, Transaction, AppSettings, User } from './types';
 import ServiceOrderTab from './components/ServiceOrderTab';
@@ -86,7 +86,17 @@ const App: React.FC = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  const currentUser = session?.user || (settings?.users?.[0] || null);
+  const currentUser = useMemo(() => {
+    if (!settings?.users) return session?.user || null;
+    
+    // If we are logged in as an admin, ensure the admin user object is used
+    if (session?.type === 'admin') {
+      const admin = settings.users.find(u => u.role === 'admin');
+      return admin || session?.user || settings.users[0] || null;
+    }
+    
+    return session?.user || settings.users[0] || null;
+  }, [session?.user, session?.type, settings?.users]);
   useAppNotifications(transactions, products, orders, sales, settings, currentUser);
 
   const pathname = window.location.pathname;
@@ -307,16 +317,6 @@ const App: React.FC = () => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'transactions', filter: `tenant_id=eq.${tenantId}` },
-        debouncedLoad
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'users', filter: `tenant_id=eq.${tenantId}` },
-        debouncedLoad
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'employees', filter: `tenant_id=eq.${tenantId}` },
         debouncedLoad
       )
       .subscribe();

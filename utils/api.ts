@@ -1100,12 +1100,12 @@ export class OnlineDB {
         name: rule.name,
         description: rule.description,
         target_type: rule.targetType,
-        target_id: rule.targetId,
-        employee_id: rule.employeeId,
+        target_id: rule.targetId || null,
+        employee_id: rule.employeeId || null,
         rule_type: rule.ruleType,
-        calculation_base: rule.calculationBase,
+        calculation_base: rule.calculationBase || 'gross_sale',
         value: rule.value,
-        min_amount: rule.minAmount,
+        min_amount: rule.minAmount || 0,
         priority: rule.priority,
         is_active: rule.isActive
       };
@@ -1117,7 +1117,10 @@ export class OnlineDB {
       const { error } = await supabase.from('commission_rules').upsert(payload);
       if (error) throw error;
       return { success: true };
-    } catch (e) { return { success: false }; }
+    } catch (e: any) { 
+      console.error("Error upserting commission rule:", e);
+      return { success: false, message: e.message }; 
+    }
   }
 
   // Busca Metas (GoalTiers)
@@ -1143,18 +1146,21 @@ export class OnlineDB {
     try {
       const payload: any = {
         tenant_id: tenantId,
-        employee_id: tier.employeeId,
+        employee_id: tier.employeeId || null,
         name: tier.name,
-        min_amount: tier.minAmount,
+        min_amount: tier.minAmount || 0,
         bonus_type: tier.bonusType,
-        bonus_value: tier.bonusValue,
-        calculation_base: tier.calculationBase
+        bonus_value: tier.bonusValue || 0,
+        calculation_base: tier.calculationBase || 'gross_sale'
       };
       if (tier.id) payload.id = tier.id;
       const { error } = await supabase.from('goal_tiers').upsert(payload);
       if (error) throw error;
       return { success: true };
-    } catch (e) { return { success: false }; }
+    } catch (e: any) { 
+      console.error("Error upserting goal tier:", e);
+      return { success: false, message: e.message }; 
+    }
   }
 
   // Deleta Meta

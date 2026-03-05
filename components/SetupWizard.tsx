@@ -46,7 +46,7 @@ const SetupWizard: React.FC<Props> = ({ onComplete }) => {
         name: user2Name, 
         role: 'colaborador', 
         photo: user2Photo,
-        password: '' // Colaboradores podem ter senha em branco inicialmente
+        password: Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
       }); 
     }
     
