@@ -564,8 +564,10 @@ const App: React.FC = () => {
   const handleSwitchProfile = (user: User) => {
     if (session) {
       const newType = user.role;
-      setSession({ ...session, user, type: newType });
+      const newSession = { ...session, user, type: newType };
+      setSession(newSession);
       localStorage.setItem('currentUser_pro', JSON.stringify(user));
+      localStorage.setItem('session_pro', JSON.stringify({ ...newSession, user: undefined })); // Persist session type
       const allowedTabs = navItems.filter(item => item.roles.includes(newType)).map(i => i.id);
       if (!allowedTabs.includes(activeTab)) {
         setActiveTab('vendas');
