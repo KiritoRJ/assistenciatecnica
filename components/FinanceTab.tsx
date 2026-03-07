@@ -139,112 +139,210 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
   }, [allTransactions]);
 
   const handleGenerateReport = async (onlyCanceled = false) => {
-    // ... (manter lógica existente, mas usar periodStart/End se for relatório do dashboard atual)
-    // Por simplicidade, mantemos a lógica de modal de relatório separada por enquanto, ou podemos unificar.
-    // Vamos manter a lógica original do modal de relatório para não quebrar o fluxo existente de "Relatório Completo"
     setIsGeneratingReport(true);
     try {
-      // ... (código original do relatório)
+      const pageWidth = settings.printerSize === 80 ? 80 : 58;
       const doc = new jsPDF({
         unit: 'mm',
-        format: [settings.printerSize === 80 ? 80 : 58, 600]
+        format: [pageWidth, 1500] // Altura maior para rolo térmico
       });
 
       const margin = 2;
-      let y = 10;
-      const pageWidth = settings.printerSize === 80 ? 80 : 58;
+      let y = 8;
 
       const userFilter = selectedReportUser === 'all' ? null : selectedReportUser;
 
-      // Usar as datas do modal de relatório se estiver aberto, senão usar o período atual do dashboard
-      const reportStartDate = isReportModalOpen ? (startDate ? startOfDay(startDate) : subMonths(new Date(), 6)) : startOfDay(periodStart);
-      const reportEndDate = isReportModalOpen ? (endDate ? endOfDay(endDate) : new Date()) : endOfDay(periodEnd);
+      const reportStartDate = (isReportModalOpen || isCancellationReportModalOpen) ? (startDate ? startOfDay(startDate) : subMonths(new Date(), 1)) : startOfDay(periodStart);
+      const reportEndDate = (isReportModalOpen || isCancellationReportModalOpen) ? (endDate ? endOfDay(endDate) : new Date()) : endOfDay(periodEnd);
 
       const isWithinPeriod = (dateStr: string) => {
-        const d = new Date(dateStr);
-        return isAfter(d, reportStartDate) && isBefore(d, endOfDay(reportEndDate));
+        const d = parseISO(dateStr);
+        return isWithinInterval(d, { start: reportStartDate, end: endOfDay(reportEndDate) });
       };
-
-      // ... (restante da geração do PDF mantida igual, apenas ajustando as variáveis de data acima)
-      // 1. Identificação do Perfil
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.text('PERFIL:', margin, y);
-      doc.setFont('helvetica', 'normal');
-      doc.text(selectedReportUser.toUpperCase(), margin + 12, y);
-      y += 6;
 
       // Header da Loja
       doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
       doc.text(settings.storeName.toUpperCase(), pageWidth / 2, y, { align: 'center' });
       y += 5;
+      
       doc.setFontSize(7);
       doc.setFont('helvetica', 'normal');
-      doc.text(onlyCanceled ? 'RELATORIO DE CANCELAMENTOS' : 'RELATORIO FINANCEIRO', pageWidth / 2, y, { align: 'center' });
+      doc.text(onlyCanceled ? 'RELATORIO DE CANCELAMENTOS' : 'RELATORIO COMPLETO DE MOVIMENTACAO', pageWidth / 2, y, { align: 'center' });
       y += 4;
-      doc.text(`PERIODO: ${formatDate(reportStartDate.toISOString())} a ${formatDate(reportEndDate.toISOString())}`, pageWidth / 2, y, { align: 'center' });
+      doc.text(`PERIODO: ${format(reportStartDate, 'dd/MM/yy')} a ${format(reportEndDate, 'dd/MM/yy')}`, pageWidth / 2, y, { align: 'center' });
       y += 4;
       doc.text(`GERADO EM: ${new Date().toLocaleString('pt-BR')}`, pageWidth / 2, y, { align: 'center' });
-      y += 6;
-      doc.line(margin, y - 1, pageWidth - margin, y - 1);
       y += 4;
-
-      // ... (Resto do código de geração de PDF - Simplificado para não estourar o limite de caracteres, assumindo que o original funciona)
-      // Vou reinserir a lógica principal resumida para garantir que funcione
-      
-       // Resumo de Quantidades
-      if (!onlyCanceled) {
-        const totalSalesDone = sales.filter(s => !s.isDeleted && isWithinPeriod(s.date)).length;
-        const totalOSPending = orders.filter(o => !o.isDeleted && o.status === 'Pendente' && isWithinPeriod(o.date)).length;
-        const totalOSCompleted = orders.filter(o => !o.isDeleted && o.status === 'Concluído' && isWithinPeriod(o.date)).length;
-        const totalOSDelivered = orders.filter(o => !o.isDeleted && o.status === 'Entregue' && isWithinPeriod(o.date)).length;
-
+      if (userFilter) {
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(7);
-        doc.text('RESUMO DE OPERAÇÕES', pageWidth / 2, y, { align: 'center' });
-        y += 5;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(6);
-        doc.text(`Vendas Efetivadas: ${totalSalesDone}`, margin, y);
-        y += 4;
-        doc.text(`O.S. Pendentes: ${totalOSPending}`, margin, y);
-        y += 4;
-        doc.text(`O.S. Concluídas: ${totalOSCompleted}`, margin, y);
-        y += 4;
-        doc.text(`O.S. Entregues: ${totalOSDelivered}`, margin, y);
-        y += 5;
-        doc.line(margin, y - 1, pageWidth - margin, y - 1);
+        doc.text(`VENDEDOR: ${userFilter.toUpperCase()}`, pageWidth / 2, y, { align: 'center' });
         y += 4;
       }
       
-      const reportSales = sales.filter(s => (!userFilter || s.sellerName === userFilter) && isWithinPeriod(s.date) && (onlyCanceled ? s.isDeleted : !s.isDeleted));
-      const reportOrders = orders.filter(o => isWithinPeriod(o.date) && (onlyCanceled ? o.isDeleted : !o.isDeleted)); 
-      const reportTransactions = transactions.filter(t => isWithinPeriod(t.date) && (onlyCanceled ? t.isDeleted : !t.isDeleted));
-
-      // Totais
-      const totalSales = reportSales.reduce((a, b) => a + b.finalPrice, 0);
-      const totalOS = reportOrders.filter(o => o.status === 'Entregue').reduce((a, b) => a + b.total, 0);
-      const totalManualIn = reportTransactions.filter(t => t.type === 'entrada').reduce((a, b) => a + b.amount, 0);
-      const totalManualOut = reportTransactions.filter(t => t.type === 'saida').reduce((a, b) => a + b.amount, 0);
-      
-      const totalRevenue = totalSales + totalOS + totalManualIn;
-      const totalCosts = totalManualOut; // Simplificado para o exemplo
-      const netProfit = totalRevenue - totalCosts;
-
-      doc.setFont('helvetica', 'bold');
-      doc.text('RESUMO FINANCEIRO', pageWidth / 2, y, { align: 'center' });
+      doc.line(margin, y, pageWidth - margin, y);
       y += 5;
-      doc.setFont('helvetica', 'normal');
-      doc.text(`RECEITA: ${formatCurrency(totalRevenue)}`, margin, y);
-      y += 4;
-      doc.text(`DESPESAS: ${formatCurrency(totalCosts)}`, margin, y);
-      y += 4;
-      doc.setFont('helvetica', 'bold');
-      doc.text(`LUCRO: ${formatCurrency(netProfit)}`, margin, y);
 
-      doc.save(`Relatorio_${onlyCanceled ? 'Cancelados' : selectedReportUser}_${new Date().getTime()}.pdf`);
+      // Filtrar itens baseados no flag onlyCanceled
+      const reportSales = sales.filter(s => (onlyCanceled ? s.isDeleted : !s.isDeleted) && (!userFilter || s.sellerName === userFilter) && isWithinPeriod(s.date));
+      const reportOrders = orders.filter(o => (onlyCanceled ? o.isDeleted : (!o.isDeleted && o.status === 'Entregue')) && isWithinPeriod(o.date)); 
+
+      // 1. VENDAS DE PRODUTOS
+      let totalSalesCost = 0;
+      let totalSalesRevenue = 0;
+      let totalSalesProfit = 0;
+
+      if (reportSales.length > 0) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.text(onlyCanceled ? 'VENDAS CANCELADAS' : 'VENDAS DE PRODUTOS', margin, y);
+        y += 5;
+
+        reportSales.forEach((s, index) => {
+          const saleDate = parseISO(s.date);
+          const dateStr = format(saleDate, 'dd/MM/yy HH:mm');
+          const profit = s.finalPrice - s.costAtSale;
+          
+          totalSalesCost += s.costAtSale;
+          totalSalesRevenue += s.finalPrice;
+          totalSalesProfit += profit;
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(6);
+          doc.text(`${String(index + 1).padStart(3, '0')} - VENDA: #${s.transactionId || s.id.substring(0,8)}`, margin, y);
+          doc.text(dateStr, pageWidth - margin, y, { align: 'right' });
+          y += 3;
+          
+          doc.setFont('helvetica', 'normal');
+          const pName = s.productName.length > 35 ? s.productName.substring(0, 33) + '..' : s.productName;
+          doc.text(pName, margin, y);
+          y += 3;
+
+          doc.text(`Custo: ${formatCurrency(s.costAtSale)}`, margin, y);
+          doc.text(`Venda: ${formatCurrency(s.finalPrice)}`, pageWidth / 2, y, { align: 'center' });
+          doc.setFont('helvetica', 'bold');
+          doc.text(`Lucro: ${formatCurrency(profit)}`, pageWidth - margin, y, { align: 'right' });
+          y += 4;
+
+          doc.line(margin, y - 1, pageWidth - margin, y - 1, 'FD');
+          y += 3;
+
+          if (y > 1450) {
+             doc.addPage([pageWidth, 1500]);
+             y = 10;
+          }
+        });
+
+        // Subtotal Vendas
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7);
+        doc.text(onlyCanceled ? 'TOTAL VENDAS CANCELADAS' : 'SUBTOTAL VENDAS PRODUTOS', pageWidth / 2, y, { align: 'center' });
+        y += 4;
+        doc.setFontSize(6);
+        doc.text(`Custo Total: ${formatCurrency(totalSalesCost)}`, margin, y);
+        y += 3;
+        doc.text(`Receita Total: ${formatCurrency(totalSalesRevenue)}`, margin, y);
+        y += 3;
+        doc.text(`Lucro Total: ${formatCurrency(totalSalesProfit)}`, margin, y);
+        y += 6;
+        doc.line(margin, y - 2, pageWidth - margin, y - 2);
+        y += 4;
+      }
+
+      // 2. ORDENS DE SERVIÇO
+      let totalOSCost = 0;
+      let totalOSRevenue = 0;
+      let totalOSProfit = 0;
+
+      if (reportOrders.length > 0) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.text(onlyCanceled ? 'ORDENS DE SERVICO CANCELADAS' : 'ORDENS DE SERVICO', margin, y);
+        y += 5;
+
+        reportOrders.forEach((o, index) => {
+          const osDate = parseISO(o.date);
+          const dateStr = format(osDate, 'dd/MM/yy HH:mm');
+          const profit = o.total - o.partsCost;
+          
+          totalOSCost += o.partsCost;
+          totalOSRevenue += o.total;
+          totalOSProfit += profit;
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(6);
+          doc.text(`${String(index + 1).padStart(3, '0')} - OS: #${o.id}`, margin, y);
+          doc.text(dateStr, pageWidth - margin, y, { align: 'right' });
+          y += 3;
+          
+          doc.setFont('helvetica', 'normal');
+          const clientInfo = `${o.customerName} - ${o.deviceModel}`.substring(0, 35);
+          doc.text(clientInfo, margin, y);
+          y += 3;
+
+          doc.text(`Pecas: ${formatCurrency(o.partsCost)}`, margin, y);
+          doc.text(`Total: ${formatCurrency(o.total)}`, pageWidth / 2, y, { align: 'center' });
+          doc.setFont('helvetica', 'bold');
+          doc.text(`Lucro: ${formatCurrency(profit)}`, pageWidth - margin, y, { align: 'right' });
+          y += 4;
+
+          doc.line(margin, y - 1, pageWidth - margin, y - 1, 'FD');
+          y += 3;
+
+          if (y > 1450) {
+             doc.addPage([pageWidth, 1500]);
+             y = 10;
+          }
+        });
+
+        // Subtotal OS
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7);
+        doc.text(onlyCanceled ? 'TOTAL O.S. CANCELADAS' : 'SUBTOTAL ORDENS SERVICO', pageWidth / 2, y, { align: 'center' });
+        y += 4;
+        doc.setFontSize(6);
+        doc.text(`Custo Pecas: ${formatCurrency(totalOSCost)}`, margin, y);
+        y += 3;
+        doc.text(`Receita Total: ${formatCurrency(totalOSRevenue)}`, margin, y);
+        y += 3;
+        doc.text(`Lucro Total: ${formatCurrency(totalOSProfit)}`, margin, y);
+        y += 6;
+        doc.line(margin, y - 2, pageWidth - margin, y - 2);
+        y += 4;
+      }
+
+      // 3. RESUMO GERAL FINAL
+      const grandTotalCost = totalSalesCost + totalOSCost;
+      const grandTotalRevenue = totalSalesRevenue + totalOSRevenue;
+      const grandTotalProfit = totalSalesProfit + totalOSProfit;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text(onlyCanceled ? 'RESUMO DE CANCELAMENTOS' : 'RESUMO GERAL DO PERIODO', pageWidth / 2, y, { align: 'center' });
+      y += 5;
+      doc.setFontSize(7);
+      doc.text(onlyCanceled ? 'CUSTO ESTORNADO:' : 'CUSTO TOTAL:', margin, y);
+      doc.text(formatCurrency(grandTotalCost), pageWidth - margin, y, { align: 'right' });
+      y += 4;
+      doc.text(onlyCanceled ? 'VALOR ESTORNADO:' : 'RECEITA TOTAL:', margin, y);
+      doc.text(formatCurrency(grandTotalRevenue), pageWidth - margin, y, { align: 'right' });
+      y += 4;
+      doc.setFillColor(onlyCanceled ? 255 : 240, onlyCanceled ? 240 : 240, onlyCanceled ? 240 : 240);
+      doc.rect(margin, y - 3, pageWidth - (margin * 2), 5, 'F');
+      doc.text(onlyCanceled ? 'LUCRO NAO REALIZADO:' : 'LUCRO LIQUIDO:', margin, y);
+      doc.text(formatCurrency(grandTotalProfit), pageWidth - margin, y, { align: 'right' });
+      y += 10;
+
+      doc.setFontSize(6);
+      doc.setFont('helvetica', 'italic');
+      doc.text('Relatorio para simples conferencia', pageWidth / 2, y, { align: 'center' });
+      y += 4;
+      doc.text('Fim do Documento', pageWidth / 2, y, { align: 'center' });
+
+      const fileName = onlyCanceled ? `Relatorio_Cancelados_${format(new Date(), 'ddMMyy_HHmm')}.pdf` : `Relatorio_Detalhado_${format(new Date(), 'ddMMyy_HHmm')}.pdf`;
+      doc.save(fileName);
       setIsReportModalOpen(false);
+      setIsCancellationReportModalOpen(false);
     } catch (e) {
       console.error(e);
       alert('Erro ao gerar PDF');
@@ -294,8 +392,9 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
     try {
       if (transaction.source === 'os') {
         if (!setOrders) return alert('Não é possível atualizar O.S. nesta tela.');
+        const originalId = transaction.id.replace('os-', '');
         const updatedOrders = orders.map(o => 
-          o.id === transaction.id ? { ...o, status: 'Entregue' as const } : o
+          o.id === originalId ? { ...o, status: 'Entregue' as const } : o
         );
         await setOrders(updatedOrders);
         alert('Ordem de Serviço marcada como Entregue/Paga!');
@@ -303,8 +402,9 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
       }
 
       // Lógica para Transações Manuais
+      const originalId = transaction.id.replace('manual-', '');
       const updatedTransactions = transactions.map(t => 
-        t.id === transaction.id ? { ...t, status: 'paid' as const } : t
+        t.id === originalId ? { ...t, status: 'paid' as const } : t
       );
 
       let nextTransaction: Transaction | null = null;
@@ -546,7 +646,7 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
               { label: 'Lucro Líquido', val: summary.netProfit, icon: Target, color: 'text-white', bg: 'bg-slate-900', dark: true, onClick: () => setIsProfitDetailOpen(true) },
             ].map((card, idx) => (
               <div 
-                key={idx} 
+                key={`card-${idx}`} 
                 onClick={card.onClick}
                 className={`${card.dark ? 'bg-slate-900 border-slate-800 shadow-xl shadow-slate-900/10 hover:bg-slate-800' : 'bg-white border-slate-100 shadow-sm hover:bg-slate-50'} p-3 rounded-2xl border flex items-center gap-3 ${card.onClick ? 'cursor-pointer transition-colors active:scale-95 group' : ''}`}
               >
@@ -760,8 +860,8 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
             </div>
             <div className="divide-y divide-slate-50 max-h-[300px] overflow-y-auto">
               {activeTransactions.filter(t => isWithinInterval(parseISO(t.date), { start: startOfDay(periodStart), end: endOfDay(periodEnd) })).length > 0 ? 
-               activeTransactions.filter(t => isWithinInterval(parseISO(t.date), { start: startOfDay(periodStart), end: endOfDay(periodEnd) })).map((t) => (
-                <div key={t.id} className="p-3 flex items-center justify-between hover:bg-slate-50/30 transition-colors">
+               activeTransactions.filter(t => isWithinInterval(parseISO(t.date), { start: startOfDay(periodStart), end: endOfDay(periodEnd) })).map((t, idx) => (
+                <div key={`t-${t.id}-${idx}`} className="p-3 flex items-center justify-between hover:bg-slate-50/30 transition-colors">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className={`w-8 h-8 ${t.type === 'entrada' ? 'bg-emerald-50 text-emerald-500' : 'bg-red-50 text-red-500'} rounded-lg flex items-center justify-center shrink-0`}>
                       {t.type === 'entrada' ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
@@ -871,12 +971,12 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                     const score = { overdue: 0, pending: 1, paid: 2 };
                     return score[a.status || 'pending'] - score[b.status || 'pending'];
                   })
-                  .map((t) => {
+                  .map((t, idx) => {
                     const isLastInstallment = t.installments && t.installments.current === t.installments.total;
                     const isSettled = t.status === 'paid' && (!t.installments || isLastInstallment);
 
                     return (
-                    <div key={t.id} className={`p-3 flex items-center justify-between hover:bg-slate-50/50 transition-colors ${t.status === 'paid' ? 'bg-slate-50/30' : ''}`}>
+                    <div key={`all-${t.id}-${idx}`} className={`p-3 flex items-center justify-between hover:bg-slate-50/50 transition-colors ${t.status === 'paid' ? 'bg-slate-50/30' : ''}`}>
                        <div className="flex items-center gap-2.5">
                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                             isSettled ? 'bg-emerald-500 text-white shadow-md shadow-emerald-100' :
@@ -974,7 +1074,7 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                  </div>
                  <div className="space-y-3">
                     {summary.topProducts.length > 0 ? summary.topProducts.map((p, i) => (
-                       <div key={i} className="flex items-center justify-between">
+                       <div key={`top-prod-${i}`} className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                              <span className="w-5 h-5 rounded-full bg-blue-50 text-blue-600 text-[9px] font-black flex items-center justify-center">{i+1}</span>
                              <div>
@@ -996,7 +1096,7 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                  </div>
                  <div className="space-y-3">
                     {summary.topServices.length > 0 ? summary.topServices.map((s, i) => (
-                       <div key={i} className="flex items-center justify-between">
+                       <div key={`top-serv-${i}`} className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                              <span className="w-5 h-5 rounded-full bg-purple-50 text-purple-600 text-[9px] font-black flex items-center justify-center">{i+1}</span>
                              <div>
@@ -1064,8 +1164,8 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                     className="bg-transparent w-full outline-none font-bold text-xs uppercase"
                   >
                     <option value="all">TODOS OS PERFIS</option>
-                    {settings.users.map(u => (
-                      <option key={u.id} value={u.name}>{u.name.toUpperCase()}</option>
+                    {settings.users.map((u, idx) => (
+                      <option key={`user-${u.id}-${idx}`} value={u.name}>{u.name.toUpperCase()}</option>
                     ))}
                   </select>
                 </div>
@@ -1128,16 +1228,53 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
               <h3 className="font-black text-slate-800 text-sm uppercase tracking-widest">Cancelamentos</h3>
               <button onClick={() => setIsCancellationReportModalOpen(false)} className="p-2 text-slate-400 bg-slate-50 rounded-full"><X size={16} /></button>
             </div>
-            <div className="p-8 text-center">
-              <div className="w-16 h-16 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <div className="p-6 space-y-6">
+              <div className="w-16 h-16 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center mx-auto">
                 <AlertCircle size={32} />
               </div>
-              <h4 className="font-black text-slate-800 uppercase text-sm mb-2">Aviso de Retenção</h4>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
-                Todos os registros de vendas, O.S. e lançamentos cancelados são mantidos em nuvem por um período de
-                <span className="text-red-600 font-black"> {settings.retentionMonths || 6} MESES </span> 
-                para fins de auditoria. Após este período, são permanentemente excluídos.
-              </p>
+              
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Período de Cancelamentos</label>
+                <div className="flex flex-col gap-3">
+                  <DatePicker
+                    selected={startDate}
+                    onChange={(date: Date | null) => setStartDate(date)}
+                    selectsStart
+                    startDate={startDate}
+                    endDate={endDate}
+                    maxDate={endDate || new Date()}
+                    minDate={subMonths(new Date(), 6)}
+                    dateFormat="dd/MM/yyyy"
+                    locale="pt-BR"
+                    className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-xs uppercase text-center"
+                    wrapperClassName="w-full"
+                    placeholderText="Data Inicial"
+                  />
+                  <DatePicker
+                    selected={endDate}
+                    onChange={(date: Date | null) => setEndDate(date)}
+                    selectsEnd
+                    startDate={startDate}
+                    endDate={endDate}
+                    minDate={startDate || subMonths(new Date(), 6)}
+                    maxDate={new Date()}
+                    dateFormat="dd/MM/yyyy"
+                    locale="pt-BR"
+                    className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-xs uppercase text-center"
+                    wrapperClassName="w-full"
+                    placeholderText="Data Final"
+                  />
+                </div>
+              </div>
+
+              <div className="p-4 bg-red-50/50 rounded-2xl border border-red-100">
+                <h4 className="font-black text-red-800 uppercase text-[9px] mb-1">Aviso de Retenção</h4>
+                <p className="text-[9px] text-red-600/70 font-bold uppercase tracking-widest leading-relaxed">
+                  Registros cancelados são mantidos por
+                  <span className="text-red-600 font-black"> {settings.retentionMonths || 6} MESES </span> 
+                  para auditoria.
+                </p>
+              </div>
             </div>
             <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
                <button onClick={() => { handleGenerateReport(true); setIsCancellationReportModalOpen(false); }} disabled={isGeneratingReport} className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase text-[9px] tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2">
@@ -1609,8 +1746,8 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                  <div className="space-y-2">
                     <h4 className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Vendas de Produtos</h4>
                     <div className="space-y-1">
-                       {summary.revenue.sales.map(sale => (
-                         <div key={sale.id} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+                       {summary.revenue.sales.map((sale, idx) => (
+                         <div key={`rev-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
                             <div className="flex items-center gap-3">
                                <div className="w-8 h-8 bg-white text-blue-500 rounded-lg flex items-center justify-center shadow-sm">
                                   <ShoppingBag size={14} />
@@ -1641,8 +1778,8 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                  <div className="space-y-2">
                     <h4 className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Ordens de Serviço (Entregues)</h4>
                     <div className="space-y-1">
-                       {summary.revenue.os.map(os => (
-                         <div key={os.id} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+                       {summary.revenue.os.map((os, idx) => (
+                         <div key={`rev-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
                             <div className="flex items-center gap-3">
                                <div className="w-8 h-8 bg-white text-emerald-500 rounded-lg flex items-center justify-center shadow-sm">
                                   <ClipboardList size={14} />
@@ -1673,8 +1810,8 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                  <div className="space-y-2">
                     <h4 className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Outras Entradas</h4>
                     <div className="space-y-1">
-                       {summary.revenue.manual.map(t => (
-                         <div key={t.id} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+                       {summary.revenue.manual.map((t, idx) => (
+                         <div key={`rev-manual-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
                             <div className="flex items-center gap-3">
                                <div className="w-8 h-8 bg-white text-blue-400 rounded-lg flex items-center justify-center shadow-sm">
                                   <ArrowUpRight size={14} />
@@ -1741,8 +1878,8 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                  <div className="space-y-2">
                     <h4 className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Custos de Produtos Vendidos</h4>
                     <div className="space-y-1">
-                       {summary.costs.sales.map(sale => (
-                         <div key={sale.id} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+                       {summary.costs.sales.map((sale, idx) => (
+                         <div key={`cost-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
                             <div className="flex items-center gap-3">
                                <div className="w-8 h-8 bg-white text-amber-500 rounded-lg flex items-center justify-center shadow-sm">
                                   <ShoppingBag size={14} />
@@ -1772,8 +1909,8 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                  <div className="space-y-2">
                     <h4 className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Custos de Peças (OS Entregues)</h4>
                     <div className="space-y-1">
-                       {summary.costs.os.map(os => (
-                         <div key={os.id} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+                       {summary.costs.os.map((os, idx) => (
+                         <div key={`cost-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
                             <div className="flex items-center gap-3">
                                <div className="w-8 h-8 bg-white text-amber-500 rounded-lg flex items-center justify-center shadow-sm">
                                   <ClipboardList size={14} />
@@ -1856,10 +1993,10 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                  <div className="space-y-2">
                     <h4 className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Lucro de Vendas</h4>
                     <div className="space-y-1">
-                       {summary.revenue.sales.map(sale => {
+                       {summary.revenue.sales.map((sale, idx) => {
                          const profit = sale.finalPrice - sale.costAtSale;
                          return (
-                         <div key={sale.id} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+                         <div key={`profit-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
                             <div className="flex items-center gap-3">
                                <div className="w-8 h-8 bg-white text-emerald-500 rounded-lg flex items-center justify-center shadow-sm">
                                   <ShoppingBag size={14} />
@@ -1890,10 +2027,10 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                  <div className="space-y-2">
                     <h4 className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Lucro de Ordens de Serviço</h4>
                     <div className="space-y-1">
-                       {summary.revenue.os.map(os => {
+                       {summary.revenue.os.map((os, idx) => {
                          const profit = os.total - os.partsCost;
                          return (
-                         <div key={os.id} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+                         <div key={`profit-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
                             <div className="flex items-center gap-3">
                                <div className="w-8 h-8 bg-white text-emerald-500 rounded-lg flex items-center justify-center shadow-sm">
                                   <ClipboardList size={14} />
@@ -1924,8 +2061,8 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                  <div className="space-y-2">
                     <h4 className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Entradas (100% Lucro)</h4>
                     <div className="space-y-1">
-                       {summary.revenue.manual.map(t => (
-                         <div key={t.id} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+                       {summary.revenue.manual.map((t, idx) => (
+                         <div key={`profit-manual-in-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
                             <div className="flex items-center gap-3">
                                <div className="w-8 h-8 bg-white text-emerald-400 rounded-lg flex items-center justify-center shadow-sm">
                                   <ArrowUpRight size={14} />
@@ -1952,8 +2089,8 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                  <div className="space-y-2">
                     <h4 className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Despesas Fixas (Reduzem o Lucro)</h4>
                     <div className="space-y-1">
-                       {summary.expenses.manual.map(t => (
-                         <div key={t.id} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+                       {summary.expenses.manual.map((t, idx) => (
+                         <div key={`profit-manual-out-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
                             <div className="flex items-center gap-3">
                                <div className="w-8 h-8 bg-white text-red-400 rounded-lg flex items-center justify-center shadow-sm">
                                   <TrendingDown size={14} />

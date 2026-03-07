@@ -316,9 +316,9 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
             { id: 'employees', label: 'Equipe', icon: User },
             { id: 'rules', label: 'Regras', icon: Percent },
             { id: 'commissions', label: 'Relatório', icon: DollarSign },
-          ].map(tab => (
+          ].map((tab, idx) => (
             <button
-              key={tab.id}
+              key={`tab-${tab.id}-${idx}`}
               onClick={() => { setActiveTab(tab.id as any); setIsMenuOpen(false); }}
               className={`px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex flex-col items-center justify-center gap-2 transition-all ${activeTab === tab.id ? 'bg-slate-800 text-white shadow-md' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
             >
@@ -467,7 +467,7 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {dashboardData.employeeStats.map((stat, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                    <tr key={`stat-${idx}`} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-6 py-4 font-bold text-slate-700 flex items-center gap-2">
                         {idx === 0 && <Award size={16} className="text-yellow-500" />}
                         {stat.name}
@@ -505,8 +505,8 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
       {/* Content */}
       {activeTab === 'employees' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {employees.map(emp => (
-            <div key={emp.id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+          {employees.map((emp, idx) => (
+            <div key={`emp-card-${emp.id}-${idx}`} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
               <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button onClick={() => openEditModal(emp)} className="text-slate-300 hover:text-blue-500 transition-colors p-2 bg-slate-50 rounded-full shadow-sm">
                   <Edit2 size={16} />
@@ -592,8 +592,8 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
               </div>
               
               <div className="grid grid-cols-1 gap-4">
-                {rules.map(rule => (
-                  <div key={rule.id} className={`bg-white p-6 rounded-2xl border ${rule.isActive ? 'border-slate-100' : 'border-slate-100 opacity-60'} shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 group`}>
+                {rules.map((rule, idx) => (
+                  <div key={`rule-${rule.id}-${idx}`} className={`bg-white p-6 rounded-2xl border ${rule.isActive ? 'border-slate-100' : 'border-slate-100 opacity-60'} shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 group`}>
                     <div className="flex items-start gap-4">
                       <div className={`p-3 rounded-xl ${rule.targetType === 'global' ? 'bg-blue-50 text-blue-500' : rule.targetType === 'category' ? 'bg-purple-50 text-purple-500' : 'bg-emerald-50 text-emerald-500'}`}>
                         {rule.targetType === 'global' ? <Award size={20} /> : rule.targetType === 'category' ? <PieChart size={20} /> : <Zap size={20} />}
@@ -654,8 +654,8 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
               </p>
               
               <div className="space-y-4">
-                {goalTiers.map(tier => (
-                  <div key={tier.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative group">
+                {goalTiers.map((tier, idx) => (
+                  <div key={`tier-${tier.id}-${idx}`} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative group">
                     <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={() => openGoalModal(tier)} className="p-1.5 text-slate-400 hover:text-blue-500"><Edit2 size={14}/></button>
                       <button onClick={() => handleDeleteGoal(tier.id)} className="p-1.5 text-slate-400 hover:text-red-500"><Trash2 size={14}/></button>
@@ -748,16 +748,16 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
                     className="text-[10px] font-black uppercase tracking-widest bg-white border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-blue-500 transition-all cursor-pointer"
                   >
                     <option value="all">Todos os Vendedores</option>
-                    {employees.map(emp => (
-                      <option key={emp.id} value={emp.id}>{emp.name}</option>
+                    {employees.map((emp, idx) => (
+                      <option key={`emp-opt-${emp.id}-${idx}`} value={emp.id}>{emp.name}</option>
                     ))}
                   </select>
                 </div>
               </div>
             </div>
             <div className="divide-y divide-slate-100">
-              {paginatedLogs.map(log => (
-                <div key={log.id} className={`p-4 flex items-center justify-between hover:bg-slate-50 transition-colors ${log.status === 'cancelled' ? 'opacity-60 bg-slate-50' : ''}`}>
+              {paginatedLogs.map((log, index) => (
+                <div key={`${log.id}-${index}`} className={`p-4 flex items-center justify-between hover:bg-slate-50 transition-colors ${log.status === 'cancelled' ? 'opacity-60 bg-slate-50' : ''}`}>
                   <div className="flex items-center gap-4">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${log.status === 'cancelled' ? 'bg-slate-200 text-slate-500' : log.originType === 'sale' ? 'bg-blue-50 text-blue-500' : 'bg-purple-50 text-purple-500'}`}>
                       {log.originType === 'sale' ? <DollarSign size={20} /> : <Award size={20} />}

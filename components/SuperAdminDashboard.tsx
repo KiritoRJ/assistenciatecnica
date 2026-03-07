@@ -426,8 +426,8 @@ const [globalPlans, setGlobalPlans] = useState<any>({});
             </div>
 
             <div className="grid gap-3 sm:gap-4">
-            {filteredTenants.map(t => (
-              <div key={t.id} className="bg-white/5 border border-white/5 p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group hover:border-blue-500/30 transition-all">
+            {filteredTenants.map((t, idx) => (
+              <div key={`tenant-${t.id}-${idx}`} className="bg-white/5 border border-white/5 p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group hover:border-blue-500/30 transition-all">
                 <div className="flex items-center gap-3 sm:gap-5 w-full sm:w-auto">
                   <div className="w-10 h-10 sm:w-14 sm:h-14 bg-slate-900 rounded-xl sm:rounded-2xl flex items-center justify-center text-blue-500 border border-white/5 overflow-hidden shrink-0">
                     {t.logo_url ? <img src={t.logo_url} className="w-full h-full object-cover" /> : <Store size={20} className="sm:hidden" />}

@@ -5,7 +5,7 @@ import { ShoppingBag, Search, X, History, ShoppingCart, Package, ArrowLeft, Chec
 import html2pdf from 'html2pdf.js';
 import html2canvas from 'html2canvas';
 import { Product, Sale, AppSettings, User } from '../types';
-import { formatCurrency, parseCurrencyString, formatDate, formatDateTime, playBeepSound } from '../utils';
+import { formatCurrency, parseCurrencyString, formatDate, formatDateTime, playBeepSound, generateRandomNumericCode } from '../utils';
 import { OnlineDB } from '../utils/api';
 import { Html5Qrcode } from 'html5-qrcode';
 
@@ -35,6 +35,7 @@ interface PaymentEntry {
 const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, settings, onUpdateSettings, currentUser, onDeleteSale, tenantId }) => {
   const [showHistory, setShowHistory] = useState(false);
   const [productSearch, setProductSearch] = useState('');
+  const [historySearch, setHistorySearch] = useState('');
 
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [showHistoryReceiptModal, setShowHistoryReceiptModal] = useState(false);
@@ -321,7 +322,7 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
     if (cart.length === 0) return;
     const uniqueTransactions = new Set(sales.map(s => s.transactionId).filter(Boolean));
     const nextTransactionNumber = uniqueTransactions.size + 1;
-    const transactionId = nextTransactionNumber.toString().padStart(2, '0');
+    const transactionId = generateRandomNumericCode();
     const date = new Date().toISOString();
     
     const totalPaid = paymentEntries.reduce((acc, curr) => acc + curr.amount, 0);
@@ -339,8 +340,7 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
       const itemDiscount = cartTotal > 0 ? (itemTotal / cartTotal) * totalDiscount : 0;
       const itemSurcharge = cartTotal > 0 ? (itemTotal / cartTotal) * surchargeAmount : 0;
       
-      const nextIdNumber = sales.length + index + 1;
-      const formattedId = nextIdNumber.toString().padStart(2, '0');
+      const formattedId = generateRandomNumericCode();
 
       const newSale: Sale = {
         id: formattedId,
@@ -487,8 +487,16 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
   const paginatedProducts = sortedProducts.slice(0, settings.itemsPerPage * currentPage);
 
   const sortedSales = useMemo(() => {
-    return [...sales].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [sales]);
+    let filtered = [...sales];
+    if (historySearch) {
+      const lowerSearch = historySearch.toLowerCase();
+      filtered = filtered.filter(s => 
+        (s.transactionId && s.transactionId.toLowerCase().includes(lowerSearch)) ||
+        (s.productName && s.productName.toLowerCase().includes(lowerSearch))
+      );
+    }
+    return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [sales, historySearch]);
 
   const paginatedSales = sortedSales.slice(0, settings.itemsPerPage * currentPage);
 
@@ -512,7 +520,23 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
             <button onClick={() => setShowHistory(false)} className="p-2 bg-slate-100 rounded-full"><ArrowLeft size={20} /></button>
             <h2 className="text-xl font-black text-slate-800 uppercase tracking-tighter">Histórico de Vendas</h2>
           </div>
-          {/* Histórico permanece igual */}
+          
+          <div className="bg-white p-2 rounded-2xl border border-slate-100 flex items-center gap-2 shadow-sm focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10 transition-all">
+            <Search className="text-slate-400 ml-2" size={20} />
+            <input 
+              type="text" 
+              placeholder="Buscar por número do pedido ou produto..." 
+              value={historySearch}
+              onChange={e => setHistorySearch(e.target.value)}
+              className="w-full bg-transparent border-none outline-none p-2 text-sm font-medium text-slate-700 placeholder:text-slate-400"
+            />
+            {historySearch && (
+              <button onClick={() => setHistorySearch('')} className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors">
+                <X size={16} />
+              </button>
+            )}
+          </div>
+
           <div className="grid gap-2">
             {paginatedSales.map(sale => (
               <div 
@@ -526,7 +550,7 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
                   </div>
                   <div>
                     <p className="text-xs font-black uppercase text-slate-800">{sale.productName}</p>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Pedido #{sale.transactionId} • {formatDate(sale.date)} • {sale.paymentMethod}</p>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Pedido {sale.transactionId} • {formatDate(sale.date)} • {sale.paymentMethod}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
@@ -791,7 +815,7 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
                             className="bg-white border border-slate-200 rounded px-1 py-0.5 text-[9px] font-black outline-none"
                           >
                             {[...Array(12)].map((_, i) => (
-                              <option key={i+1} value={i+1}>{i+1}x</option>
+                              <option key={`opt-${index}-${i+1}`} value={i+1}>{i+1}x</option>
                             ))}
                           </select>
                         </div>
@@ -916,7 +940,7 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
               <div className="grid grid-cols-2 gap-8">
                 <div className="space-y-1">
                   <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Identificação</p>
-                  <p className="text-xs font-black text-slate-700">Pedido #{lastTransactionId}</p>
+                  <p className="text-xs font-black text-slate-700">Pedido {lastTransactionId}</p>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{formatDateTime(lastSaleDate)}</p>
                 </div>
                 <div className="space-y-1 text-right">
@@ -1069,7 +1093,7 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
             <div style={{ marginBottom: '4mm', fontSize: '10px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>PEDIDO:</span>
-                <span style={{ fontWeight: 'bold' }}>#{lastTransactionId}</span>
+                <span style={{ fontWeight: 'bold' }}>{lastTransactionId}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>DATA:</span>
@@ -1089,7 +1113,7 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
               {lastTransactionItems.map((item, index) => (
                 <div key={index} style={{ marginBottom: '2mm' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ textTransform: 'uppercase' }}>{item.product.name}</span>
+                    <span style={{ textTransform: 'uppercase' }}>{String(index + 1).padStart(3, '0')} - {item.product.name}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#666' }}>
                     <span>{item.quantity} UN x {formatCurrency(item.product.salePrice)}</span>
@@ -1177,7 +1201,7 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
           </div>
           
           <div style={{ marginBottom: '3mm' }}>
-            <p style={{ margin: '1px 0' }}>ID: #{lastTransactionId}</p>
+            <p style={{ margin: '1px 0' }}>ID: {lastTransactionId}</p>
             <p style={{ margin: '1px 0' }}>DATA: {formatDateTime(lastSaleDate)}</p>
             <p style={{ margin: '1px 0' }}>VEND: {currentUser?.name?.toUpperCase() || 'SISTEMA'}</p>
           </div>
@@ -1186,7 +1210,7 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
             {lastTransactionItems.map((item, index) => (
               <div key={index} style={{ marginBottom: '1mm' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>{item.product.name.substring(0, 20)}</span>
+                  <span>{String(index + 1).padStart(3, '0')} - {item.product.name.substring(0, 20)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px' }}>
                   <span>{item.quantity}x {formatCurrency(item.product.salePrice)}</span>

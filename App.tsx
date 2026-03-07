@@ -981,8 +981,8 @@ const App: React.FC = () => {
           </button>
         </div>
         <nav className="flex-1 space-y-2 min-w-[240px]">
-          {visibleNavItems.map(item => (
-            <button key={item.id} onClick={() => setActiveTab(item.id as Tab)} className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === item.id ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
+          {visibleNavItems.map((item, idx) => (
+            <button key={`nav-desktop-${item.id}-${idx}`} onClick={() => setActiveTab(item.id as Tab)} className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === item.id ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
               <item.icon size={20} className="shrink-0" />
               <span className="animate-in fade-in whitespace-nowrap">{item.label}</span>
             </button>
@@ -1067,9 +1067,9 @@ const App: React.FC = () => {
 
       {/* Bottom Navigation (Mobile Only) */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-2 py-3 z-40 flex items-center justify-around shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
-        {visibleNavItems.map(item => (
+        {visibleNavItems.map((item, idx) => (
           <button 
-            key={item.id} 
+            key={`nav-mobile-bottom-${item.id}-${idx}`} 
             onClick={() => setActiveTab(item.id as Tab)} 
             className={`flex flex-col items-center gap-1 transition-all ${activeTab === item.id ? 'text-blue-600 scale-110' : 'text-slate-400'}`}
           >
@@ -1101,9 +1101,9 @@ const App: React.FC = () => {
             </div>
 
             <nav className="flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden pr-1">
-               {visibleNavItems.map(item => (
+               {visibleNavItems.map((item, idx) => (
                 <button 
-                  key={item.id} 
+                  key={`nav-mobile-sidebar-${item.id}-${idx}`} 
                   onClick={() => { setActiveTab(item.id as Tab); setIsSidebarOpen(false); }} 
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
                     activeTab === item.id 

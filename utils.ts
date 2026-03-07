@@ -40,3 +40,7 @@ export const playBeepSound = () => {
     console.error("Audio playback failed", e);
   }
 };
+
+export const generateRandomNumericCode = (length: number = 5): string => {
+  return Math.floor(Math.random() * Math.pow(10, length)).toString().padStart(length, '0');
+};

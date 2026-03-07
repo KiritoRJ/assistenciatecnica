@@ -69,7 +69,7 @@ export const useFinanceCalculations = (
       if (!os.isDeleted) {
         const isPaid = os.status === 'Entregue' || os.status === 'Concluído'; // Assumindo concluído como pago ou a receber
         transactions.push({
-          id: os.id,
+          id: `os-${os.id}`,
           type: 'income',
           amount: os.total,
           cost: os.partsCost,
@@ -86,7 +86,7 @@ export const useFinanceCalculations = (
     sales.forEach(sale => {
       if (!sale.isDeleted) {
         transactions.push({
-          id: sale.id,
+          id: `sale-${sale.id}`,
           type: 'income',
           amount: sale.finalPrice,
           cost: sale.costAtSale,
@@ -115,7 +115,7 @@ export const useFinanceCalculations = (
         }
 
         transactions.push({
-          id: t.id,
+          id: `manual-${t.id}`,
           type: t.type === 'entrada' ? 'income' : 'expense',
           amount: t.amount,
           cost: 0,
@@ -198,25 +198,29 @@ export const useFinanceCalculations = (
 
         // Popula detalhes da receita e custos
         if (t.source === 'sale') {
-          const sale = sales.find(s => s.id === t.id);
+          const originalId = t.id.replace('sale-', '');
+          const sale = sales.find(s => s.id === originalId);
           if (sale) {
             revenueSales.push(sale);
             if (t.cost > 0) cmvSales.push(sale);
           }
         } else if (t.source === 'os') {
-          const os = orders.find(o => o.id === t.id);
+          const originalId = t.id.replace('os-', '');
+          const os = orders.find(o => o.id === originalId);
           if (os) {
             revenueOS.push(os);
             if (t.cost > 0) cmvOS.push(os);
           }
         } else if (t.source === 'manual') {
-          const manual = manualTransactions.find(mt => mt.id === t.id);
+          const originalId = t.id.replace('manual-', '');
+          const manual = manualTransactions.find(mt => mt.id === originalId);
           if (manual) revenueManual.push(manual);
         }
       } else if (t.type === 'expense' && t.status === 'paid') {
         expensesTotal += t.amount;
         if (t.source === 'manual') {
-          const manual = manualTransactions.find(mt => mt.id === t.id);
+          const originalId = t.id.replace('manual-', '');
+          const manual = manualTransactions.find(mt => mt.id === originalId);
           if (manual) expensesManual.push(manual);
         }
       }

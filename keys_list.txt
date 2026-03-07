@@ -1,0 +1,488 @@
+./App.tsx:            <button key={`nav-desktop-${item.id}-${idx}`} onClick={() => setActiveTab(item.id as Tab)} className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === item.id ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
+./App.tsx:            key={`nav-mobile-bottom-${item.id}-${idx}`} 
+./App.tsx:                  key={`nav-mobile-sidebar-${item.id}-${idx}`} 
+./components/SuperAdminDashboard.tsx:              <div key={`tenant-${t.id}-${idx}`} className="bg-white/5 border border-white/5 p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group hover:border-blue-500/30 transition-all">
+./components/SuperAdminDashboard.tsx:                    <div key={planId} className="bg-slate-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100">
+./components/SuperAdminDashboard.tsx:                    <label key={feature.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100 transition-colors">
+./components/SettingsTab.tsx:                key={user.id} 
+./components/SettingsTab.tsx:                          <label key={perm.key} className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-100 rounded-2xl cursor-pointer hover:bg-white transition-all">
+./components/SettingsTab.tsx:            <div key={item.key} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
+./components/SettingsTab.tsx:                    key={num}
+./components/StockTab.tsx:          <div key={product.id} className={`bg-white border border-slate-50 rounded-[2rem] overflow-hidden shadow-sm flex group animate-in fade-in duration-300 ${layoutMode === 'list' ? 'flex-row items-center p-2 gap-3' : 'flex-col'}`}>
+./components/FinanceTab.tsx:                key={`card-${idx}`} 
+./components/FinanceTab.tsx:                        <Cell key={`cell-${index}`} fill={entry.color} />
+./components/FinanceTab.tsx:                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+./components/FinanceTab.tsx:                        <div key={index} className="flex items-center gap-1.5">
+./components/FinanceTab.tsx:                <div key={`t-${t.id}-${idx}`} className="p-3 flex items-center justify-between hover:bg-slate-50/30 transition-colors">
+./components/FinanceTab.tsx:                    <div key={`all-${t.id}-${idx}`} className={`p-3 flex items-center justify-between hover:bg-slate-50/50 transition-colors ${t.status === 'paid' ? 'bg-slate-50/30' : ''}`}>
+./components/FinanceTab.tsx:                       <div key={`top-prod-${i}`} className="flex items-center justify-between">
+./components/FinanceTab.tsx:                       <div key={`top-serv-${i}`} className="flex items-center justify-between">
+./components/FinanceTab.tsx:                      <option key={`user-${u.id}-${idx}`} value={u.name}>{u.name.toUpperCase()}</option>
+./components/FinanceTab.tsx:                         <div key={`rev-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./components/FinanceTab.tsx:                         <div key={`rev-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./components/FinanceTab.tsx:                         <div key={`rev-manual-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./components/FinanceTab.tsx:                         <div key={`cost-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./components/FinanceTab.tsx:                         <div key={`cost-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./components/FinanceTab.tsx:                         <div key={`profit-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./components/FinanceTab.tsx:                         <div key={`profit-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./components/FinanceTab.tsx:                         <div key={`profit-manual-in-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./components/FinanceTab.tsx:                         <div key={`profit-manual-out-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./components/SubscriptionView.tsx:              key={plan.id}
+./components/SubscriptionView.tsx:                  <li key={i} className="flex items-center gap-3 text-slate-300 text-sm font-medium">
+./components/EmployeeManagementTab.tsx:              key={`tab-${tab.id}-${idx}`}
+./components/EmployeeManagementTab.tsx:                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+./components/EmployeeManagementTab.tsx:                    <tr key={`stat-${idx}`} className="hover:bg-slate-50/50 transition-colors">
+./components/EmployeeManagementTab.tsx:            <div key={`emp-card-${emp.id}-${idx}`} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+./components/EmployeeManagementTab.tsx:                  <div key={`rule-${rule.id}-${idx}`} className={`bg-white p-6 rounded-2xl border ${rule.isActive ? 'border-slate-100' : 'border-slate-100 opacity-60'} shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 group`}>
+./components/EmployeeManagementTab.tsx:                  <div key={`tier-${tier.id}-${idx}`} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative group">
+./components/EmployeeManagementTab.tsx:                      <option key={`emp-opt-${emp.id}-${idx}`} value={emp.id}>{emp.name}</option>
+./components/EmployeeManagementTab.tsx:                <div key={`${log.id}-${index}`} className={`p-4 flex items-center justify-between hover:bg-slate-50 transition-colors ${log.status === 'cancelled' ? 'opacity-60 bg-slate-50' : ''}`}>
+./components/EmployeeManagementTab.tsx:                      {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+./components/ServiceOrderTab.tsx:            key={order.id} 
+./components/ServiceOrderTab.tsx:                        key={item}
+./components/ServiceOrderTab.tsx:                          <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-slate-100 shadow-sm">
+./components/ServiceOrderTab.tsx:                            <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-emerald-100 shadow-sm">
+./components/ServiceOrderTab.tsx:                            <option key={i+1} value={i+1} className="text-slate-900">{i+1}x</option>
+./components/ServiceOrderTab.tsx:                      <div key={idx} className="relative group rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-square bg-slate-50">
+./components/ServiceOrderTab.tsx:                      <div key={idx} className="relative group rounded-2xl overflow-hidden border border-emerald-50 shadow-sm aspect-square bg-emerald-50">
+./components/CatalogManager.tsx:                <div key={idx} className="relative aspect-square bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden group">
+./components/CatalogManager.tsx:          <div key={product.id} onClick={() => setEditingProduct(product)} className="bg-white rounded-[2rem] p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group flex gap-4 items-center">
+./components/SalesTab.tsx:                key={sale.id} 
+./components/SalesTab.tsx:                  key={product.id} 
+./components/SalesTab.tsx:                      <div key={item.product.id} className="bg-white/5 p-3 rounded-xl flex items-center justify-between">
+./components/SalesTab.tsx:                  <div key={index} className="space-y-1">
+./components/SalesTab.tsx:                              <option key={`opt-${index}-${i+1}`} value={i+1}>{i+1}x</option>
+./components/SalesTab.tsx:                    <div key={index} className="flex justify-between items-start group">
+./components/SalesTab.tsx:                    <div key={idx} className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+./components/SalesTab.tsx:                <div key={index} style={{ marginBottom: '2mm' }}>
+./components/SalesTab.tsx:                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1mm' }}>
+./components/SalesTab.tsx:              <div key={index} style={{ marginBottom: '1mm' }}>
+./components/SalesTab.tsx:              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between' }}>
+./components/CustomerCatalog.tsx:                  key={product.id} 
+./components/CustomerCatalog.tsx:            <div key={product.id} className="h-full w-full snap-start relative flex items-center justify-center bg-zinc-900">
+./UserManagementTab.tsx:          <div key={user.id} onClick={() => onSwitchProfile(user)} className={`p-6 rounded-3xl border transition-all cursor-pointer group relative flex items-center justify-between ${user.id === currentUser.id ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-100 shadow-md' : 'bg-white border-slate-100 shadow-sm hover:border-blue-300'}`}>
+./keys.txt:components/SuperAdminDashboard.tsx:              <div key={`tenant-${t.id}-${idx}`} className="bg-white/5 border border-white/5 p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group hover:border-blue-500/30 transition-all">
+./keys.txt:components/SuperAdminDashboard.tsx:                    <div key={planId} className="bg-slate-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100">
+./keys.txt:components/SuperAdminDashboard.tsx:                    <label key={feature.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100 transition-colors">
+./keys.txt:components/SettingsTab.tsx:                key={user.id} 
+./keys.txt:components/SettingsTab.tsx:                          <label key={perm.key} className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-100 rounded-2xl cursor-pointer hover:bg-white transition-all">
+./keys.txt:components/SettingsTab.tsx:            <div key={item.key} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
+./keys.txt:components/SettingsTab.tsx:                    key={num}
+./keys.txt:components/StockTab.tsx:          <div key={product.id} className={`bg-white border border-slate-50 rounded-[2rem] overflow-hidden shadow-sm flex group animate-in fade-in duration-300 ${layoutMode === 'list' ? 'flex-row items-center p-2 gap-3' : 'flex-col'}`}>
+./keys.txt:components/FinanceTab.tsx:                key={`card-${idx}`} 
+./keys.txt:components/FinanceTab.tsx:                        <Cell key={`cell-${index}`} fill={entry.color} />
+./keys.txt:components/FinanceTab.tsx:                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+./keys.txt:components/FinanceTab.tsx:                        <div key={index} className="flex items-center gap-1.5">
+./keys.txt:components/FinanceTab.tsx:                <div key={`t-${t.id}-${idx}`} className="p-3 flex items-center justify-between hover:bg-slate-50/30 transition-colors">
+./keys.txt:components/FinanceTab.tsx:                    <div key={`all-${t.id}-${idx}`} className={`p-3 flex items-center justify-between hover:bg-slate-50/50 transition-colors ${t.status === 'paid' ? 'bg-slate-50/30' : ''}`}>
+./keys.txt:components/FinanceTab.tsx:                       <div key={`top-prod-${i}`} className="flex items-center justify-between">
+./keys.txt:components/FinanceTab.tsx:                       <div key={`top-serv-${i}`} className="flex items-center justify-between">
+./keys.txt:components/FinanceTab.tsx:                      <option key={`user-${u.id}-${idx}`} value={u.name}>{u.name.toUpperCase()}</option>
+./keys.txt:components/FinanceTab.tsx:                         <div key={`rev-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./keys.txt:components/FinanceTab.tsx:                         <div key={`rev-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./keys.txt:components/FinanceTab.tsx:                         <div key={`rev-manual-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./keys.txt:components/FinanceTab.tsx:                         <div key={`cost-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./keys.txt:components/FinanceTab.tsx:                         <div key={`cost-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./keys.txt:components/FinanceTab.tsx:                         <div key={`profit-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./keys.txt:components/FinanceTab.tsx:                         <div key={`profit-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./keys.txt:components/FinanceTab.tsx:                         <div key={`profit-manual-in-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./keys.txt:components/FinanceTab.tsx:                         <div key={`profit-manual-out-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./keys.txt:components/SubscriptionView.tsx:              key={plan.id}
+./keys.txt:components/SubscriptionView.tsx:                  <li key={i} className="flex items-center gap-3 text-slate-300 text-sm font-medium">
+./keys.txt:components/EmployeeManagementTab.tsx:              key={`tab-${tab.id}-${idx}`}
+./keys.txt:components/EmployeeManagementTab.tsx:                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+./keys.txt:components/EmployeeManagementTab.tsx:                    <tr key={`stat-${idx}`} className="hover:bg-slate-50/50 transition-colors">
+./keys.txt:components/EmployeeManagementTab.tsx:            <div key={`emp-card-${emp.id}-${idx}`} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+./keys.txt:components/EmployeeManagementTab.tsx:                  <div key={`rule-${rule.id}-${idx}`} className={`bg-white p-6 rounded-2xl border ${rule.isActive ? 'border-slate-100' : 'border-slate-100 opacity-60'} shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 group`}>
+./keys.txt:components/EmployeeManagementTab.tsx:                  <div key={`tier-${tier.id}-${idx}`} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative group">
+./keys.txt:components/EmployeeManagementTab.tsx:                      <option key={`emp-opt-${emp.id}-${idx}`} value={emp.id}>{emp.name}</option>
+./keys.txt:components/EmployeeManagementTab.tsx:                <div key={`${log.id}-${index}`} className={`p-4 flex items-center justify-between hover:bg-slate-50 transition-colors ${log.status === 'cancelled' ? 'opacity-60 bg-slate-50' : ''}`}>
+./keys.txt:components/EmployeeManagementTab.tsx:                      {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+./keys.txt:components/ServiceOrderTab.tsx:            key={order.id} 
+./keys.txt:components/ServiceOrderTab.tsx:                        key={item}
+./keys.txt:components/ServiceOrderTab.tsx:                          <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-slate-100 shadow-sm">
+./keys.txt:components/ServiceOrderTab.tsx:                            <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-emerald-100 shadow-sm">
+./keys.txt:components/ServiceOrderTab.tsx:                            <option key={i+1} value={i+1} className="text-slate-900">{i+1}x</option>
+./keys.txt:components/ServiceOrderTab.tsx:                      <div key={idx} className="relative group rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-square bg-slate-50">
+./keys.txt:components/ServiceOrderTab.tsx:                      <div key={idx} className="relative group rounded-2xl overflow-hidden border border-emerald-50 shadow-sm aspect-square bg-emerald-50">
+./keys.txt:components/CatalogManager.tsx:                <div key={idx} className="relative aspect-square bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden group">
+./keys.txt:components/CatalogManager.tsx:          <div key={product.id} onClick={() => setEditingProduct(product)} className="bg-white rounded-[2rem] p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group flex gap-4 items-center">
+./keys.txt:components/SalesTab.tsx:                key={sale.id} 
+./keys.txt:components/SalesTab.tsx:                  key={product.id} 
+./keys.txt:components/SalesTab.tsx:                      <div key={item.product.id} className="bg-white/5 p-3 rounded-xl flex items-center justify-between">
+./keys.txt:components/SalesTab.tsx:                  <div key={index} className="space-y-1">
+./keys.txt:components/SalesTab.tsx:                              <option key={i+1} value={i+1}>{i+1}x</option>
+./keys.txt:components/SalesTab.tsx:                    <div key={index} className="flex justify-between items-start group">
+./keys.txt:components/SalesTab.tsx:                    <div key={idx} className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+./keys.txt:components/SalesTab.tsx:                <div key={index} style={{ marginBottom: '2mm' }}>
+./keys.txt:components/SalesTab.tsx:                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1mm' }}>
+./keys.txt:components/SalesTab.tsx:              <div key={index} style={{ marginBottom: '1mm' }}>
+./keys.txt:components/SalesTab.tsx:              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between' }}>
+./keys.txt:components/CustomerCatalog.tsx:                  key={product.id} 
+./keys.txt:components/CustomerCatalog.tsx:            <div key={product.id} className="h-full w-full snap-start relative flex items-center justify-center bg-zinc-900">
+./all_keys.txt:./App.tsx:            <button key={`nav-desktop-${item.id}-${idx}`} onClick={() => setActiveTab(item.id as Tab)} className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === item.id ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
+./all_keys.txt:./App.tsx:            key={`nav-mobile-bottom-${item.id}-${idx}`} 
+./all_keys.txt:./App.tsx:                  key={`nav-mobile-sidebar-${item.id}-${idx}`} 
+./all_keys.txt:./components/SuperAdminDashboard.tsx:              <div key={`tenant-${t.id}-${idx}`} className="bg-white/5 border border-white/5 p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group hover:border-blue-500/30 transition-all">
+./all_keys.txt:./components/SuperAdminDashboard.tsx:                    <div key={planId} className="bg-slate-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100">
+./all_keys.txt:./components/SuperAdminDashboard.tsx:                    <label key={feature.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100 transition-colors">
+./all_keys.txt:./components/SettingsTab.tsx:                key={user.id} 
+./all_keys.txt:./components/SettingsTab.tsx:                          <label key={perm.key} className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-100 rounded-2xl cursor-pointer hover:bg-white transition-all">
+./all_keys.txt:./components/SettingsTab.tsx:            <div key={item.key} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
+./all_keys.txt:./components/SettingsTab.tsx:                    key={num}
+./all_keys.txt:./components/StockTab.tsx:          <div key={product.id} className={`bg-white border border-slate-50 rounded-[2rem] overflow-hidden shadow-sm flex group animate-in fade-in duration-300 ${layoutMode === 'list' ? 'flex-row items-center p-2 gap-3' : 'flex-col'}`}>
+./all_keys.txt:./components/FinanceTab.tsx:                key={`card-${idx}`} 
+./all_keys.txt:./components/FinanceTab.tsx:                        <Cell key={`cell-${index}`} fill={entry.color} />
+./all_keys.txt:./components/FinanceTab.tsx:                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+./all_keys.txt:./components/FinanceTab.tsx:                        <div key={index} className="flex items-center gap-1.5">
+./all_keys.txt:./components/FinanceTab.tsx:                <div key={`t-${t.id}-${idx}`} className="p-3 flex items-center justify-between hover:bg-slate-50/30 transition-colors">
+./all_keys.txt:./components/FinanceTab.tsx:                    <div key={`all-${t.id}-${idx}`} className={`p-3 flex items-center justify-between hover:bg-slate-50/50 transition-colors ${t.status === 'paid' ? 'bg-slate-50/30' : ''}`}>
+./all_keys.txt:./components/FinanceTab.tsx:                       <div key={`top-prod-${i}`} className="flex items-center justify-between">
+./all_keys.txt:./components/FinanceTab.tsx:                       <div key={`top-serv-${i}`} className="flex items-center justify-between">
+./all_keys.txt:./components/FinanceTab.tsx:                      <option key={`user-${u.id}-${idx}`} value={u.name}>{u.name.toUpperCase()}</option>
+./all_keys.txt:./components/FinanceTab.tsx:                         <div key={`rev-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys.txt:./components/FinanceTab.tsx:                         <div key={`rev-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys.txt:./components/FinanceTab.tsx:                         <div key={`rev-manual-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys.txt:./components/FinanceTab.tsx:                         <div key={`cost-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys.txt:./components/FinanceTab.tsx:                         <div key={`cost-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys.txt:./components/FinanceTab.tsx:                         <div key={`profit-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys.txt:./components/FinanceTab.tsx:                         <div key={`profit-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys.txt:./components/FinanceTab.tsx:                         <div key={`profit-manual-in-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys.txt:./components/FinanceTab.tsx:                         <div key={`profit-manual-out-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys.txt:./components/SubscriptionView.tsx:              key={plan.id}
+./all_keys.txt:./components/SubscriptionView.tsx:                  <li key={i} className="flex items-center gap-3 text-slate-300 text-sm font-medium">
+./all_keys.txt:./components/EmployeeManagementTab.tsx:              key={`tab-${tab.id}-${idx}`}
+./all_keys.txt:./components/EmployeeManagementTab.tsx:                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+./all_keys.txt:./components/EmployeeManagementTab.tsx:                    <tr key={`stat-${idx}`} className="hover:bg-slate-50/50 transition-colors">
+./all_keys.txt:./components/EmployeeManagementTab.tsx:            <div key={`emp-card-${emp.id}-${idx}`} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+./all_keys.txt:./components/EmployeeManagementTab.tsx:                  <div key={`rule-${rule.id}-${idx}`} className={`bg-white p-6 rounded-2xl border ${rule.isActive ? 'border-slate-100' : 'border-slate-100 opacity-60'} shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 group`}>
+./all_keys.txt:./components/EmployeeManagementTab.tsx:                  <div key={`tier-${tier.id}-${idx}`} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative group">
+./all_keys.txt:./components/EmployeeManagementTab.tsx:                      <option key={`emp-opt-${emp.id}-${idx}`} value={emp.id}>{emp.name}</option>
+./all_keys.txt:./components/EmployeeManagementTab.tsx:                <div key={`${log.id}-${index}`} className={`p-4 flex items-center justify-between hover:bg-slate-50 transition-colors ${log.status === 'cancelled' ? 'opacity-60 bg-slate-50' : ''}`}>
+./all_keys.txt:./components/EmployeeManagementTab.tsx:                      {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+./all_keys.txt:./components/ServiceOrderTab.tsx:            key={order.id} 
+./all_keys.txt:./components/ServiceOrderTab.tsx:                        key={item}
+./all_keys.txt:./components/ServiceOrderTab.tsx:                          <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-slate-100 shadow-sm">
+./all_keys.txt:./components/ServiceOrderTab.tsx:                            <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-emerald-100 shadow-sm">
+./all_keys.txt:./components/ServiceOrderTab.tsx:                            <option key={i+1} value={i+1} className="text-slate-900">{i+1}x</option>
+./all_keys.txt:./components/ServiceOrderTab.tsx:                      <div key={idx} className="relative group rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-square bg-slate-50">
+./all_keys.txt:./components/ServiceOrderTab.tsx:                      <div key={idx} className="relative group rounded-2xl overflow-hidden border border-emerald-50 shadow-sm aspect-square bg-emerald-50">
+./all_keys.txt:./components/CatalogManager.tsx:                <div key={idx} className="relative aspect-square bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden group">
+./all_keys.txt:./components/CatalogManager.tsx:          <div key={product.id} onClick={() => setEditingProduct(product)} className="bg-white rounded-[2rem] p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group flex gap-4 items-center">
+./all_keys.txt:./components/SalesTab.tsx:                key={sale.id} 
+./all_keys.txt:./components/SalesTab.tsx:                  key={product.id} 
+./all_keys.txt:./components/SalesTab.tsx:                      <div key={item.product.id} className="bg-white/5 p-3 rounded-xl flex items-center justify-between">
+./all_keys.txt:./components/SalesTab.tsx:                  <div key={index} className="space-y-1">
+./all_keys.txt:./components/SalesTab.tsx:                              <option key={`opt-${index}-${i+1}`} value={i+1}>{i+1}x</option>
+./all_keys.txt:./components/SalesTab.tsx:                    <div key={index} className="flex justify-between items-start group">
+./all_keys.txt:./components/SalesTab.tsx:                    <div key={idx} className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+./all_keys.txt:./components/SalesTab.tsx:                <div key={index} style={{ marginBottom: '2mm' }}>
+./all_keys.txt:./components/SalesTab.tsx:                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1mm' }}>
+./all_keys.txt:./components/SalesTab.tsx:              <div key={index} style={{ marginBottom: '1mm' }}>
+./all_keys.txt:./components/SalesTab.tsx:              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between' }}>
+./all_keys.txt:./components/CustomerCatalog.tsx:                  key={product.id} 
+./all_keys.txt:./components/CustomerCatalog.tsx:            <div key={product.id} className="h-full w-full snap-start relative flex items-center justify-center bg-zinc-900">
+./all_keys.txt:./UserManagementTab.tsx:          <div key={user.id} onClick={() => onSwitchProfile(user)} className={`p-6 rounded-3xl border transition-all cursor-pointer group relative flex items-center justify-between ${user.id === currentUser.id ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-100 shadow-md' : 'bg-white border-slate-100 shadow-sm hover:border-blue-300'}`}>
+./all_keys.txt:./keys.txt:components/SuperAdminDashboard.tsx:              <div key={`tenant-${t.id}-${idx}`} className="bg-white/5 border border-white/5 p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group hover:border-blue-500/30 transition-all">
+./all_keys.txt:./keys.txt:components/SuperAdminDashboard.tsx:                    <div key={planId} className="bg-slate-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100">
+./all_keys.txt:./keys.txt:components/SuperAdminDashboard.tsx:                    <label key={feature.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100 transition-colors">
+./all_keys.txt:./keys.txt:components/SettingsTab.tsx:                key={user.id} 
+./all_keys.txt:./keys.txt:components/SettingsTab.tsx:                          <label key={perm.key} className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-100 rounded-2xl cursor-pointer hover:bg-white transition-all">
+./all_keys.txt:./keys.txt:components/SettingsTab.tsx:            <div key={item.key} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
+./all_keys.txt:./keys.txt:components/SettingsTab.tsx:                    key={num}
+./all_keys.txt:./keys.txt:components/StockTab.tsx:          <div key={product.id} className={`bg-white border border-slate-50 rounded-[2rem] overflow-hidden shadow-sm flex group animate-in fade-in duration-300 ${layoutMode === 'list' ? 'flex-row items-center p-2 gap-3' : 'flex-col'}`}>
+./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                key={`card-${idx}`} 
+./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                        <Cell key={`cell-${index}`} fill={entry.color} />
+./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                        <div key={index} className="flex items-center gap-1.5">
+./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                <div key={`t-${t.id}-${idx}`} className="p-3 flex items-center justify-between hover:bg-slate-50/30 transition-colors">
+./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                    <div key={`all-${t.id}-${idx}`} className={`p-3 flex items-center justify-between hover:bg-slate-50/50 transition-colors ${t.status === 'paid' ? 'bg-slate-50/30' : ''}`}>
+./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                       <div key={`top-prod-${i}`} className="flex items-center justify-between">
+./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                       <div key={`top-serv-${i}`} className="flex items-center justify-between">
+./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                      <option key={`user-${u.id}-${idx}`} value={u.name}>{u.name.toUpperCase()}</option>
+./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`rev-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`rev-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`rev-manual-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`cost-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`cost-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`profit-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`profit-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`profit-manual-in-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`profit-manual-out-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys.txt:./keys.txt:components/SubscriptionView.tsx:              key={plan.id}
+./all_keys.txt:./keys.txt:components/SubscriptionView.tsx:                  <li key={i} className="flex items-center gap-3 text-slate-300 text-sm font-medium">
+./all_keys.txt:./keys.txt:components/EmployeeManagementTab.tsx:              key={`tab-${tab.id}-${idx}`}
+./all_keys.txt:./keys.txt:components/EmployeeManagementTab.tsx:                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+./all_keys.txt:./keys.txt:components/EmployeeManagementTab.tsx:                    <tr key={`stat-${idx}`} className="hover:bg-slate-50/50 transition-colors">
+./all_keys.txt:./keys.txt:components/EmployeeManagementTab.tsx:            <div key={`emp-card-${emp.id}-${idx}`} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+./all_keys.txt:./keys.txt:components/EmployeeManagementTab.tsx:                  <div key={`rule-${rule.id}-${idx}`} className={`bg-white p-6 rounded-2xl border ${rule.isActive ? 'border-slate-100' : 'border-slate-100 opacity-60'} shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 group`}>
+./all_keys.txt:./keys.txt:components/EmployeeManagementTab.tsx:                  <div key={`tier-${tier.id}-${idx}`} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative group">
+./all_keys.txt:./keys.txt:components/EmployeeManagementTab.tsx:                      <option key={`emp-opt-${emp.id}-${idx}`} value={emp.id}>{emp.name}</option>
+./all_keys.txt:./keys.txt:components/EmployeeManagementTab.tsx:                <div key={`${log.id}-${index}`} className={`p-4 flex items-center justify-between hover:bg-slate-50 transition-colors ${log.status === 'cancelled' ? 'opacity-60 bg-slate-50' : ''}`}>
+./all_keys.txt:./keys.txt:components/EmployeeManagementTab.tsx:                      {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+./all_keys.txt:./keys.txt:components/ServiceOrderTab.tsx:            key={order.id} 
+./all_keys.txt:./keys.txt:components/ServiceOrderTab.tsx:                        key={item}
+./all_keys.txt:./keys.txt:components/ServiceOrderTab.tsx:                          <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-slate-100 shadow-sm">
+./all_keys.txt:./keys.txt:components/ServiceOrderTab.tsx:                            <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-emerald-100 shadow-sm">
+./all_keys.txt:./keys.txt:components/ServiceOrderTab.tsx:                            <option key={i+1} value={i+1} className="text-slate-900">{i+1}x</option>
+./all_keys.txt:./keys.txt:components/ServiceOrderTab.tsx:                      <div key={idx} className="relative group rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-square bg-slate-50">
+./all_keys.txt:./keys.txt:components/ServiceOrderTab.tsx:                      <div key={idx} className="relative group rounded-2xl overflow-hidden border border-emerald-50 shadow-sm aspect-square bg-emerald-50">
+./all_keys.txt:./keys.txt:components/CatalogManager.tsx:                <div key={idx} className="relative aspect-square bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden group">
+./all_keys.txt:./keys.txt:components/CatalogManager.tsx:          <div key={product.id} onClick={() => setEditingProduct(product)} className="bg-white rounded-[2rem] p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group flex gap-4 items-center">
+./all_keys.txt:./keys.txt:components/SalesTab.tsx:                key={sale.id} 
+./all_keys.txt:./keys.txt:components/SalesTab.tsx:                  key={product.id} 
+./all_keys.txt:./keys.txt:components/SalesTab.tsx:                      <div key={item.product.id} className="bg-white/5 p-3 rounded-xl flex items-center justify-between">
+./all_keys.txt:./keys.txt:components/SalesTab.tsx:                  <div key={index} className="space-y-1">
+./all_keys.txt:./keys.txt:components/SalesTab.tsx:                              <option key={i+1} value={i+1}>{i+1}x</option>
+./all_keys.txt:./keys.txt:components/SalesTab.tsx:                    <div key={index} className="flex justify-between items-start group">
+./all_keys.txt:./keys.txt:components/SalesTab.tsx:                    <div key={idx} className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+./all_keys.txt:./keys.txt:components/SalesTab.tsx:                <div key={index} style={{ marginBottom: '2mm' }}>
+./all_keys.txt:./keys.txt:components/SalesTab.tsx:                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1mm' }}>
+./all_keys.txt:./keys.txt:components/SalesTab.tsx:              <div key={index} style={{ marginBottom: '1mm' }}>
+./all_keys.txt:./keys.txt:components/SalesTab.tsx:              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between' }}>
+./all_keys.txt:./keys.txt:components/CustomerCatalog.tsx:                  key={product.id} 
+./all_keys.txt:./keys.txt:components/CustomerCatalog.tsx:            <div key={product.id} className="h-full w-full snap-start relative flex items-center justify-center bg-zinc-900">
+./all_keys_list.txt:./App.tsx:            <button key={`nav-desktop-${item.id}-${idx}`} onClick={() => setActiveTab(item.id as Tab)} className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === item.id ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
+./all_keys_list.txt:./App.tsx:            key={`nav-mobile-bottom-${item.id}-${idx}`} 
+./all_keys_list.txt:./App.tsx:                  key={`nav-mobile-sidebar-${item.id}-${idx}`} 
+./all_keys_list.txt:./components/SuperAdminDashboard.tsx:              <div key={`tenant-${t.id}-${idx}`} className="bg-white/5 border border-white/5 p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group hover:border-blue-500/30 transition-all">
+./all_keys_list.txt:./components/SuperAdminDashboard.tsx:                    <div key={planId} className="bg-slate-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100">
+./all_keys_list.txt:./components/SuperAdminDashboard.tsx:                    <label key={feature.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100 transition-colors">
+./all_keys_list.txt:./components/SettingsTab.tsx:                key={user.id} 
+./all_keys_list.txt:./components/SettingsTab.tsx:                          <label key={perm.key} className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-100 rounded-2xl cursor-pointer hover:bg-white transition-all">
+./all_keys_list.txt:./components/SettingsTab.tsx:            <div key={item.key} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
+./all_keys_list.txt:./components/SettingsTab.tsx:                    key={num}
+./all_keys_list.txt:./components/StockTab.tsx:          <div key={product.id} className={`bg-white border border-slate-50 rounded-[2rem] overflow-hidden shadow-sm flex group animate-in fade-in duration-300 ${layoutMode === 'list' ? 'flex-row items-center p-2 gap-3' : 'flex-col'}`}>
+./all_keys_list.txt:./components/FinanceTab.tsx:                key={`card-${idx}`} 
+./all_keys_list.txt:./components/FinanceTab.tsx:                        <Cell key={`cell-${index}`} fill={entry.color} />
+./all_keys_list.txt:./components/FinanceTab.tsx:                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+./all_keys_list.txt:./components/FinanceTab.tsx:                        <div key={index} className="flex items-center gap-1.5">
+./all_keys_list.txt:./components/FinanceTab.tsx:                <div key={`t-${t.id}-${idx}`} className="p-3 flex items-center justify-between hover:bg-slate-50/30 transition-colors">
+./all_keys_list.txt:./components/FinanceTab.tsx:                    <div key={`all-${t.id}-${idx}`} className={`p-3 flex items-center justify-between hover:bg-slate-50/50 transition-colors ${t.status === 'paid' ? 'bg-slate-50/30' : ''}`}>
+./all_keys_list.txt:./components/FinanceTab.tsx:                       <div key={`top-prod-${i}`} className="flex items-center justify-between">
+./all_keys_list.txt:./components/FinanceTab.tsx:                       <div key={`top-serv-${i}`} className="flex items-center justify-between">
+./all_keys_list.txt:./components/FinanceTab.tsx:                      <option key={`user-${u.id}-${idx}`} value={u.name}>{u.name.toUpperCase()}</option>
+./all_keys_list.txt:./components/FinanceTab.tsx:                         <div key={`rev-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./components/FinanceTab.tsx:                         <div key={`rev-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./components/FinanceTab.tsx:                         <div key={`rev-manual-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./components/FinanceTab.tsx:                         <div key={`cost-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./components/FinanceTab.tsx:                         <div key={`cost-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./components/FinanceTab.tsx:                         <div key={`profit-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./components/FinanceTab.tsx:                         <div key={`profit-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./components/FinanceTab.tsx:                         <div key={`profit-manual-in-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./components/FinanceTab.tsx:                         <div key={`profit-manual-out-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./components/SubscriptionView.tsx:              key={plan.id}
+./all_keys_list.txt:./components/SubscriptionView.tsx:                  <li key={i} className="flex items-center gap-3 text-slate-300 text-sm font-medium">
+./all_keys_list.txt:./components/EmployeeManagementTab.tsx:              key={`tab-${tab.id}-${idx}`}
+./all_keys_list.txt:./components/EmployeeManagementTab.tsx:                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+./all_keys_list.txt:./components/EmployeeManagementTab.tsx:                    <tr key={`stat-${idx}`} className="hover:bg-slate-50/50 transition-colors">
+./all_keys_list.txt:./components/EmployeeManagementTab.tsx:            <div key={`emp-card-${emp.id}-${idx}`} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+./all_keys_list.txt:./components/EmployeeManagementTab.tsx:                  <div key={`rule-${rule.id}-${idx}`} className={`bg-white p-6 rounded-2xl border ${rule.isActive ? 'border-slate-100' : 'border-slate-100 opacity-60'} shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 group`}>
+./all_keys_list.txt:./components/EmployeeManagementTab.tsx:                  <div key={`tier-${tier.id}-${idx}`} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative group">
+./all_keys_list.txt:./components/EmployeeManagementTab.tsx:                      <option key={`emp-opt-${emp.id}-${idx}`} value={emp.id}>{emp.name}</option>
+./all_keys_list.txt:./components/EmployeeManagementTab.tsx:                <div key={`${log.id}-${index}`} className={`p-4 flex items-center justify-between hover:bg-slate-50 transition-colors ${log.status === 'cancelled' ? 'opacity-60 bg-slate-50' : ''}`}>
+./all_keys_list.txt:./components/EmployeeManagementTab.tsx:                      {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+./all_keys_list.txt:./components/ServiceOrderTab.tsx:            key={order.id} 
+./all_keys_list.txt:./components/ServiceOrderTab.tsx:                        key={item}
+./all_keys_list.txt:./components/ServiceOrderTab.tsx:                          <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-slate-100 shadow-sm">
+./all_keys_list.txt:./components/ServiceOrderTab.tsx:                            <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-emerald-100 shadow-sm">
+./all_keys_list.txt:./components/ServiceOrderTab.tsx:                            <option key={i+1} value={i+1} className="text-slate-900">{i+1}x</option>
+./all_keys_list.txt:./components/ServiceOrderTab.tsx:                      <div key={idx} className="relative group rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-square bg-slate-50">
+./all_keys_list.txt:./components/ServiceOrderTab.tsx:                      <div key={idx} className="relative group rounded-2xl overflow-hidden border border-emerald-50 shadow-sm aspect-square bg-emerald-50">
+./all_keys_list.txt:./components/CatalogManager.tsx:                <div key={idx} className="relative aspect-square bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden group">
+./all_keys_list.txt:./components/CatalogManager.tsx:          <div key={product.id} onClick={() => setEditingProduct(product)} className="bg-white rounded-[2rem] p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group flex gap-4 items-center">
+./all_keys_list.txt:./components/SalesTab.tsx:                key={sale.id} 
+./all_keys_list.txt:./components/SalesTab.tsx:                  key={product.id} 
+./all_keys_list.txt:./components/SalesTab.tsx:                      <div key={item.product.id} className="bg-white/5 p-3 rounded-xl flex items-center justify-between">
+./all_keys_list.txt:./components/SalesTab.tsx:                  <div key={index} className="space-y-1">
+./all_keys_list.txt:./components/SalesTab.tsx:                              <option key={`opt-${index}-${i+1}`} value={i+1}>{i+1}x</option>
+./all_keys_list.txt:./components/SalesTab.tsx:                    <div key={index} className="flex justify-between items-start group">
+./all_keys_list.txt:./components/SalesTab.tsx:                    <div key={idx} className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+./all_keys_list.txt:./components/SalesTab.tsx:                <div key={index} style={{ marginBottom: '2mm' }}>
+./all_keys_list.txt:./components/SalesTab.tsx:                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1mm' }}>
+./all_keys_list.txt:./components/SalesTab.tsx:              <div key={index} style={{ marginBottom: '1mm' }}>
+./all_keys_list.txt:./components/SalesTab.tsx:              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between' }}>
+./all_keys_list.txt:./components/CustomerCatalog.tsx:                  key={product.id} 
+./all_keys_list.txt:./components/CustomerCatalog.tsx:            <div key={product.id} className="h-full w-full snap-start relative flex items-center justify-center bg-zinc-900">
+./all_keys_list.txt:./UserManagementTab.tsx:          <div key={user.id} onClick={() => onSwitchProfile(user)} className={`p-6 rounded-3xl border transition-all cursor-pointer group relative flex items-center justify-between ${user.id === currentUser.id ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-100 shadow-md' : 'bg-white border-slate-100 shadow-sm hover:border-blue-300'}`}>
+./all_keys_list.txt:./keys.txt:components/SuperAdminDashboard.tsx:              <div key={`tenant-${t.id}-${idx}`} className="bg-white/5 border border-white/5 p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group hover:border-blue-500/30 transition-all">
+./all_keys_list.txt:./keys.txt:components/SuperAdminDashboard.tsx:                    <div key={planId} className="bg-slate-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100">
+./all_keys_list.txt:./keys.txt:components/SuperAdminDashboard.tsx:                    <label key={feature.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100 transition-colors">
+./all_keys_list.txt:./keys.txt:components/SettingsTab.tsx:                key={user.id} 
+./all_keys_list.txt:./keys.txt:components/SettingsTab.tsx:                          <label key={perm.key} className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-100 rounded-2xl cursor-pointer hover:bg-white transition-all">
+./all_keys_list.txt:./keys.txt:components/SettingsTab.tsx:            <div key={item.key} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
+./all_keys_list.txt:./keys.txt:components/SettingsTab.tsx:                    key={num}
+./all_keys_list.txt:./keys.txt:components/StockTab.tsx:          <div key={product.id} className={`bg-white border border-slate-50 rounded-[2rem] overflow-hidden shadow-sm flex group animate-in fade-in duration-300 ${layoutMode === 'list' ? 'flex-row items-center p-2 gap-3' : 'flex-col'}`}>
+./all_keys_list.txt:./keys.txt:components/FinanceTab.tsx:                key={`card-${idx}`} 
+./all_keys_list.txt:./keys.txt:components/FinanceTab.tsx:                        <Cell key={`cell-${index}`} fill={entry.color} />
+./all_keys_list.txt:./keys.txt:components/FinanceTab.tsx:                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+./all_keys_list.txt:./keys.txt:components/FinanceTab.tsx:                        <div key={index} className="flex items-center gap-1.5">
+./all_keys_list.txt:./keys.txt:components/FinanceTab.tsx:                <div key={`t-${t.id}-${idx}`} className="p-3 flex items-center justify-between hover:bg-slate-50/30 transition-colors">
+./all_keys_list.txt:./keys.txt:components/FinanceTab.tsx:                    <div key={`all-${t.id}-${idx}`} className={`p-3 flex items-center justify-between hover:bg-slate-50/50 transition-colors ${t.status === 'paid' ? 'bg-slate-50/30' : ''}`}>
+./all_keys_list.txt:./keys.txt:components/FinanceTab.tsx:                       <div key={`top-prod-${i}`} className="flex items-center justify-between">
+./all_keys_list.txt:./keys.txt:components/FinanceTab.tsx:                       <div key={`top-serv-${i}`} className="flex items-center justify-between">
+./all_keys_list.txt:./keys.txt:components/FinanceTab.tsx:                      <option key={`user-${u.id}-${idx}`} value={u.name}>{u.name.toUpperCase()}</option>
+./all_keys_list.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`rev-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`rev-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`rev-manual-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`cost-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`cost-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`profit-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`profit-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`profit-manual-in-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`profit-manual-out-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./keys.txt:components/SubscriptionView.tsx:              key={plan.id}
+./all_keys_list.txt:./keys.txt:components/SubscriptionView.tsx:                  <li key={i} className="flex items-center gap-3 text-slate-300 text-sm font-medium">
+./all_keys_list.txt:./keys.txt:components/EmployeeManagementTab.tsx:              key={`tab-${tab.id}-${idx}`}
+./all_keys_list.txt:./keys.txt:components/EmployeeManagementTab.tsx:                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+./all_keys_list.txt:./keys.txt:components/EmployeeManagementTab.tsx:                    <tr key={`stat-${idx}`} className="hover:bg-slate-50/50 transition-colors">
+./all_keys_list.txt:./keys.txt:components/EmployeeManagementTab.tsx:            <div key={`emp-card-${emp.id}-${idx}`} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+./all_keys_list.txt:./keys.txt:components/EmployeeManagementTab.tsx:                  <div key={`rule-${rule.id}-${idx}`} className={`bg-white p-6 rounded-2xl border ${rule.isActive ? 'border-slate-100' : 'border-slate-100 opacity-60'} shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 group`}>
+./all_keys_list.txt:./keys.txt:components/EmployeeManagementTab.tsx:                  <div key={`tier-${tier.id}-${idx}`} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative group">
+./all_keys_list.txt:./keys.txt:components/EmployeeManagementTab.tsx:                      <option key={`emp-opt-${emp.id}-${idx}`} value={emp.id}>{emp.name}</option>
+./all_keys_list.txt:./keys.txt:components/EmployeeManagementTab.tsx:                <div key={`${log.id}-${index}`} className={`p-4 flex items-center justify-between hover:bg-slate-50 transition-colors ${log.status === 'cancelled' ? 'opacity-60 bg-slate-50' : ''}`}>
+./all_keys_list.txt:./keys.txt:components/EmployeeManagementTab.tsx:                      {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+./all_keys_list.txt:./keys.txt:components/ServiceOrderTab.tsx:            key={order.id} 
+./all_keys_list.txt:./keys.txt:components/ServiceOrderTab.tsx:                        key={item}
+./all_keys_list.txt:./keys.txt:components/ServiceOrderTab.tsx:                          <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-slate-100 shadow-sm">
+./all_keys_list.txt:./keys.txt:components/ServiceOrderTab.tsx:                            <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-emerald-100 shadow-sm">
+./all_keys_list.txt:./keys.txt:components/ServiceOrderTab.tsx:                            <option key={i+1} value={i+1} className="text-slate-900">{i+1}x</option>
+./all_keys_list.txt:./keys.txt:components/ServiceOrderTab.tsx:                      <div key={idx} className="relative group rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-square bg-slate-50">
+./all_keys_list.txt:./keys.txt:components/ServiceOrderTab.tsx:                      <div key={idx} className="relative group rounded-2xl overflow-hidden border border-emerald-50 shadow-sm aspect-square bg-emerald-50">
+./all_keys_list.txt:./keys.txt:components/CatalogManager.tsx:                <div key={idx} className="relative aspect-square bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden group">
+./all_keys_list.txt:./keys.txt:components/CatalogManager.tsx:          <div key={product.id} onClick={() => setEditingProduct(product)} className="bg-white rounded-[2rem] p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group flex gap-4 items-center">
+./all_keys_list.txt:./keys.txt:components/SalesTab.tsx:                key={sale.id} 
+./all_keys_list.txt:./keys.txt:components/SalesTab.tsx:                  key={product.id} 
+./all_keys_list.txt:./keys.txt:components/SalesTab.tsx:                      <div key={item.product.id} className="bg-white/5 p-3 rounded-xl flex items-center justify-between">
+./all_keys_list.txt:./keys.txt:components/SalesTab.tsx:                  <div key={index} className="space-y-1">
+./all_keys_list.txt:./keys.txt:components/SalesTab.tsx:                              <option key={i+1} value={i+1}>{i+1}x</option>
+./all_keys_list.txt:./keys.txt:components/SalesTab.tsx:                    <div key={index} className="flex justify-between items-start group">
+./all_keys_list.txt:./keys.txt:components/SalesTab.tsx:                    <div key={idx} className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+./all_keys_list.txt:./keys.txt:components/SalesTab.tsx:                <div key={index} style={{ marginBottom: '2mm' }}>
+./all_keys_list.txt:./keys.txt:components/SalesTab.tsx:                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1mm' }}>
+./all_keys_list.txt:./keys.txt:components/SalesTab.tsx:              <div key={index} style={{ marginBottom: '1mm' }}>
+./all_keys_list.txt:./keys.txt:components/SalesTab.tsx:              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between' }}>
+./all_keys_list.txt:./keys.txt:components/CustomerCatalog.tsx:                  key={product.id} 
+./all_keys_list.txt:./keys.txt:components/CustomerCatalog.tsx:            <div key={product.id} className="h-full w-full snap-start relative flex items-center justify-center bg-zinc-900">
+./all_keys_list.txt:./all_keys.txt:./App.tsx:            <button key={`nav-desktop-${item.id}-${idx}`} onClick={() => setActiveTab(item.id as Tab)} className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === item.id ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
+./all_keys_list.txt:./all_keys.txt:./App.tsx:            key={`nav-mobile-bottom-${item.id}-${idx}`} 
+./all_keys_list.txt:./all_keys.txt:./App.tsx:                  key={`nav-mobile-sidebar-${item.id}-${idx}`} 
+./all_keys_list.txt:./all_keys.txt:./components/SuperAdminDashboard.tsx:              <div key={`tenant-${t.id}-${idx}`} className="bg-white/5 border border-white/5 p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group hover:border-blue-500/30 transition-all">
+./all_keys_list.txt:./all_keys.txt:./components/SuperAdminDashboard.tsx:                    <div key={planId} className="bg-slate-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100">
+./all_keys_list.txt:./all_keys.txt:./components/SuperAdminDashboard.tsx:                    <label key={feature.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100 transition-colors">
+./all_keys_list.txt:./all_keys.txt:./components/SettingsTab.tsx:                key={user.id} 
+./all_keys_list.txt:./all_keys.txt:./components/SettingsTab.tsx:                          <label key={perm.key} className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-100 rounded-2xl cursor-pointer hover:bg-white transition-all">
+./all_keys_list.txt:./all_keys.txt:./components/SettingsTab.tsx:            <div key={item.key} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
+./all_keys_list.txt:./all_keys.txt:./components/SettingsTab.tsx:                    key={num}
+./all_keys_list.txt:./all_keys.txt:./components/StockTab.tsx:          <div key={product.id} className={`bg-white border border-slate-50 rounded-[2rem] overflow-hidden shadow-sm flex group animate-in fade-in duration-300 ${layoutMode === 'list' ? 'flex-row items-center p-2 gap-3' : 'flex-col'}`}>
+./all_keys_list.txt:./all_keys.txt:./components/FinanceTab.tsx:                key={`card-${idx}`} 
+./all_keys_list.txt:./all_keys.txt:./components/FinanceTab.tsx:                        <Cell key={`cell-${index}`} fill={entry.color} />
+./all_keys_list.txt:./all_keys.txt:./components/FinanceTab.tsx:                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+./all_keys_list.txt:./all_keys.txt:./components/FinanceTab.tsx:                        <div key={index} className="flex items-center gap-1.5">
+./all_keys_list.txt:./all_keys.txt:./components/FinanceTab.tsx:                <div key={`t-${t.id}-${idx}`} className="p-3 flex items-center justify-between hover:bg-slate-50/30 transition-colors">
+./all_keys_list.txt:./all_keys.txt:./components/FinanceTab.tsx:                    <div key={`all-${t.id}-${idx}`} className={`p-3 flex items-center justify-between hover:bg-slate-50/50 transition-colors ${t.status === 'paid' ? 'bg-slate-50/30' : ''}`}>
+./all_keys_list.txt:./all_keys.txt:./components/FinanceTab.tsx:                       <div key={`top-prod-${i}`} className="flex items-center justify-between">
+./all_keys_list.txt:./all_keys.txt:./components/FinanceTab.tsx:                       <div key={`top-serv-${i}`} className="flex items-center justify-between">
+./all_keys_list.txt:./all_keys.txt:./components/FinanceTab.tsx:                      <option key={`user-${u.id}-${idx}`} value={u.name}>{u.name.toUpperCase()}</option>
+./all_keys_list.txt:./all_keys.txt:./components/FinanceTab.tsx:                         <div key={`rev-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./all_keys.txt:./components/FinanceTab.tsx:                         <div key={`rev-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./all_keys.txt:./components/FinanceTab.tsx:                         <div key={`rev-manual-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./all_keys.txt:./components/FinanceTab.tsx:                         <div key={`cost-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./all_keys.txt:./components/FinanceTab.tsx:                         <div key={`cost-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./all_keys.txt:./components/FinanceTab.tsx:                         <div key={`profit-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./all_keys.txt:./components/FinanceTab.tsx:                         <div key={`profit-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./all_keys.txt:./components/FinanceTab.tsx:                         <div key={`profit-manual-in-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./all_keys.txt:./components/FinanceTab.tsx:                         <div key={`profit-manual-out-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./all_keys.txt:./components/SubscriptionView.tsx:              key={plan.id}
+./all_keys_list.txt:./all_keys.txt:./components/SubscriptionView.tsx:                  <li key={i} className="flex items-center gap-3 text-slate-300 text-sm font-medium">
+./all_keys_list.txt:./all_keys.txt:./components/EmployeeManagementTab.tsx:              key={`tab-${tab.id}-${idx}`}
+./all_keys_list.txt:./all_keys.txt:./components/EmployeeManagementTab.tsx:                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+./all_keys_list.txt:./all_keys.txt:./components/EmployeeManagementTab.tsx:                    <tr key={`stat-${idx}`} className="hover:bg-slate-50/50 transition-colors">
+./all_keys_list.txt:./all_keys.txt:./components/EmployeeManagementTab.tsx:            <div key={`emp-card-${emp.id}-${idx}`} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+./all_keys_list.txt:./all_keys.txt:./components/EmployeeManagementTab.tsx:                  <div key={`rule-${rule.id}-${idx}`} className={`bg-white p-6 rounded-2xl border ${rule.isActive ? 'border-slate-100' : 'border-slate-100 opacity-60'} shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 group`}>
+./all_keys_list.txt:./all_keys.txt:./components/EmployeeManagementTab.tsx:                  <div key={`tier-${tier.id}-${idx}`} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative group">
+./all_keys_list.txt:./all_keys.txt:./components/EmployeeManagementTab.tsx:                      <option key={`emp-opt-${emp.id}-${idx}`} value={emp.id}>{emp.name}</option>
+./all_keys_list.txt:./all_keys.txt:./components/EmployeeManagementTab.tsx:                <div key={`${log.id}-${index}`} className={`p-4 flex items-center justify-between hover:bg-slate-50 transition-colors ${log.status === 'cancelled' ? 'opacity-60 bg-slate-50' : ''}`}>
+./all_keys_list.txt:./all_keys.txt:./components/EmployeeManagementTab.tsx:                      {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+./all_keys_list.txt:./all_keys.txt:./components/ServiceOrderTab.tsx:            key={order.id} 
+./all_keys_list.txt:./all_keys.txt:./components/ServiceOrderTab.tsx:                        key={item}
+./all_keys_list.txt:./all_keys.txt:./components/ServiceOrderTab.tsx:                          <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-slate-100 shadow-sm">
+./all_keys_list.txt:./all_keys.txt:./components/ServiceOrderTab.tsx:                            <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-emerald-100 shadow-sm">
+./all_keys_list.txt:./all_keys.txt:./components/ServiceOrderTab.tsx:                            <option key={i+1} value={i+1} className="text-slate-900">{i+1}x</option>
+./all_keys_list.txt:./all_keys.txt:./components/ServiceOrderTab.tsx:                      <div key={idx} className="relative group rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-square bg-slate-50">
+./all_keys_list.txt:./all_keys.txt:./components/ServiceOrderTab.tsx:                      <div key={idx} className="relative group rounded-2xl overflow-hidden border border-emerald-50 shadow-sm aspect-square bg-emerald-50">
+./all_keys_list.txt:./all_keys.txt:./components/CatalogManager.tsx:                <div key={idx} className="relative aspect-square bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden group">
+./all_keys_list.txt:./all_keys.txt:./components/CatalogManager.tsx:          <div key={product.id} onClick={() => setEditingProduct(product)} className="bg-white rounded-[2rem] p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group flex gap-4 items-center">
+./all_keys_list.txt:./all_keys.txt:./components/SalesTab.tsx:                key={sale.id} 
+./all_keys_list.txt:./all_keys.txt:./components/SalesTab.tsx:                  key={product.id} 
+./all_keys_list.txt:./all_keys.txt:./components/SalesTab.tsx:                      <div key={item.product.id} className="bg-white/5 p-3 rounded-xl flex items-center justify-between">
+./all_keys_list.txt:./all_keys.txt:./components/SalesTab.tsx:                  <div key={index} className="space-y-1">
+./all_keys_list.txt:./all_keys.txt:./components/SalesTab.tsx:                              <option key={`opt-${index}-${i+1}`} value={i+1}>{i+1}x</option>
+./all_keys_list.txt:./all_keys.txt:./components/SalesTab.tsx:                    <div key={index} className="flex justify-between items-start group">
+./all_keys_list.txt:./all_keys.txt:./components/SalesTab.tsx:                    <div key={idx} className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+./all_keys_list.txt:./all_keys.txt:./components/SalesTab.tsx:                <div key={index} style={{ marginBottom: '2mm' }}>
+./all_keys_list.txt:./all_keys.txt:./components/SalesTab.tsx:                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1mm' }}>
+./all_keys_list.txt:./all_keys.txt:./components/SalesTab.tsx:              <div key={index} style={{ marginBottom: '1mm' }}>
+./all_keys_list.txt:./all_keys.txt:./components/SalesTab.tsx:              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between' }}>
+./all_keys_list.txt:./all_keys.txt:./components/CustomerCatalog.tsx:                  key={product.id} 
+./all_keys_list.txt:./all_keys.txt:./components/CustomerCatalog.tsx:            <div key={product.id} className="h-full w-full snap-start relative flex items-center justify-center bg-zinc-900">
+./all_keys_list.txt:./all_keys.txt:./UserManagementTab.tsx:          <div key={user.id} onClick={() => onSwitchProfile(user)} className={`p-6 rounded-3xl border transition-all cursor-pointer group relative flex items-center justify-between ${user.id === currentUser.id ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-100 shadow-md' : 'bg-white border-slate-100 shadow-sm hover:border-blue-300'}`}>
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/SuperAdminDashboard.tsx:              <div key={`tenant-${t.id}-${idx}`} className="bg-white/5 border border-white/5 p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group hover:border-blue-500/30 transition-all">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/SuperAdminDashboard.tsx:                    <div key={planId} className="bg-slate-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/SuperAdminDashboard.tsx:                    <label key={feature.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100 transition-colors">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/SettingsTab.tsx:                key={user.id} 
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/SettingsTab.tsx:                          <label key={perm.key} className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-100 rounded-2xl cursor-pointer hover:bg-white transition-all">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/SettingsTab.tsx:            <div key={item.key} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/SettingsTab.tsx:                    key={num}
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/StockTab.tsx:          <div key={product.id} className={`bg-white border border-slate-50 rounded-[2rem] overflow-hidden shadow-sm flex group animate-in fade-in duration-300 ${layoutMode === 'list' ? 'flex-row items-center p-2 gap-3' : 'flex-col'}`}>
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                key={`card-${idx}`} 
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                        <Cell key={`cell-${index}`} fill={entry.color} />
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                        <div key={index} className="flex items-center gap-1.5">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                <div key={`t-${t.id}-${idx}`} className="p-3 flex items-center justify-between hover:bg-slate-50/30 transition-colors">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                    <div key={`all-${t.id}-${idx}`} className={`p-3 flex items-center justify-between hover:bg-slate-50/50 transition-colors ${t.status === 'paid' ? 'bg-slate-50/30' : ''}`}>
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                       <div key={`top-prod-${i}`} className="flex items-center justify-between">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                       <div key={`top-serv-${i}`} className="flex items-center justify-between">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                      <option key={`user-${u.id}-${idx}`} value={u.name}>{u.name.toUpperCase()}</option>
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`rev-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`rev-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`rev-manual-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`cost-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`cost-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`profit-sale-${sale.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`profit-os-${os.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`profit-manual-in-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/FinanceTab.tsx:                         <div key={`profit-manual-out-${t.id}-${idx}`} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/SubscriptionView.tsx:              key={plan.id}
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/SubscriptionView.tsx:                  <li key={i} className="flex items-center gap-3 text-slate-300 text-sm font-medium">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/EmployeeManagementTab.tsx:              key={`tab-${tab.id}-${idx}`}
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/EmployeeManagementTab.tsx:                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/EmployeeManagementTab.tsx:                    <tr key={`stat-${idx}`} className="hover:bg-slate-50/50 transition-colors">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/EmployeeManagementTab.tsx:            <div key={`emp-card-${emp.id}-${idx}`} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/EmployeeManagementTab.tsx:                  <div key={`rule-${rule.id}-${idx}`} className={`bg-white p-6 rounded-2xl border ${rule.isActive ? 'border-slate-100' : 'border-slate-100 opacity-60'} shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 group`}>
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/EmployeeManagementTab.tsx:                  <div key={`tier-${tier.id}-${idx}`} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative group">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/EmployeeManagementTab.tsx:                      <option key={`emp-opt-${emp.id}-${idx}`} value={emp.id}>{emp.name}</option>
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/EmployeeManagementTab.tsx:                <div key={`${log.id}-${index}`} className={`p-4 flex items-center justify-between hover:bg-slate-50 transition-colors ${log.status === 'cancelled' ? 'opacity-60 bg-slate-50' : ''}`}>
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/EmployeeManagementTab.tsx:                      {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/ServiceOrderTab.tsx:            key={order.id} 
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/ServiceOrderTab.tsx:                        key={item}
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/ServiceOrderTab.tsx:                          <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-slate-100 shadow-sm">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/ServiceOrderTab.tsx:                            <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-emerald-100 shadow-sm">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/ServiceOrderTab.tsx:                            <option key={i+1} value={i+1} className="text-slate-900">{i+1}x</option>
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/ServiceOrderTab.tsx:                      <div key={idx} className="relative group rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-square bg-slate-50">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/ServiceOrderTab.tsx:                      <div key={idx} className="relative group rounded-2xl overflow-hidden border border-emerald-50 shadow-sm aspect-square bg-emerald-50">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/CatalogManager.tsx:                <div key={idx} className="relative aspect-square bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden group">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/CatalogManager.tsx:          <div key={product.id} onClick={() => setEditingProduct(product)} className="bg-white rounded-[2rem] p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group flex gap-4 items-center">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/SalesTab.tsx:                key={sale.id} 
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/SalesTab.tsx:                  key={product.id} 
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/SalesTab.tsx:                      <div key={item.product.id} className="bg-white/5 p-3 rounded-xl flex items-center justify-between">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/SalesTab.tsx:                  <div key={index} className="space-y-1">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/SalesTab.tsx:                              <option key={i+1} value={i+1}>{i+1}x</option>
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/SalesTab.tsx:                    <div key={index} className="flex justify-between items-start group">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/SalesTab.tsx:                    <div key={idx} className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/SalesTab.tsx:                <div key={index} style={{ marginBottom: '2mm' }}>
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/SalesTab.tsx:                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1mm' }}>
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/SalesTab.tsx:              <div key={index} style={{ marginBottom: '1mm' }}>
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/SalesTab.tsx:              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between' }}>
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/CustomerCatalog.tsx:                  key={product.id} 
+./all_keys_list.txt:./all_keys.txt:./keys.txt:components/CustomerCatalog.tsx:            <div key={product.id} className="h-full w-full snap-start relative flex items-center justify-center bg-zinc-900">

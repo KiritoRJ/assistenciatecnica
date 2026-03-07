@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Search, Trash2, Camera, X, Eye, Loader2, Smartphone, AlertTriangle, Calculator, CheckCircle, Image as ImageIcon, Calendar, KeyRound, Lock, Download, Maximize2, Layout, Check } from 'lucide-react';
 import { ServiceOrder, AppSettings, User } from '../types';
-import { formatCurrency, parseCurrencyString, formatDate } from '../utils';
+import { formatCurrency, parseCurrencyString, formatDate, generateRandomNumericCode } from '../utils';
 import { OnlineDB } from '../utils/api';
 
 interface Props {
@@ -186,13 +186,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
 
       newOrdersList = orders.map(o => o.id === editingOrder.id ? updatedOrder : o);
     } else {
-      // Calculate next ID based on the highest existing ID to avoid collisions with deleted orders
-      const maxId = orders.reduce((max, o) => {
-        const idNum = parseInt(o.id, 10);
-        return !isNaN(idNum) && idNum > max ? idNum : max;
-      }, 0);
-      const nextIdNumber = maxId + 1;
-      const formattedId = nextIdNumber.toString().padStart(2, '0');
+      const formattedId = generateRandomNumericCode();
       
       const newOrder: ServiceOrder = {
         ...formData, 
@@ -911,7 +905,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
 />
                         </label>
                         {formData.photos?.map((p, i) => (
-                          <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-slate-100 shadow-sm">
+                          <div key={`photo-${i}`} className="relative aspect-square rounded-xl overflow-hidden border border-slate-100 shadow-sm">
                             <img src={p} className="w-full h-full object-cover" />
                             <button onClick={() => setFormData(f => ({ ...f, photos: f.photos?.filter((_, idx) => idx !== i) }))} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-lg"><X size={8} /></button>
                           </div>
@@ -934,7 +928,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
                             />
                           </label>
                           {formData.finishedPhotos?.map((p, i) => (
-                            <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-emerald-100 shadow-sm">
+                            <div key={`finishedPhoto-${i}`} className="relative aspect-square rounded-xl overflow-hidden border border-emerald-100 shadow-sm">
                               <img src={p} className="w-full h-full object-cover" />
                               <button onClick={() => setFormData(f => ({ ...f, finishedPhotos: f.finishedPhotos?.filter((_, idx) => idx !== i) }))} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-lg"><X size={8} /></button>
                             </div>
@@ -1022,7 +1016,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
                           className="w-full p-3 bg-white/5 rounded-xl outline-none font-bold text-xs text-white border border-white/10 appearance-none"
                         >
                           {[...Array(12)].map((_, i) => (
-                            <option key={i+1} value={i+1} className="text-slate-900">{i+1}x</option>
+                            <option key={`installment-${i+1}`} value={i+1} className="text-slate-900">{i+1}x</option>
                           ))}
                         </select>
                       </div>

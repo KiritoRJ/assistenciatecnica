@@ -227,7 +227,7 @@ const SubscriptionView: React.FC<SubscriptionViewProps> = ({
 
               <ul className="space-y-4 mb-10">
                 {plan.features.map((feature, i) => (
-                  <li key={i} className="flex items-center gap-3 text-slate-300 text-sm font-medium">
+                  <li key={`${plan.id}-${i}`} className="flex items-center gap-3 text-slate-300 text-sm font-medium">
                     <div className="flex-shrink-0 w-5 h-5 bg-emerald-500/20 rounded-full flex items-center justify-center">
                       <Check size={12} className="text-emerald-400" />
                     </div>
