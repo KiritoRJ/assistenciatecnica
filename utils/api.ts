@@ -282,6 +282,7 @@ export class OnlineDB {
         .from('users')
         .select('*')
         .eq('tenant_id', tenantId)
+        .neq('role', 'deleted')
         .order('role', { ascending: true });
       
       if (error) throw error;
@@ -665,6 +666,7 @@ export class OnlineDB {
         salePricePerUnitAtSale: Number(d.sale_price_per_unit_at_sale || d.original_price || 0),
         paymentMethod: d.payment_method,
         sellerName: d.seller_name,
+        sellerId: d.seller_id,
         transactionId: d.transaction_id,
         isDeleted: d.is_deleted || false
       }));
@@ -798,6 +800,7 @@ export class OnlineDB {
         cost_at_sale: s.costAtSale,
         payment_method: s.paymentMethod,
         seller_name: s.sellerName,
+        seller_id: s.sellerId,
         transaction_id: s.transactionId,
         is_deleted: s.isDeleted || false
       }));
@@ -913,21 +916,21 @@ export class OnlineDB {
   // Remove um usuário colaborador
   static async deleteRemoteUser(id: string) {
     try {
-      // Primeiro remove da tabela employees para evitar erro de chave estrangeira
+      // Soft delete: apenas marca como deletado para preservar histórico de vendas/comissões
       await supabase
         .from('employees')
-        .delete()
+        .update({ status: 'deleted' })
         .eq('user_id', id);
 
       const { error } = await supabase
         .from('users')
-        .delete()
+        .update({ role: 'deleted' })
         .eq('id', id);
 
       if (error) throw error;
       return { success: true };
     } catch (e: any) {
-      console.error("Erro Delete User:", e);
+      console.error("Erro Soft Delete User:", e);
       return { success: false, message: e.message };
     }
   }
@@ -974,19 +977,21 @@ export class OnlineDB {
   static async fetchEmployees(tenantId: string) {
     if (!tenantId) return [];
     try {
-      // 1. Busca usuários do sistema (auth/perfis)
+      // 1. Busca usuários do sistema (auth/perfis) - ignora deletados
       const { data: users, error: usersError } = await supabase
         .from('users')
         .select('*')
-        .eq('tenant_id', tenantId);
+        .eq('tenant_id', tenantId)
+        .neq('role', 'deleted');
 
       if (usersError) throw usersError;
 
-      // 2. Busca dados estendidos de funcionários (RH/Comissões)
+      // 2. Busca dados estendidos de funcionários (RH/Comissões) - ignora deletados
       const { data: employees, error: empError } = await supabase
         .from('employees')
         .select('*')
-        .eq('tenant_id', tenantId);
+        .eq('tenant_id', tenantId)
+        .neq('status', 'deleted');
 
       if (empError) throw empError;
 

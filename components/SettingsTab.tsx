@@ -379,6 +379,22 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
     }
   };
 
+  const openNewUserModal = () => {
+    setIsEditingUser(false);
+    setEditingUserId(null);
+    setNewUserName('');
+    setNewUserPhoto(null);
+    setNewUserSpecialty('Técnico');
+    setNewUserPassword('');
+    setEmployeeFormData({
+      role: 'vendedor',
+      status: 'active',
+      commissionType: 'sales_percent',
+      permissions: { open_os: true, sell: true, view_finance: false, edit_price: false, cancel_sale: false }
+    });
+    setIsUserModalOpen(true);
+  };
+
   const openEditUserModal = (user: User) => {
     const emp = employees.find(e => e.userId === user.id);
     setIsEditingUser(true);
@@ -572,7 +588,7 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
             <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">{isAdmin ? 'Equipe da Loja' : 'Trocar de Perfil'}</h2>
           </div>
           {isAdmin && (
-            <button onClick={() => setIsUserModalOpen(true)} className="p-3 bg-slate-900 text-white rounded-2xl shadow-xl active:scale-90 transition-all">
+            <button onClick={openNewUserModal} className="p-3 bg-slate-900 text-white rounded-2xl shadow-xl active:scale-90 transition-all">
               <UserPlus size={24} />
             </button>
           )}
@@ -905,8 +921,8 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Salário Base</label>
                         <input 
                           type="number"
-                          value={employeeFormData.salaryBase || 0}
-                          onChange={e => setEmployeeFormData({...employeeFormData, salaryBase: Number(e.target.value)})}
+                          value={employeeFormData.salaryBase ?? ''}
+                          onChange={e => setEmployeeFormData({...employeeFormData, salaryBase: e.target.value === '' ? undefined : Number(e.target.value)})}
                           className="w-full px-5 py-3 bg-white border border-slate-100 rounded-2xl outline-none font-black text-xs"
                         />
                       </div>
@@ -914,8 +930,8 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Meta Mensal de Vendas (Opcional)</label>
                         <input 
                           type="number"
-                          value={employeeFormData.goalMonthly || 0}
-                          onChange={e => setEmployeeFormData({...employeeFormData, goalMonthly: Number(e.target.value)})}
+                          value={employeeFormData.goalMonthly ?? ''}
+                          onChange={e => setEmployeeFormData({...employeeFormData, goalMonthly: e.target.value === '' ? undefined : Number(e.target.value)})}
                           className="w-full px-5 py-3 bg-white border border-slate-100 rounded-2xl outline-none font-black text-xs"
                         />
                         <p className="text-[8px] text-slate-400 font-medium px-4 mt-1">
@@ -937,8 +953,8 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Comissão (%)</label>
                         <input 
                           type="number"
-                          value={employeeFormData.defaultCommissionPercent || 0}
-                          onChange={e => setEmployeeFormData({...employeeFormData, defaultCommissionPercent: Number(e.target.value)})}
+                          value={employeeFormData.defaultCommissionPercent ?? ''}
+                          onChange={e => setEmployeeFormData({...employeeFormData, defaultCommissionPercent: e.target.value === '' ? undefined : Number(e.target.value)})}
                           className="w-full px-5 py-3 bg-white border border-slate-100 rounded-2xl outline-none font-black text-xs"
                         />
                       </div>
@@ -946,33 +962,35 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
                   </div>
 
                   {/* Permissões */}
-                  <div className="space-y-4">
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                      <Shield size={14} /> Permissões de Acesso
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {[
-                        { key: 'open_os', label: 'Abrir O.S.' },
-                        { key: 'sell', label: 'Realizar Vendas' },
-                        { key: 'view_finance', label: 'Ver Financeiro' },
-                        { key: 'edit_price', label: 'Editar Preços' },
-                        { key: 'cancel_sale', label: 'Cancelar Vendas' },
-                      ].map(perm => (
-                        <label key={perm.key} className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-100 rounded-2xl cursor-pointer hover:bg-white transition-all">
-                          <input 
-                            type="checkbox"
-                            checked={(employeeFormData.permissions as any)?.[perm.key]}
-                            onChange={e => setEmployeeFormData({
-                              ...employeeFormData,
-                              permissions: { ...employeeFormData.permissions, [perm.key]: e.target.checked } as any
-                            })}
-                            className="w-5 h-5 text-blue-600 rounded-lg border-slate-200 focus:ring-blue-500"
-                          />
-                          <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{perm.label}</span>
-                        </label>
-                      ))}
+                  {isEditingUser && (
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <Shield size={14} /> Permissões de Acesso
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {[
+                          { key: 'open_os', label: 'Abrir O.S.' },
+                          { key: 'sell', label: 'Realizar Vendas' },
+                          { key: 'view_finance', label: 'Ver Financeiro' },
+                          { key: 'edit_price', label: 'Editar Preços' },
+                          { key: 'cancel_sale', label: 'Cancelar Vendas' },
+                        ].map(perm => (
+                          <label key={perm.key} className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-100 rounded-2xl cursor-pointer hover:bg-white transition-all">
+                            <input 
+                              type="checkbox"
+                              checked={(employeeFormData.permissions as any)?.[perm.key]}
+                              onChange={e => setEmployeeFormData({
+                                ...employeeFormData,
+                                permissions: { ...employeeFormData.permissions, [perm.key]: e.target.checked } as any
+                              })}
+                              className="w-5 h-5 text-blue-600 rounded-lg border-slate-200 focus:ring-blue-500"
+                            />
+                            <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{perm.label}</span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 <button 
