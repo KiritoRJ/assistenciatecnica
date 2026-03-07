@@ -89,7 +89,7 @@ export const useFinanceCalculations = (
           id: sale.id,
           type: 'income',
           amount: sale.finalPrice,
-          cost: sale.costAtSale * sale.quantity,
+          cost: sale.costAtSale,
           date: parseISO(sale.date),
           description: `Venda - ${sale.productName}`,
           category: 'Vendas',

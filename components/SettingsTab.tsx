@@ -911,13 +911,16 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Meta Mensal</label>
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Meta Mensal de Vendas (Opcional)</label>
                         <input 
                           type="number"
                           value={employeeFormData.goalMonthly || 0}
                           onChange={e => setEmployeeFormData({...employeeFormData, goalMonthly: Number(e.target.value)})}
                           className="w-full px-5 py-3 bg-white border border-slate-100 rounded-2xl outline-none font-black text-xs"
                         />
+                        <p className="text-[8px] text-slate-400 font-medium px-4 mt-1">
+                          Usado para ativar Regras de Comissão que exigem "Meta Batida".
+                        </p>
                       </div>
                       <div className="space-y-1">
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Tipo de Comissão</label>

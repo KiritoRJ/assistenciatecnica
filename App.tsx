@@ -540,6 +540,7 @@ const App: React.FC = () => {
     
     await Promise.all([
       OfflineSync.deleteSale(session.tenantId, sale.id),
+      OnlineDB.cancelCommission(sale.id, 'sale'),
       ...updatedProducts.map(p => OfflineSync.saveProduct(session.tenantId!, p))
     ]);
   };

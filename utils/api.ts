@@ -570,12 +570,13 @@ export class OnlineDB {
         return {
           id: d.id,
           name: d.name,
+          category: d.description?.startsWith('[CAT:') ? d.description.split(']')[0].replace('[CAT:', '') : undefined,
           barcode: d.barcode,
           photo: d.photo,
           costPrice: Number(d.cost_price || 0),
           salePrice: Number(d.sale_price || 0),
           quantity: Number(d.quantity || 0),
-          description: d.description,
+          description: d.description?.startsWith('[CAT:') ? d.description.split(']').slice(1).join(']').trim() : d.description,
           additionalPhotos: additionalPhotos,
           promotionalPrice: Number(d.promotional_price || 0),
           isPromotion: d.is_promotion || false,
@@ -618,12 +619,13 @@ export class OnlineDB {
         return {
           id: d.id,
           name: d.name,
+          category: d.description?.startsWith('[CAT:') ? d.description.split(']')[0].replace('[CAT:', '') : undefined,
           barcode: d.barcode,
           photo: d.photo,
           costPrice: Number(d.cost_price || 0),
           salePrice: Number(d.sale_price || 0),
           quantity: Number(d.quantity || 0),
-          description: d.description,
+          description: d.description?.startsWith('[CAT:') ? d.description.split(']').slice(1).join(']').trim() : d.description,
           additionalPhotos: additionalPhotos,
           promotionalPrice: Number(d.promotional_price || 0),
           isPromotion: d.is_promotion || false,
@@ -651,13 +653,16 @@ export class OnlineDB {
       return (data || []).map(d => ({
         id: d.id,
         productId: d.product_id,
-        productName: d.product_name,
+        productName: d.product_name?.startsWith('[CAT:') ? d.product_name.split(']').slice(1).join(']').trim() : d.product_name,
+        category: d.product_name?.startsWith('[CAT:') ? d.product_name.split(']')[0].replace('[CAT:', '') : undefined,
         date: d.date,
         quantity: d.quantity,
         originalPrice: Number(d.original_price || 0),
         discount: Number(d.discount || 0),
         finalPrice: Number(d.final_price || 0),
         costAtSale: Number(d.cost_at_sale || 0),
+        costPerUnitAtSale: Number(d.cost_per_unit_at_sale || (d.quantity > 0 ? (d.cost_at_sale || 0) / d.quantity : 0)),
+        salePricePerUnitAtSale: Number(d.sale_price_per_unit_at_sale || d.original_price || 0),
         paymentMethod: d.payment_method,
         sellerName: d.seller_name,
         transactionId: d.transaction_id,
@@ -761,7 +766,7 @@ export class OnlineDB {
           cost_price: p.costPrice,
           sale_price: p.salePrice,
           quantity: p.quantity,
-          description: p.description,
+          description: p.category ? `[CAT:${p.category}] ${p.description || ''}` : p.description,
           additional_photos: additionalPhotos,
           promotional_price: p.promotionalPrice || 0,
           is_promotion: p.isPromotion || false
@@ -784,7 +789,7 @@ export class OnlineDB {
         id: s.id,
         tenant_id: tenantId,
         product_id: s.productId,
-        product_name: s.productName,
+        product_name: s.category ? `[CAT:${s.category}] ${s.productName}` : s.productName,
         date: s.date,
         quantity: s.quantity,
         original_price: s.originalPrice,
@@ -1087,7 +1092,8 @@ export class OnlineDB {
         value: Number(d.value || 0),
         minAmount: Number(d.min_amount || 0),
         priority: Number(d.priority || 0),
-        isActive: d.is_active
+        isActive: d.is_active,
+        requiresGoalMet: d.requires_goal_met
       }));
     } catch (e) { return []; }
   }
@@ -1107,7 +1113,8 @@ export class OnlineDB {
         value: rule.value,
         min_amount: rule.minAmount || 0,
         priority: rule.priority,
-        is_active: rule.isActive
+        is_active: rule.isActive,
+        requires_goal_met: rule.requiresGoalMet || false
       };
       
       if (rule.id) {
@@ -1226,6 +1233,19 @@ export class OnlineDB {
     } catch (e) { return { success: false }; }
   }
 
+  // Cancela Comissão
+  static async cancelCommission(originId: string, originType: 'sale' | 'service_order') {
+    try {
+      const { error } = await supabase
+        .from('commissions_log')
+        .update({ status: 'cancelled' })
+        .eq('origin_id', originId)
+        .eq('origin_type', originType);
+      if (error) throw error;
+      return { success: true };
+    } catch (e) { return { success: false }; }
+  }
+
   // Calcula e registra comissão automaticamente usando regras inteligentes
   static async calculateAndLogCommission(tenantId: string, item: any, type: 'sale' | 'service_order', userId: string) {
     try {
@@ -1255,14 +1275,12 @@ export class OnlineDB {
           .from('commissions_log')
           .select('sale_amount')
           .eq('employee_id', employee.id)
+          .neq('status', 'cancelled')
           .gte('created_at', startOfMonth.toISOString());
         
         monthlySales = (monthlyLogs || []).reduce((acc, curr) => acc + curr.sale_amount, 0);
       }
 
-      const isGoalMet = monthlySales >= (employee.goal_monthly || 0);
-
-      let commissionAmount = 0;
       let saleAmount = 0;
       let profitAmount = 0;
       let description = '';
@@ -1277,6 +1295,10 @@ export class OnlineDB {
         profitAmount = item.total - (item.partsCost || 0);
         description = `OS #${item.id} - ${item.deviceModel}`;
       }
+
+      const isGoalMet = (monthlySales + saleAmount) >= (employee.goal_monthly || 0);
+
+      let commissionAmount = 0;
 
       // 3. Tenta encontrar a regra mais específica (maior prioridade)
       // Ordem de prioridade: Produto/Serviço específico > Categoria > Global
@@ -1330,6 +1352,40 @@ export class OnlineDB {
           commissionAmount,
           status: 'pending'
         });
+      }
+
+      // 5. Verifica Metas de Bônus (GoalTiers)
+      const tiers = await this.fetchGoalTiers(tenantId);
+      const applicableTiers = tiers.filter(t => {
+        if (t.employeeId && t.employeeId !== employee.id) return false;
+        const totalWithCurrent = monthlySales + saleAmount;
+        const totalWithoutCurrent = monthlySales;
+        // Verifica se esta venda fez o funcionário ultrapassar o limite da meta
+        return totalWithCurrent >= t.minAmount && totalWithoutCurrent < t.minAmount;
+      });
+
+      for (const tier of applicableTiers) {
+        let bonusAmount = 0;
+        const base = tier.calculationBase === 'net_profit' ? profitAmount : saleAmount;
+        
+        if (tier.bonusType === 'percent') {
+          bonusAmount = base * (tier.bonusValue / 100);
+        } else {
+          bonusAmount = tier.bonusValue;
+        }
+
+        if (bonusAmount > 0) {
+          await this.logCommission(tenantId, {
+            employeeId: employee.id,
+            originType: 'bonus',
+            originId: `${item.id}_bonus_${tier.id}`,
+            description: `Bônus Atingido: ${tier.name}`,
+            saleAmount: 0,
+            profitAmount: 0,
+            commissionAmount: bonusAmount,
+            status: 'pending'
+          });
+        }
       }
 
       return { success: true };

@@ -346,6 +346,7 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
         id: formattedId,
         productId: item.product.id,
         productName: item.product.name,
+        category: item.product.category,
         date,
         quantity: item.quantity,
         originalPrice: item.product.salePrice,
@@ -353,6 +354,8 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
         surcharge: itemSurcharge,
         finalPrice: itemTotal - itemDiscount + itemSurcharge,
         costAtSale: item.product.costPrice * item.quantity,
+        costPerUnitAtSale: item.product.costPrice,
+        salePricePerUnitAtSale: item.product.salePrice,
         paymentMethod: paymentEntries.map(p => p.method === 'Cartão' && p.installments && p.installments > 1 ? `${p.method} (${p.installments}x)` : p.method).join(', '),
         paymentEntriesJson: JSON.stringify(paymentEntries),
         change: change,
@@ -427,6 +430,29 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
         setLastPaymentEntries(JSON.parse(sale.paymentEntriesJson));
       } catch (e) {
         setLastPaymentEntries([{ method: 'Dinheiro', amount: total }]);
+      }
+    } else if (sale.paymentMethod) {
+      const methods = sale.paymentMethod.split(',').map(m => m.trim());
+      if (methods.length === 1) {
+        const m = methods[0];
+        if (m.startsWith('Cartão')) {
+          const match = m.match(/Cartão \((\d+)x\)/);
+          const installments = match ? parseInt(match[1], 10) : 1;
+          setLastPaymentEntries([{ method: 'Cartão', amount: total, installments }]);
+        } else {
+          setLastPaymentEntries([{ method: m as any, amount: total }]);
+        }
+      } else {
+        const splitAmount = total / methods.length;
+        const entries = methods.map(m => {
+          if (m.startsWith('Cartão')) {
+            const match = m.match(/Cartão \((\d+)x\)/);
+            const installments = match ? parseInt(match[1], 10) : 1;
+            return { method: 'Cartão' as const, amount: splitAmount, installments };
+          }
+          return { method: m as any, amount: splitAmount };
+        });
+        setLastPaymentEntries(entries);
       }
     } else {
       setLastPaymentEntries([{ method: 'Dinheiro', amount: total }]);
@@ -951,7 +977,11 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
                         <div className="w-8 h-8 bg-blue-50 text-blue-500 rounded-lg flex items-center justify-center">
                           <CreditCard size={14} />
                         </div>
-                        <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{entry.method}</span>
+                        <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">
+                          {entry.method === 'Cartão' && entry.installments && entry.installments > 1 
+                            ? `Cartão de Crédito (${entry.installments}x)` 
+                            : entry.method}
+                        </span>
                       </div>
                       <span className="text-xs font-black text-slate-900">{formatCurrency(entry.amount)}</span>
                     </div>
@@ -1097,10 +1127,9 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
               {lastPaymentEntries.map((entry, idx) => (
                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1mm' }}>
                   <span>
-                    {entry.method.toUpperCase()}
                     {entry.method === 'Cartão' && entry.installments && entry.installments > 1 
-                      ? ` (${entry.installments}x de ${formatCurrency(entry.amount / entry.installments)})` 
-                      : ''}
+                      ? `CARTÃO DE CRÉDITO (${entry.installments}x de ${formatCurrency(entry.amount / entry.installments)})` 
+                      : entry.method.toUpperCase()}
                   </span>
                   <span>{formatCurrency(entry.amount)}</span>
                 </div>
@@ -1194,8 +1223,9 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
             {lastPaymentEntries.map((entry, idx) => (
               <div key={idx} style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>
-                  {entry.method.toUpperCase()}
-                  {entry.method === 'Cartão' && entry.installments && entry.installments > 1 ? ` (${entry.installments}X)` : ''}
+                  {entry.method === 'Cartão' && entry.installments && entry.installments > 1 
+                    ? `CARTÃO DE CRÉDITO (${entry.installments}X)` 
+                    : entry.method.toUpperCase()}
                 </span>
                 <span>{formatCurrency(entry.amount)}</span>
               </div>

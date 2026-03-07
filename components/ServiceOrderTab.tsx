@@ -223,7 +223,9 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
       entryDate: today, 
       exitDate: '',
       checklist: [],
-      signature: ''
+      signature: '',
+      paymentMethod: undefined,
+      paymentInstallments: 1
     });
   };
 
@@ -554,6 +556,17 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
       ctx.font = `900 ${22 * scale}px "Inter", sans-serif`;
       ctx.fillText(formatCurrency(order.total), width / 2, currentY);
       currentY += 40 * scale;
+
+      if (order.paymentMethod) {
+        ctx.font = `900 ${10 * scale}px "Inter", sans-serif`;
+        ctx.textAlign = 'center';
+        const methodText = order.paymentMethod === 'Cartão' && order.paymentInstallments && order.paymentInstallments > 1
+          ? `PAGAMENTO: CARTÃO DE CRÉDITO (${order.paymentInstallments}X)`
+          : `PAGAMENTO: ${order.paymentMethod.toUpperCase()}`;
+        ctx.fillText(methodText, width / 2, currentY);
+        currentY += 20 * scale;
+      }
+
       currentY = drawSeparator(currentY);
 
       // 6. Garantia e Rodapé
@@ -982,6 +995,38 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
                       <span className="text-[10px] font-black uppercase tracking-widest">Total Geral</span>
                     </div>
                     <input name="total" value={formatCurrency(formData.total || 0).replace('R$', '').trim()} onChange={handleInputChange} className="bg-transparent font-black text-white outline-none text-xl text-right w-32" placeholder="0,00" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/10">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Pagamento</label>
+                      <select 
+                        name="paymentMethod" 
+                        value={formData.paymentMethod || ''} 
+                        onChange={handleInputChange} 
+                        className="w-full p-3 bg-white/5 rounded-xl outline-none font-bold text-xs text-white border border-white/10 appearance-none"
+                      >
+                        <option value="" className="text-slate-900">Selecione...</option>
+                        <option value="Dinheiro" className="text-slate-900">Dinheiro</option>
+                        <option value="Cartão" className="text-slate-900">Cartão</option>
+                        <option value="PIX" className="text-slate-900">PIX</option>
+                      </select>
+                    </div>
+                    {formData.paymentMethod === 'Cartão' && (
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Parcelas</label>
+                        <select 
+                          name="paymentInstallments" 
+                          value={formData.paymentInstallments || 1} 
+                          onChange={(e) => setFormData(prev => ({ ...prev, paymentInstallments: Number(e.target.value) }))} 
+                          className="w-full p-3 bg-white/5 rounded-xl outline-none font-bold text-xs text-white border border-white/10 appearance-none"
+                        >
+                          {[...Array(12)].map((_, i) => (
+                            <option key={i+1} value={i+1} className="text-slate-900">{i+1}x</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

@@ -97,7 +97,7 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
     { name: 'Receita Bruta', value: summary.revenue.total, color: '#3b82f6' },
     { name: 'Custos Var.', value: summary.costs.total, color: '#f59e0b' },
     { name: 'Despesas Fixas', value: summary.expenses.total, color: '#ef4444' },
-    { name: 'Lucro Líquido', value: summary.netProfit, color: summary.netProfit >= 0 ? '#10b981' : '#ef4444' },
+    { name: 'Lucro Líquido', value: Math.max(0, summary.netProfit), color: summary.netProfit >= 0 ? '#10b981' : '#ef4444' },
   ];
 
   const sourceData = [
@@ -591,11 +591,11 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                   <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest group-hover:text-emerald-500 transition-colors">Projeção Lucro</h3>
                 </div>
                 <div>
-                  <p className="text-xl font-black text-emerald-600">{formatCurrency(summary.projectedRevenue * (summary.margin / 100))}</p>
+                  <p className="text-xl font-black text-emerald-600">{formatCurrency(Math.max(0, summary.projectedRevenue * (summary.margin / 100)))}</p>
                   <p className="text-[8px] text-slate-400 font-bold mt-1 group-hover:text-emerald-400 transition-colors">Lucro estimado para o fim do mês</p>
                 </div>
                 <div className="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
-                  <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min((summary.netProfit / ((summary.projectedRevenue * (summary.margin / 100)) || 1)) * 100, 100)}%` }}></div>
+                  <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min((Math.max(0, summary.netProfit) / (Math.max(1, summary.projectedRevenue * (summary.margin / 100)))) * 100, 100)}%` }}></div>
                 </div>
               </div>
             </div>
@@ -1621,8 +1621,8 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                                     {formatDate(sale.date)} • Qtd: {sale.quantity}
                                   </p>
                                   <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-[6px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-md font-bold uppercase">Custo: {formatCurrency(sale.costAtSale)}</span>
-                                    <span className="text-[6px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-md font-bold uppercase">Venda: {formatCurrency(sale.finalPrice / sale.quantity)}</span>
+                                    <span className="text-[6px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-md font-bold uppercase">CUSTO UN: {formatCurrency(sale.costPerUnitAtSale)}</span>
+                                    <span className="text-[6px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-md font-bold uppercase">VENDA UN: {formatCurrency(sale.salePricePerUnitAtSale)}</span>
                                   </div>
                                </div>
                             </div>
@@ -1753,12 +1753,12 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                                     {formatDate(sale.date)} • Qtd: {sale.quantity}
                                   </p>
                                   <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-[6px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-md font-bold uppercase">Custo Unit: {formatCurrency(sale.costAtSale)}</span>
+                                    <span className="text-[6px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-md font-bold uppercase">CUSTO UN: {formatCurrency(sale.costPerUnitAtSale)}</span>
                                   </div>
                                </div>
                             </div>
                             <div className="text-right">
-                               <p className="text-[10px] font-black text-amber-600">{formatCurrency(sale.costAtSale * sale.quantity)}</p>
+                               <p className="text-[10px] font-black text-amber-600">{formatCurrency(sale.costAtSale)}</p>
                                <p className="text-[6px] text-slate-300 font-bold uppercase">Custo Total</p>
                             </div>
                          </div>
@@ -1857,7 +1857,7 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                     <h4 className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Lucro de Vendas</h4>
                     <div className="space-y-1">
                        {summary.revenue.sales.map(sale => {
-                         const profit = sale.finalPrice - (sale.costAtSale * sale.quantity);
+                         const profit = sale.finalPrice - sale.costAtSale;
                          return (
                          <div key={sale.id} className="bg-slate-50/50 p-3 rounded-2xl flex items-center justify-between border border-transparent hover:border-slate-100 transition-all">
                             <div className="flex items-center gap-3">
@@ -1870,8 +1870,8 @@ const FinanceTab: React.FC<Props> = ({ orders, sales, products, transactions, se
                                     {formatDate(sale.date)} • Qtd: {sale.quantity}
                                   </p>
                                   <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-[6px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-md font-bold uppercase">Venda: {formatCurrency(sale.finalPrice)}</span>
-                                    <span className="text-[6px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-md font-bold uppercase">Custo: {formatCurrency(sale.costAtSale * sale.quantity)}</span>
+                                    <span className="text-[6px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-md font-bold uppercase">VENDA UN: {formatCurrency(sale.salePricePerUnitAtSale)}</span>
+                                    <span className="text-[6px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-md font-bold uppercase">CUSTO UN: {formatCurrency(sale.costPerUnitAtSale)}</span>
                                   </div>
                                </div>
                             </div>

@@ -1,9 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { User, Plus, Edit2, Trash2, DollarSign, TrendingUp, Award, Shield, Save, X, Search, ChevronRight, Briefcase, Percent, BarChart3, PieChart, Settings, Target, Zap, Filter, CheckCircle2, AlertCircle, Users, Menu } from 'lucide-react';
-import { OnlineDB } from '../utils/api';
-import { Employee, CommissionRule, CommissionLog, GoalTier, Product } from '../types';
+import { User, Plus, Edit2, Trash2, DollarSign, TrendingUp, Award, Shield, Save, X, Search, ChevronRight, Briefcase, Percent, BarChart3, PieChart, Settings, Target, Zap, Filter, CheckCircle2, AlertCircle, Users, Menu, FileText, Eye, EyeOff } from 'lucide-react';
+import { OnlineDB, supabase } from '../utils/api';
+import { Employee, CommissionRule, CommissionLog, GoalTier, Product, Sale } from '../types';
 import { formatCurrency } from '../utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RePieChart, Pie, Cell } from 'recharts';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import { startOfMonth, endOfMonth, isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface Props {
   tenantId: string;
@@ -16,8 +22,10 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
   const [rules, setRules] = useState<CommissionRule[]>([]);
   const [goalTiers, setGoalTiers] = useState<GoalTier[]>([]);
   const [logs, setLogs] = useState<CommissionLog[]>([]);
+  const [sales, setSales] = useState<Sale[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
 
   // Modal States
@@ -28,6 +36,12 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [editingRule, setEditingRule] = useState<CommissionRule | null>(null);
   const [editingGoal, setEditingGoal] = useState<GoalTier | null>(null);
+  
+  const [showCancelled, setShowCancelled] = useState(false);
+  const [visibleItemsCount, setVisibleItemsCount] = useState(10);
+  
+  const [periodStart, setPeriodStart] = useState<Date>(startOfMonth(new Date()));
+  const [periodEnd, setPeriodEnd] = useState<Date>(endOfMonth(new Date()));
   
   // Form States
   const [formData, setFormData] = useState<Partial<Employee>>({
@@ -57,20 +71,39 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
     loadData();
   }, [tenantId]);
 
+  useEffect(() => {
+    if (!tenantId) return;
+
+    const channel = supabase
+      .channel(`tenant-${tenantId}-commissions`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'commissions_log', filter: `tenant_id=eq.${tenantId}` },
+        () => loadData()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [tenantId]);
+
   const loadData = async () => {
     setIsLoading(true);
-    const [emps, rls, lgs, tiers, prods] = await Promise.all([
+    const [emps, rls, lgs, tiers, prods, sls] = await Promise.all([
       OnlineDB.fetchEmployees(tenantId),
       OnlineDB.fetchCommissionRules(tenantId),
       OnlineDB.fetchCommissionLogs(tenantId),
       OnlineDB.fetchGoalTiers(tenantId),
-      OnlineDB.fetchProducts(tenantId)
+      OnlineDB.fetchProducts(tenantId),
+      OnlineDB.fetchSales(tenantId)
     ]);
     setEmployees(emps.filter(e => e.role !== 'administrador'));
     setRules(rls);
     setLogs(lgs);
     setGoalTiers(tiers);
     setProducts(prods);
+    setSales(sls);
     
     // Extract unique categories
     const cats = Array.from(new Set(prods.map(p => (p as any).category).filter(Boolean))) as string[];
@@ -153,14 +186,83 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
     setIsEmployeeModalOpen(true);
   };
 
-  const activeLogs = useMemo(() => {
+  const baseActiveLogs = useMemo(() => {
     const activeEmployeeIds = new Set(employees.map(e => e.id));
-    return logs.filter(l => activeEmployeeIds.has(l.employeeId));
-  }, [employees, logs]);
+    
+    // Include all commissions for active employees within the selected period
+    return logs.filter(l => {
+      if (!activeEmployeeIds.has(l.employeeId)) return false;
+      const logDate = parseISO(l.createdAt);
+      return isWithinInterval(logDate, { start: startOfDay(periodStart), end: endOfDay(periodEnd) });
+    });
+  }, [employees, logs, periodStart, periodEnd]);
+
+  const dashboardLogs = useMemo(() => {
+    return baseActiveLogs.filter(l => l.status !== 'cancelled');
+  }, [baseActiveLogs]);
+
+  const reportLogs = useMemo(() => {
+    let filtered = baseActiveLogs;
+
+    if (selectedEmployeeId !== 'all') {
+      filtered = filtered.filter(l => l.employeeId === selectedEmployeeId);
+    }
+
+    return filtered;
+  }, [baseActiveLogs, selectedEmployeeId]);
+
+  const reportSummaryLogs = useMemo(() => {
+    return reportLogs.filter(l => l.status !== 'cancelled');
+  }, [reportLogs]);
+
+  const displayLogs = useMemo(() => {
+    let filtered = reportLogs;
+    if (!showCancelled) {
+      filtered = filtered.filter(l => l.status !== 'cancelled');
+    }
+    return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [reportLogs, showCancelled]);
+
+  const paginatedLogs = useMemo(() => {
+    return displayLogs.slice(0, visibleItemsCount);
+  }, [displayLogs, visibleItemsCount]);
+
+  const downloadPDF = () => {
+    const doc = new jsPDF();
+    
+    doc.setFontSize(18);
+    doc.text('Extrato de Comissões - Detalhado', 14, 22);
+    
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Período: ${periodStart.toLocaleDateString()} a ${periodEnd.toLocaleDateString()}`, 14, 30);
+    doc.text(`Gerado em: ${new Date().toLocaleString()}`, 14, 36);
+    
+    const tableData = displayLogs.map(log => [
+      new Date(log.createdAt).toLocaleDateString(),
+      employees.find(e => e.id === log.employeeId)?.name || 'N/A',
+      log.description,
+      log.originType === 'sale' ? 'Venda' : log.originType === 'service_order' ? 'O.S.' : 'Bônus',
+      formatCurrency(log.saleAmount),
+      formatCurrency(log.commissionAmount),
+      log.status.toUpperCase()
+    ]);
+
+    autoTable(doc, {
+      startY: 46,
+      head: [['Data', 'Vendedor', 'Descrição', 'Tipo', 'Valor Base', 'Comissão', 'Status']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: { fillColor: [30, 41, 59] },
+      styles: { fontSize: 8 }
+    });
+
+    doc.save(`extrato-comissoes-${tenantId}.pdf`);
+  };
 
   const dashboardData = useMemo(() => {
     const employeeStats = employees.map(emp => {
-      const empLogs = activeLogs.filter(l => l.employeeId === emp.id);
+      const empLogs = dashboardLogs.filter(l => l.employeeId === emp.id);
       const totalSales = empLogs.reduce((acc, l) => acc + l.saleAmount, 0);
       const totalCommission = empLogs.reduce((acc, l) => acc + l.commissionAmount, 0);
       return {
@@ -173,16 +275,16 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
     }).sort((a, b) => b.sales - a.sales);
 
     const salesByType = [
-      { name: 'Vendas', value: activeLogs.filter(l => l.originType === 'sale').reduce((acc, l) => acc + l.commissionAmount, 0) },
-      { name: 'Serviços', value: activeLogs.filter(l => l.originType === 'service_order').reduce((acc, l) => acc + l.commissionAmount, 0) },
-      { name: 'Bônus', value: activeLogs.filter(l => l.originType === 'bonus').reduce((acc, l) => acc + l.commissionAmount, 0) },
+      { name: 'Vendas', value: dashboardLogs.filter(l => l.originType === 'sale').reduce((acc, l) => acc + l.commissionAmount, 0) },
+      { name: 'Serviços', value: dashboardLogs.filter(l => l.originType === 'service_order').reduce((acc, l) => acc + l.commissionAmount, 0) },
+      { name: 'Bônus', value: dashboardLogs.filter(l => l.originType === 'bonus').reduce((acc, l) => acc + l.commissionAmount, 0) },
     ].filter(i => i.value > 0);
 
-    const totalCommission = activeLogs.reduce((acc, l) => acc + l.commissionAmount, 0);
-    const totalSales = activeLogs.reduce((acc, l) => acc + l.saleAmount, 0);
+    const totalCommission = dashboardLogs.reduce((acc, l) => acc + l.commissionAmount, 0);
+    const totalSales = dashboardLogs.reduce((acc, l) => acc + l.saleAmount, 0);
 
     return { employeeStats, salesByType, totalCommission, totalSales };
-  }, [employees, activeLogs]);
+  }, [employees, dashboardLogs]);
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
@@ -224,6 +326,39 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
               {tab.label}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Date Filter */}
+      {(activeTab === 'dashboard' || activeTab === 'commissions') && (
+        <div className="flex items-center gap-2 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
+          <div className="flex items-center gap-2 min-w-max">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Período:</span>
+            <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
+              <DatePicker
+                selected={periodStart}
+                onChange={(date: Date | null) => date && setPeriodStart(date)}
+                selectsStart
+                startDate={periodStart}
+                endDate={periodEnd}
+                dateFormat="dd/MM/yyyy"
+                locale={ptBR}
+                className="w-24 bg-transparent border-none text-xs font-black text-slate-700 text-center outline-none cursor-pointer"
+              />
+              <span className="text-slate-300 font-black">-</span>
+              <DatePicker
+                selected={periodEnd}
+                onChange={(date: Date | null) => date && setPeriodEnd(date)}
+                selectsEnd
+                startDate={periodStart}
+                endDate={periodEnd}
+                minDate={periodStart}
+                dateFormat="dd/MM/yyyy"
+                locale={ptBR}
+                className="w-24 bg-transparent border-none text-xs font-black text-slate-700 text-center outline-none cursor-pointer"
+              />
+            </div>
+          </div>
         </div>
       )}
 
@@ -424,9 +559,9 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
                 <Zap size={24} />
               </div>
               <div>
-                <h3 className="font-black text-blue-800 text-lg">Módulo de Comissão Inteligente</h3>
+                <h3 className="font-black text-blue-800 text-lg">Regras de Comissão (Por Venda/Serviço)</h3>
                 <p className="text-sm text-blue-600/80 font-medium mt-1">
-                  Configure regras dinâmicas por categoria, produto ou serviço. O sistema aplicará automaticamente a regra de maior prioridade.
+                  Define a porcentagem que o funcionário ganha a cada venda. O sistema aplicará automaticamente a regra de maior prioridade.
                 </p>
               </div>
             </div>
@@ -435,13 +570,13 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
                 onClick={() => openGoalModal()}
                 className="bg-white text-slate-700 px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest border border-slate-200 hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm"
               >
-                <Target size={16} /> Nova Meta
+                <Target size={16} /> Novo Bônus Único
               </button>
               <button 
                 onClick={() => openRuleModal()}
                 className="bg-slate-900 text-white px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-800 transition-all flex items-center gap-2 shadow-xl shadow-slate-900/20"
               >
-                <Plus size={16} /> Nova Regra
+                <Plus size={16} /> Nova Regra de Comissão
               </button>
             </div>
           </div>
@@ -452,7 +587,7 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
             <div className="xl:col-span-2 space-y-4">
               <div className="flex items-center justify-between px-2">
                 <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                  <Filter size={14} /> Regras de Cálculo ({rules.length})
+                  <Filter size={14} /> Regras de Comissão ({rules.length})
                 </h4>
               </div>
               
@@ -512,8 +647,11 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
             {/* Metas e Bônus */}
             <div className="space-y-4">
               <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 px-2">
-                <Target size={14} /> Metas e Bônus Extras
+                <Target size={14} /> Bônus por Meta Atingida (Pagamento Único)
               </h4>
+              <p className="text-[10px] text-slate-500 font-medium px-2 mb-2">
+                Prêmio de valor único pago quando o funcionário atinge um valor X de vendas no mês.
+              </p>
               
               <div className="space-y-4">
                 {goalTiers.map(tier => (
@@ -556,7 +694,7 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
                   className="w-full py-8 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 hover:text-blue-500 hover:border-blue-200 hover:bg-blue-50/30 transition-all flex flex-col items-center justify-center gap-2"
                 >
                   <Plus size={24} />
-                  <span className="text-xs font-black uppercase tracking-widest">Adicionar Meta de Bônus</span>
+                  <span className="text-xs font-black uppercase tracking-widest">Adicionar Bônus Único</span>
                 </button>
               </div>
             </div>
@@ -569,52 +707,103 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Total Pago (Mês)</h3>
-              <p className="text-3xl font-black text-slate-800">{formatCurrency(activeLogs.reduce((acc, curr) => acc + curr.commissionAmount, 0))}</p>
+              <p className="text-3xl font-black text-slate-800">{formatCurrency(reportSummaryLogs.reduce((acc, curr) => acc + curr.commissionAmount, 0))}</p>
             </div>
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Vendas Totais</h3>
-              <p className="text-3xl font-black text-blue-600">{formatCurrency(activeLogs.reduce((acc, curr) => acc + curr.saleAmount, 0))}</p>
+              <p className="text-3xl font-black text-blue-600">{formatCurrency(reportSummaryLogs.reduce((acc, curr) => acc + curr.saleAmount, 0))}</p>
             </div>
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Lucro Gerado</h3>
-              <p className="text-3xl font-black text-emerald-600">{formatCurrency(activeLogs.reduce((acc, curr) => acc + curr.profitAmount, 0))}</p>
+              <p className="text-3xl font-black text-emerald-600">{formatCurrency(reportSummaryLogs.reduce((acc, curr) => acc + curr.profitAmount, 0))}</p>
             </div>
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-              <h3 className="font-black text-slate-800">Extrato de Comissões</h3>
+            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <h3 className="font-black text-slate-800">Extrato de Comissões</h3>
+                <button 
+                  onClick={downloadPDF}
+                  className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
+                  title="Baixar PDF"
+                >
+                  <FileText size={14} />
+                  PDF
+                </button>
+              </div>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setShowCancelled(!showCancelled)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${showCancelled ? 'bg-slate-800 text-white' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                >
+                  {showCancelled ? <Eye size={14} /> : <EyeOff size={14} />}
+                  {showCancelled ? 'Ocultar Cancelados' : 'Mostrar Cancelados'}
+                </button>
+                <div className="flex items-center gap-2">
+                  <Filter size={14} className="text-slate-400" />
+                  <select 
+                    value={selectedEmployeeId}
+                    onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                    className="text-[10px] font-black uppercase tracking-widest bg-white border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-blue-500 transition-all cursor-pointer"
+                  >
+                    <option value="all">Todos os Vendedores</option>
+                    {employees.map(emp => (
+                      <option key={emp.id} value={emp.id}>{emp.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
             <div className="divide-y divide-slate-100">
-              {activeLogs.map(log => (
-                <div key={log.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+              {paginatedLogs.map(log => (
+                <div key={log.id} className={`p-4 flex items-center justify-between hover:bg-slate-50 transition-colors ${log.status === 'cancelled' ? 'opacity-60 bg-slate-50' : ''}`}>
                   <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${log.originType === 'sale' ? 'bg-blue-50 text-blue-500' : 'bg-purple-50 text-purple-500'}`}>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${log.status === 'cancelled' ? 'bg-slate-200 text-slate-500' : log.originType === 'sale' ? 'bg-blue-50 text-blue-500' : 'bg-purple-50 text-purple-500'}`}>
                       {log.originType === 'sale' ? <DollarSign size={20} /> : <Award size={20} />}
                     </div>
                     <div>
-                      <p className="font-bold text-slate-700 text-sm">{log.description}</p>
+                      <div className="flex items-center gap-2">
+                        <p className={`font-bold text-sm ${log.status === 'cancelled' ? 'text-slate-500 line-through' : 'text-slate-700'}`}>{log.description}</p>
+                        {selectedEmployeeId === 'all' && (
+                          <span className="text-[8px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-md">
+                            {employees.find(e => e.id === log.employeeId)?.name || 'N/A'}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-slate-400 font-medium mt-0.5">
                         {new Date(log.createdAt).toLocaleDateString()} • Venda: {formatCurrency(log.saleAmount)} • Lucro: {formatCurrency(log.profitAmount)}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-black text-emerald-600 text-sm">+{formatCurrency(log.commissionAmount)}</p>
+                    <p className={`font-black text-sm ${log.status === 'cancelled' ? 'text-slate-400' : 'text-emerald-600'}`}>
+                      {log.status === 'cancelled' ? '-' : `+${formatCurrency(log.commissionAmount)}`}
+                    </p>
                     <div className="flex items-center gap-2 justify-end mt-1">
-                      <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md ${log.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                        {log.status === 'paid' ? 'PAGO' : 'PENDENTE'}
+                      <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md ${log.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : log.status === 'cancelled' ? 'bg-slate-200 text-slate-600' : 'bg-amber-100 text-amber-700'}`}>
+                        {log.status === 'paid' ? 'PAGO' : log.status === 'cancelled' ? 'CANCELADO' : 'PENDENTE'}
                       </span>
                     </div>
                   </div>
                 </div>
               ))}
-              {activeLogs.length === 0 && (
+              {paginatedLogs.length === 0 && (
                 <div className="p-12 text-center text-slate-400 font-medium">
                   Nenhum registro de comissão encontrado.
                 </div>
               )}
             </div>
+            {displayLogs.length > visibleItemsCount && (
+              <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-center">
+                <button 
+                  onClick={() => setVisibleItemsCount(prev => prev + 10)}
+                  className="px-6 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-100 transition-all shadow-sm"
+                >
+                  Mostrar Mais
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -622,33 +811,33 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
       {/* Modal de Regra de Comissão */}
       {isRuleModalOpen && (
         <div className="fixed inset-0 bg-slate-950/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95">
-            <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+          <div className="bg-white w-full max-w-xl rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 flex flex-col max-h-[90vh]">
+            <div className="p-4 md:p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/50 shrink-0">
               <div>
-                <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">{editingRule ? 'Editar Regra Inteligente' : 'Nova Regra Inteligente'}</h3>
-                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Configure o gatilho de comissão</p>
+                <h3 className="font-black text-slate-800 text-base md:text-lg uppercase tracking-tight">{editingRule ? 'Editar Regra de Comissão' : 'Nova Regra de Comissão'}</h3>
+                <p className="text-[9px] md:text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Configure a porcentagem ganha a cada venda</p>
               </div>
-              <button onClick={() => setIsRuleModalOpen(false)} className="p-3 hover:bg-slate-200 rounded-full transition-colors"><X size={20} /></button>
+              <button onClick={() => setIsRuleModalOpen(false)} className="p-2 md:p-3 hover:bg-slate-200 rounded-full transition-colors"><X size={20} /></button>
             </div>
             
-            <div className="p-8 space-y-6">
+            <div className="p-4 md:p-6 space-y-4 overflow-y-auto">
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Nome da Regra</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 md:ml-4">Nome da Regra</label>
                 <input 
                   value={ruleFormData.name || ''}
                   onChange={e => setRuleFormData({...ruleFormData, name: e.target.value})}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+                  className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
                   placeholder="EX: COMISSÃO TURBO ACESSÓRIOS"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Aplicar Sobre</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 md:ml-4">Aplicar Sobre</label>
                   <select 
                     value={ruleFormData.targetType}
                     onChange={e => setRuleFormData({...ruleFormData, targetType: e.target.value as any, targetId: ''})}
-                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
                   >
                     <option value="global">Toda a Loja</option>
                     <option value="category">Uma Categoria</option>
@@ -659,11 +848,11 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
 
                 {ruleFormData.targetType === 'category' && (
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Selecionar Categoria</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 md:ml-4">Selecionar Categoria</label>
                     <select 
                       value={ruleFormData.targetId}
                       onChange={e => setRuleFormData({...ruleFormData, targetId: e.target.value})}
-                      className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
                     >
                       <option value="">Selecione...</option>
                       {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
@@ -673,80 +862,83 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
 
                 {ruleFormData.targetType === 'product' && (
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">ID do Produto</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 md:ml-4">ID do Produto</label>
                     <input 
                       value={ruleFormData.targetId || ''}
                       onChange={e => setRuleFormData({...ruleFormData, targetId: e.target.value})}
-                      className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
                       placeholder="ID DO PRODUTO"
                     />
                   </div>
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Base de Cálculo</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 md:ml-4">Base de Cálculo</label>
                   <select 
                     value={ruleFormData.calculationBase}
                     onChange={e => setRuleFormData({...ruleFormData, calculationBase: e.target.value as any})}
-                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
                   >
                     <option value="gross_sale">Faturamento Bruto</option>
                     <option value="net_profit">Lucro Líquido</option>
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Prioridade (1-10)</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 md:ml-4">Prioridade (1-10)</label>
                   <input 
                     type="number"
                     value={ruleFormData.priority || 1}
                     onChange={e => setRuleFormData({...ruleFormData, priority: Number(e.target.value)})}
-                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Tipo de Valor</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 md:ml-4">Tipo de Valor</label>
                   <select 
                     value={ruleFormData.ruleType}
                     onChange={e => setRuleFormData({...ruleFormData, ruleType: e.target.value as any})}
-                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
                   >
                     <option value="percent">Porcentagem (%)</option>
                     <option value="fixed">Valor Fixo (R$)</option>
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Valor da Comissão</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 md:ml-4">Valor da Comissão</label>
                   <input 
                     type="number"
                     value={ruleFormData.value || 0}
                     onChange={e => setRuleFormData({...ruleFormData, value: Number(e.target.value)})}
-                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 px-4 py-2 bg-amber-50 rounded-2xl border border-amber-100">
+              <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 flex items-start gap-3">
                 <input 
-                  type="checkbox"
+                  type="checkbox" 
                   id="requiresGoalMet"
                   checked={ruleFormData.requiresGoalMet || false}
                   onChange={e => setRuleFormData({...ruleFormData, requiresGoalMet: e.target.checked})}
-                  className="w-5 h-5 rounded-lg border-slate-300 text-blue-600 focus:ring-blue-500"
+                  className="mt-1 w-4 h-4 text-blue-600 rounded border-blue-300 focus:ring-blue-500"
                 />
-                <label htmlFor="requiresGoalMet" className="text-[10px] font-black text-amber-800 uppercase tracking-widest cursor-pointer">
-                  Esta regra só se aplica se o funcionário bater a meta mensal
+                <label htmlFor="requiresGoalMet" className="cursor-pointer">
+                  <span className="block text-sm font-black text-blue-900 uppercase">Exige Meta Mensal Batida?</span>
+                  <span className="block text-xs text-blue-700/80 mt-1 font-medium">
+                    Se marcado, esta comissão só será paga nas vendas realizadas <b>após</b> o funcionário atingir sua "Meta Mensal de Vendas" (definida no cadastro dele).
+                  </span>
                 </label>
               </div>
             </div>
 
-            <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-              <button onClick={() => setIsRuleModalOpen(false)} className="px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest text-slate-400 hover:bg-slate-200 transition-all">Cancelar</button>
-              <button onClick={handleSaveRule} className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-slate-800 transition-all">Salvar Regra</button>
+            <div className="p-4 md:p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+              <button onClick={() => setIsRuleModalOpen(false)} className="px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest text-slate-400 hover:bg-slate-200 transition-all">Cancelar</button>
+              <button onClick={handleSaveRule} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-slate-800 transition-all">Salvar Regra</button>
             </div>
           </div>
         </div>
@@ -757,7 +949,10 @@ const EmployeeManagementTab: React.FC<Props> = ({ tenantId }) => {
         <div className="fixed inset-0 bg-slate-950/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95">
             <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
-              <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">{editingGoal ? 'Editar Meta de Bônus' : 'Nova Meta de Bônus'}</h3>
+              <div>
+                <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">{editingGoal ? 'Editar Bônus Único' : 'Novo Bônus Único'}</h3>
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Prêmio pago uma única vez ao atingir a meta</p>
+              </div>
               <button onClick={() => setIsGoalModalOpen(false)} className="p-3 hover:bg-slate-200 rounded-full transition-colors"><X size={20} /></button>
             </div>
             

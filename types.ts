@@ -64,11 +64,14 @@ export interface ServiceOrder {
   isDeleted?: boolean;
   technicianId?: string;
   sellerId?: string;
+  paymentMethod?: 'Dinheiro' | 'Cartão' | 'PIX';
+  paymentInstallments?: number;
 }
 
 export interface Product {
   id: string;
   name: string;
+  category?: string;
   barcode?: string;
   photo: string | null;
   costPrice: number;
@@ -85,13 +88,16 @@ export interface Sale {
   id: string;
   productId: string;
   productName: string;
+  category?: string;
   date: string;
   quantity: number;
-  originalPrice: number;
+  originalPrice: number; // This is salePricePerUnitAtSale
   discount: number;
   surcharge?: number;
   finalPrice: number;
-  costAtSale: number;
+  costAtSale: number; // This is totalCostAtSale
+  costPerUnitAtSale: number;
+  salePricePerUnitAtSale: number;
   paymentMethod?: string;
   paymentEntriesJson?: string;
   change?: number;
