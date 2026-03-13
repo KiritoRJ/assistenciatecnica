@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Search, Trash2, Camera, X, Eye, Loader2, Smartphone, AlertTriangle, Calculator, CheckCircle, Image as ImageIcon, Calendar, KeyRound, Lock, Download, Maximize2, Layout, Check } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Plus, Search, Trash2, Camera, X, Eye, Loader2, Smartphone, AlertTriangle, Calculator, CheckCircle, Image as ImageIcon, Calendar, KeyRound, Lock, Download, Maximize2, Layout, Check, Printer, Share2 } from 'lucide-react';
 import { ServiceOrder, AppSettings, User } from '../types';
-import { formatCurrency, parseCurrencyString, formatDate, generateRandomNumericCode } from '../utils';
+import { formatCurrency, parseCurrencyString, formatDate, formatDateTime, generateRandomNumericCode } from '../utils';
 import { OnlineDB } from '../utils/api';
 
 interface Props {
@@ -44,6 +45,9 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
   const signatureRef = React.useRef<HTMLCanvasElement>(null);
   const fullScreenSignatureRef = React.useRef<HTMLCanvasElement>(null);
   const [isFullScreenSignatureOpen, setIsFullScreenSignatureOpen] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [lastCreatedOrder, setLastCreatedOrder] = useState<ServiceOrder | null>(null);
+  const [showReceiptOptions, setShowReceiptOptions] = useState(false);
 
   const visibleOrders = useMemo(() => orders.filter(o => !o.isDeleted), [orders]);
   const osCount = visibleOrders.length;
@@ -202,6 +206,17 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
     
     setOrders(newOrdersList);
     setIsModalOpen(false);
+
+    // Se for uma nova OS, mostra o modal de sucesso e imprime
+    if (!editingOrder) {
+      const newOrder = newOrdersList[0];
+      setLastCreatedOrder(newOrder);
+      setShowSuccessModal(true);
+      setTimeout(() => {
+        window.print();
+      }, 500);
+    }
+
     resetForm();
     setIsSaving(false);
   };
@@ -1224,6 +1239,146 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
             </div>
           </div>
         </div>
+      )}
+      {/* MODAL DE SUCESSO - NOVA O.S. CRIADA */}
+      {showSuccessModal && lastCreatedOrder && (
+        <div className="fixed inset-0 bg-slate-950/90 z-[150] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in">
+          <div className="bg-white w-full max-w-sm rounded-[3rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 relative">
+            <div className="p-10 text-center space-y-6">
+              <div className="w-24 h-24 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+                <Check size={48} strokeWidth={3} />
+              </div>
+              
+              <div className="space-y-2">
+                <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">O.S. Criada!</h3>
+                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">A Ordem de Serviço #{lastCreatedOrder.id} foi registrada com sucesso.</p>
+              </div>
+
+              <div className="bg-slate-50 rounded-3xl p-6 space-y-4 border border-slate-100">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente</span>
+                  <span className="text-xs font-black text-slate-700 uppercase">{lastCreatedOrder.customerName}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Aparelho</span>
+                  <span className="text-xs font-black text-slate-700 uppercase">{lastCreatedOrder.deviceModel}</span>
+                </div>
+                <div className="flex justify-between items-center pt-4 border-t border-slate-200">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Previsto</span>
+                  <span className="text-lg font-black text-blue-600">{formatCurrency(lastCreatedOrder.total)}</span>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setShowSuccessModal(false)}
+                className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black uppercase text-xs tracking-[0.2em] shadow-xl active:scale-95 transition-all"
+              >
+                Concluir
+              </button>
+            </div>
+
+            {/* BOTÃO EXPANSÍVEL DE OPÇÕES */}
+            <div className="absolute bottom-8 right-8 flex flex-col items-end gap-3">
+              {showReceiptOptions && (
+                <div className="flex flex-col gap-3 animate-in slide-in-from-bottom-4 duration-300">
+                  <button 
+                    onClick={() => generateReceiptImage(lastCreatedOrder)}
+                    className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-all"
+                    title="Baixar Imagem"
+                  >
+                    <Download size={20} />
+                  </button>
+                  <button 
+                    onClick={() => window.print()}
+                    className="w-12 h-12 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-all"
+                    title="Imprimir"
+                  >
+                    <Printer size={20} />
+                  </button>
+                </div>
+              )}
+              <button 
+                onClick={() => setShowReceiptOptions(!showReceiptOptions)}
+                className={`w-14 h-14 ${showReceiptOptions ? 'bg-red-500 rotate-45' : 'bg-blue-600'} text-white rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 active:scale-95`}
+              >
+                <Plus size={28} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PORTAL PARA IMPRESSÃO DIRETA DA O.S. */}
+      {document.getElementById('print-section') && lastCreatedOrder && createPortal(
+        <div 
+          style={{ 
+            width: Number(settings.printerSize) === 80 ? '80mm' : '58mm', 
+            padding: Number(settings.printerSize) === 80 ? '4mm' : '2mm', 
+            backgroundColor: 'white', 
+            color: 'black', 
+            fontFamily: 'monospace',
+            fontSize: Number(settings.printerSize) === 80 ? '11px' : '10px',
+            lineHeight: '1.2'
+          }}
+        >
+          <div style={{ textAlign: 'center', marginBottom: '4mm' }}>
+            <p style={{ fontWeight: 'bold', fontSize: '14px', textTransform: 'uppercase', margin: '0 0 1mm 0' }}>{settings.storeName}</p>
+            <p style={{ margin: '1px 0', fontSize: '9px' }}>{settings.storeAddress}</p>
+            <p style={{ margin: '1px 0', fontSize: '9px' }}>{settings.storePhone}</p>
+            <div style={{ margin: '3mm 0', borderTop: '1px solid black', borderBottom: '1px solid black', padding: '1mm 0' }}>
+              <p style={{ fontWeight: 'bold', margin: '0', fontSize: '11px' }}>ORDEM DE SERVIÇO</p>
+              <p style={{ margin: '0', fontSize: '8px' }}>COMPROVANTE DE ENTRADA</p>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '3mm', fontSize: '9px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>PROTOCOLO:</span>
+              <span style={{ fontWeight: 'bold' }}>#{lastCreatedOrder.id}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>DATA:</span>
+              <span>{formatDateTime(lastCreatedOrder.date)}</span>
+            </div>
+          </div>
+
+          <div style={{ borderTop: '1px dashed black', padding: '2mm 0', marginBottom: '2mm' }}>
+            <p style={{ fontWeight: 'bold', fontSize: '9px', marginBottom: '1mm', textTransform: 'uppercase' }}>Cliente:</p>
+            <p style={{ margin: '0', fontSize: '9px' }}>{lastCreatedOrder.customerName}</p>
+            <p style={{ margin: '0', fontSize: '9px' }}>{lastCreatedOrder.phoneNumber}</p>
+          </div>
+
+          <div style={{ borderTop: '1px dashed black', padding: '2mm 0', marginBottom: '2mm' }}>
+            <p style={{ fontWeight: 'bold', fontSize: '9px', marginBottom: '1mm', textTransform: 'uppercase' }}>Aparelho:</p>
+            <p style={{ margin: '0', fontSize: '9px' }}>{lastCreatedOrder.deviceBrand} {lastCreatedOrder.deviceModel}</p>
+            <p style={{ fontWeight: 'bold', fontSize: '9px', marginTop: '2mm', textTransform: 'uppercase' }}>Defeito Relatado:</p>
+            <p style={{ margin: '0', fontSize: '9px' }}>{lastCreatedOrder.defect}</p>
+          </div>
+
+          {lastCreatedOrder.checklist && lastCreatedOrder.checklist.length > 0 && (
+            <div style={{ borderTop: '1px dashed black', padding: '2mm 0', marginBottom: '2mm' }}>
+              <p style={{ fontWeight: 'bold', fontSize: '9px', marginBottom: '1mm', textTransform: 'uppercase' }}>Checklist:</p>
+              <p style={{ margin: '0', fontSize: '8px' }}>{lastCreatedOrder.checklist.join(', ')}</p>
+            </div>
+          )}
+
+          <div style={{ borderTop: '1px solid black', padding: '2mm 0', marginTop: '2mm' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '11px' }}>
+              <span>TOTAL PREVISTO:</span>
+              <span>{formatCurrency(lastCreatedOrder.total)}</span>
+            </div>
+          </div>
+
+          <div style={{ marginTop: '6mm', borderTop: '1px solid black', paddingTop: '4mm', textAlign: 'center' }}>
+            <div style={{ height: '10mm' }}></div>
+            <p style={{ borderTop: '0.5px solid black', display: 'inline-block', width: '80%', fontSize: '8px', paddingTop: '1mm' }}>ASSINATURA DO CLIENTE</p>
+          </div>
+
+          <div style={{ textAlign: 'center', fontSize: '8px', marginTop: '4mm' }}>
+            <p style={{ margin: '0', fontWeight: 'bold' }}>OBRIGADO PELA PREFERÊNCIA!</p>
+          </div>
+        </div>,
+        document.getElementById('print-section')!
       )}
     </div>
   );
