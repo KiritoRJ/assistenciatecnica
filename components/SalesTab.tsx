@@ -1483,6 +1483,7 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
             <p style={{ margin: '1px 0' }}>{settings.storeAddress}</p>
             <p style={{ margin: '1px 0' }}>{settings.storePhone}</p>
             <p style={{ fontWeight: 'bold', margin: '2mm 0 0 0', borderTop: '1px solid black', borderBottom: '1px solid black' }}>CUPOM DE VENDA</p>
+            <p style={{ margin: '0', fontSize: '8px' }}>NÃO É DOCUMENTO FISCAL</p>
           </div>
           
           <div style={{ marginBottom: '3mm' }}>

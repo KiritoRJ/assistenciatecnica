@@ -47,6 +47,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
   const [isFullScreenSignatureOpen, setIsFullScreenSignatureOpen] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastCreatedOrder, setLastCreatedOrder] = useState<ServiceOrder | null>(null);
+  const [orderToPrint, setOrderToPrint] = useState<ServiceOrder | null>(null);
   const [showReceiptOptions, setShowReceiptOptions] = useState(false);
 
   const visibleOrders = useMemo(() => orders.filter(o => !o.isDeleted), [orders]);
@@ -211,6 +212,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
     if (!editingOrder) {
       const newOrder = newOrdersList[0];
       setLastCreatedOrder(newOrder);
+      setOrderToPrint(newOrder);
       setShowSuccessModal(true);
       setTimeout(() => {
         window.print();
@@ -775,6 +777,15 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
               </div>
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2">
+              <button onClick={(e) => { 
+                e.stopPropagation(); 
+                setOrderToPrint(order);
+                setTimeout(() => window.print(), 500);
+              }} className={`bg-slate-900 text-white rounded-lg sm:rounded-xl shadow-md active:scale-90 flex items-center justify-center
+                ${osLayout === 'small' ? 'p-1 sm:p-1.5' : osLayout === 'medium' ? 'p-1.5 sm:p-2.5' : 'p-2.5 sm:p-3.5'}
+              `} title="Imprimir Cupom">
+                <Printer size={14} className={osLayout === 'large' ? 'sm:w-[20px] sm:h-[20px]' : 'sm:w-[18px] sm:h-[18px]'} />
+              </button>
               <button onClick={(e) => { e.stopPropagation(); generateReceiptImage(order); }} disabled={isGeneratingReceipt} className={`bg-blue-600 text-white rounded-lg sm:rounded-xl shadow-md active:scale-90 disabled:opacity-50 flex items-center justify-center
                 ${osLayout === 'small' ? 'p-1 sm:p-1.5' : osLayout === 'medium' ? 'p-1.5 sm:p-2.5' : 'p-2.5 sm:p-3.5'}
               `} title="Ver Recibo">
@@ -1309,7 +1320,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
       )}
 
       {/* PORTAL PARA IMPRESSÃO DIRETA DA O.S. */}
-      {document.getElementById('print-section') && lastCreatedOrder && createPortal(
+      {document.getElementById('print-section') && orderToPrint && createPortal(
         <div 
           style={{ 
             width: Number(settings.printerSize) === 80 ? '80mm' : '58mm', 
@@ -1327,50 +1338,73 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
             <p style={{ margin: '1px 0', fontSize: '9px' }}>{settings.storePhone}</p>
             <div style={{ margin: '3mm 0', borderTop: '1px solid black', borderBottom: '1px solid black', padding: '1mm 0' }}>
               <p style={{ fontWeight: 'bold', margin: '0', fontSize: '11px' }}>ORDEM DE SERVIÇO</p>
-              <p style={{ margin: '0', fontSize: '8px' }}>COMPROVANTE DE ENTRADA</p>
+              <p style={{ margin: '0', fontSize: '8px' }}>{orderToPrint.status === 'Pendente' ? 'COMPROVANTE DE ENTRADA' : 'RECIBO DE ENTREGA'}</p>
+              <p style={{ margin: '1mm 0 0 0', fontSize: '7px' }}>NÃO É DOCUMENTO FISCAL</p>
             </div>
           </div>
 
           <div style={{ marginBottom: '3mm', fontSize: '9px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>PROTOCOLO:</span>
-              <span style={{ fontWeight: 'bold' }}>#{lastCreatedOrder.id}</span>
+              <span style={{ fontWeight: 'bold' }}>#{orderToPrint.id}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>DATA:</span>
-              <span>{formatDateTime(lastCreatedOrder.date)}</span>
+              <span>{formatDateTime(orderToPrint.date)}</span>
             </div>
           </div>
 
           <div style={{ borderTop: '1px dashed black', padding: '2mm 0', marginBottom: '2mm' }}>
             <p style={{ fontWeight: 'bold', fontSize: '9px', marginBottom: '1mm', textTransform: 'uppercase' }}>Cliente:</p>
-            <p style={{ margin: '0', fontSize: '9px' }}>{lastCreatedOrder.customerName}</p>
-            <p style={{ margin: '0', fontSize: '9px' }}>{lastCreatedOrder.phoneNumber}</p>
+            <p style={{ margin: '0', fontSize: '9px' }}>{orderToPrint.customerName}</p>
+            <p style={{ margin: '0', fontSize: '9px' }}>{orderToPrint.phoneNumber}</p>
           </div>
 
           <div style={{ borderTop: '1px dashed black', padding: '2mm 0', marginBottom: '2mm' }}>
             <p style={{ fontWeight: 'bold', fontSize: '9px', marginBottom: '1mm', textTransform: 'uppercase' }}>Aparelho:</p>
-            <p style={{ margin: '0', fontSize: '9px' }}>{lastCreatedOrder.deviceBrand} {lastCreatedOrder.deviceModel}</p>
+            <p style={{ margin: '0', fontSize: '9px' }}>{orderToPrint.deviceBrand} {orderToPrint.deviceModel}</p>
             <p style={{ fontWeight: 'bold', fontSize: '9px', marginTop: '2mm', textTransform: 'uppercase' }}>Defeito Relatado:</p>
-            <p style={{ margin: '0', fontSize: '9px' }}>{lastCreatedOrder.defect}</p>
+            <p style={{ margin: '0', fontSize: '9px' }}>{orderToPrint.defect}</p>
           </div>
 
-          {lastCreatedOrder.checklist && lastCreatedOrder.checklist.length > 0 && (
+          {orderToPrint.checklist && orderToPrint.checklist.length > 0 && (
             <div style={{ borderTop: '1px dashed black', padding: '2mm 0', marginBottom: '2mm' }}>
               <p style={{ fontWeight: 'bold', fontSize: '9px', marginBottom: '1mm', textTransform: 'uppercase' }}>Checklist:</p>
-              <p style={{ margin: '0', fontSize: '8px' }}>{lastCreatedOrder.checklist.join(', ')}</p>
+              <p style={{ margin: '0', fontSize: '8px' }}>{orderToPrint.checklist.join(', ')}</p>
+            </div>
+          )}
+
+          {(orderToPrint.status === 'Concluído' || orderToPrint.status === 'Entregue') && orderToPrint.repairDetails && (
+            <div style={{ borderTop: '1px dashed black', padding: '2mm 0', marginBottom: '2mm' }}>
+              <p style={{ fontWeight: 'bold', fontSize: '9px', marginBottom: '1mm', textTransform: 'uppercase' }}>Reparo Efetuado:</p>
+              <p style={{ margin: '0', fontSize: '9px' }}>{orderToPrint.repairDetails}</p>
             </div>
           )}
 
           <div style={{ borderTop: '1px solid black', padding: '2mm 0', marginTop: '2mm' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '11px' }}>
-              <span>TOTAL PREVISTO:</span>
-              <span>{formatCurrency(lastCreatedOrder.total)}</span>
+              <span>TOTAL:</span>
+              <span>{formatCurrency(orderToPrint.total)}</span>
             </div>
           </div>
 
+          {settings.pdfWarrantyText && (
+            <div style={{ borderTop: '1px dashed black', padding: '2mm 0', marginTop: '2mm' }}>
+              <p style={{ fontWeight: 'bold', fontSize: '9px', marginBottom: '1mm', textTransform: 'uppercase' }}>Garantia:</p>
+              <p style={{ margin: '0', fontSize: '8px', textAlign: 'justify' }}>
+                {settings.pdfWarrantyText.replace(/\[\/?(B|C|J|COLOR.*?|U)\]/g, '')}
+              </p>
+            </div>
+          )}
+
           <div style={{ marginTop: '6mm', borderTop: '1px solid black', paddingTop: '4mm', textAlign: 'center' }}>
-            <div style={{ height: '10mm' }}></div>
+            {orderToPrint.signature ? (
+              <div style={{ marginBottom: '2mm' }}>
+                <img src={orderToPrint.signature} style={{ width: '40mm', height: 'auto', display: 'block', margin: '0 auto' }} />
+              </div>
+            ) : (
+              <div style={{ height: '10mm' }}></div>
+            )}
             <p style={{ borderTop: '0.5px solid black', display: 'inline-block', width: '80%', fontSize: '8px', paddingTop: '1mm' }}>ASSINATURA DO CLIENTE</p>
           </div>
 
