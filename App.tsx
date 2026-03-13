@@ -240,12 +240,23 @@ const App: React.FC = () => {
       
       // Tenta puxar dados novos se estiver online
       if (navigator.onLine) {
-        const cloudData = await OfflineSync.pullAllData(tenantId);
+        const [cloudData, tenantData] = await Promise.all([
+          OfflineSync.pullAllData(tenantId),
+          OnlineDB.getTenantById(tenantId)
+        ]);
+
         if (cloudData) {
           const finalSettings = { ...DEFAULT_SETTINGS, ...cloudData.settings };
-          if (session?.printerSize) {
+          
+          // Se o tenantData trouxer um printer_size atualizado, usamos ele
+          if (tenantData?.printer_size) {
+            finalSettings.printerSize = tenantData.printer_size;
+            // Atualiza a sessão também para garantir consistência
+            setSession(prev => prev ? { ...prev, printerSize: tenantData.printer_size } : null);
+          } else if (session?.printerSize) {
             finalSettings.printerSize = session.printerSize;
           }
+          
           finalSettings.users = cloudData.users || [];
           setSettings(finalSettings);
           setOrders(cloudData.orders || []);
@@ -317,6 +328,11 @@ const App: React.FC = () => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'transactions', filter: `tenant_id=eq.${tenantId}` },
+        debouncedLoad
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tenants', filter: `id=eq.${tenantId}` },
         debouncedLoad
       )
       .subscribe();
@@ -425,6 +441,7 @@ const App: React.FC = () => {
         maxUsers: tenant.max_users,
         maxOS: tenant.tenant_limits?.max_os,
         maxProducts: tenant.tenant_limits?.max_products,
+        printerSize: tenant.printer_size || 58,
       };
       const finalUser = {
         id: tenant.users.find((u: any) => u.role === 'admin')?.id || 'admin',
@@ -1055,7 +1072,7 @@ const App: React.FC = () => {
             </div>
           </div>
         )}
-        <div className={`flex-1 overflow-y-auto p-4 pt-4 pb-24 md:pt-10 md:pb-4 max-w-7xl mx-auto w-full animate-in fade-in duration-700 hide-scrollbar [&::-webkit-scrollbar]:hidden ${isSidebarCollapsed ? 'md:pl-20' : 'md:pl-4'}`}>
+        <div className={`flex-1 overflow-y-auto p-4 pt-4 pb-24 md:pt-10 md:pb-4 max-w-none mx-auto w-full animate-in fade-in duration-700 hide-scrollbar [&::-webkit-scrollbar]:hidden ${isSidebarCollapsed ? 'md:pl-20' : 'md:pl-4'}`}>
           {activeTab === 'os' && <ServiceOrderTab orders={orders} setOrders={saveOrders} settings={settings} onUpdateSettings={saveSettings} onDeleteOrder={removeOrder} tenantId={session.tenantId || ''} maxOS={session.maxOS} currentUser={currentUser} />}
           {activeTab === 'estoque' && <StockTab products={products} setProducts={saveProducts} onDeleteProduct={removeProduct} settings={settings} onUpdateSettings={saveSettings} maxProducts={session.maxProducts} />}
           {activeTab === 'vendas' && <SalesTab products={products} setProducts={saveProducts} sales={sales.filter(s => !s.isDeleted)} setSales={saveSales} settings={settings} onUpdateSettings={saveSettings} currentUser={currentUser} onDeleteSale={removeSale} tenantId={session.tenantId || ''} />}

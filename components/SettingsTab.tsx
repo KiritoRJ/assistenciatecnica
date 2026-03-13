@@ -101,6 +101,7 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
   const [userToDelete, setUserToDelete] = useState<{ id: string, name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
+  const [isCompressingBanner, setIsCompressingBanner] = useState(false);
 
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
@@ -286,6 +287,41 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
             console.error("Erro ao processar imagem", err);
           } finally {
             setIsCompressing(false);
+            input.value = '';
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+    input.click();
+  };
+
+  const triggerBannerUpload = () => {
+    if (!isAdmin) return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '*/*';
+    input.onchange = (e: any) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        // Validação: Apenas imagens
+        if (!file.type.startsWith('image/')) {
+          alert(`O arquivo "${file.name}" não é uma imagem e foi ignorado.`);
+          input.value = '';
+          return;
+        }
+
+        setIsCompressingBanner(true);
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          try {
+            // Banners are usually wider, so we compress to a larger size
+            const compressed = await compressImage(reader.result as string, 1200);
+            updateSetting('salesBannerUrl', compressed);
+          } catch (err) {
+            console.error("Erro ao processar imagem", err);
+          } finally {
+            setIsCompressingBanner(false);
             input.value = '';
           }
         };
@@ -1489,6 +1525,65 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
               </div>
            </div>
         </div>
+
+        {/* BANNER DE VENDAS (PC) */}
+        {isAdmin && (
+          <div className="bg-white rounded-[2rem] border border-slate-100 p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                  <Layout size={16} className="text-blue-500" />
+                  Banner de Vendas (PC)
+                </h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Aparece no topo da tela em computadores</p>
+              </div>
+              <div className="flex gap-2">
+                {settings.salesBannerUrl && (
+                  <button 
+                    onClick={() => updateSetting('salesBannerUrl', null)}
+                    className="p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all active:scale-90"
+                    title="Remover Banner"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+                <button 
+                  onClick={triggerBannerUpload}
+                  disabled={isCompressingBanner}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  {isCompressingBanner ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                  {settings.salesBannerUrl ? 'Trocar Banner' : 'Anexar Banner'}
+                </button>
+              </div>
+            </div>
+
+            {settings.salesBannerUrl ? (
+              <div className="relative w-full aspect-[21/9] rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 group">
+                <img 
+                  src={settings.salesBannerUrl} 
+                  className="w-full h-full object-cover" 
+                  alt="Preview do Banner"
+                />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                   <button onClick={triggerBannerUpload} className="p-3 bg-white rounded-full text-slate-900 shadow-xl active:scale-90 transition-all">
+                      <Camera size={20} />
+                   </button>
+                </div>
+              </div>
+            ) : (
+              <div 
+                onClick={triggerBannerUpload}
+                className="w-full aspect-[21/9] rounded-2xl border-2 border-dashed border-slate-100 bg-slate-50/50 flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-slate-50 transition-all group"
+              >
+                <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-slate-300 group-hover:scale-110 transition-transform">
+                  <ImageIcon size={24} />
+                </div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Clique para anexar um banner</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* OUTRAS CONFIGURAÇÕES */}
         <div className="grid grid-cols-2 gap-3">

@@ -168,6 +168,7 @@ export interface AppSettings {
   enableLowStockNotifications?: boolean;
   enableNewOSNotifications?: boolean;
   enableNewSaleNotifications?: boolean;
+  salesBannerUrl?: string | null;
 }
 
 export interface Employee {

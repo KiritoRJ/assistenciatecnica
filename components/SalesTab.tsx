@@ -49,7 +49,7 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
   const [lastDiscount, setLastDiscount] = useState(0);
   const [lastChange, setLastChange] = useState(0);
   const [lastPaymentEntries, setLastPaymentEntries] = useState<PaymentEntry[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [lastAddedProduct, setLastAddedProduct] = useState<Product | null>(null);
   const [layoutMode, setLayoutMode] = useState<'small' | 'medium' | 'list'>(settings.salesLayout || 'small');
 
   const [isCancelling, setIsCancelling] = useState<string | null>(null);
@@ -245,10 +245,6 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
     };
   }, []);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [showHistory, productSearch]);
-
   const cartTotal = useMemo(() => {
     return cart.reduce((acc, item) => acc + (item.product.salePrice * item.quantity), 0);
   }, [cart]);
@@ -266,6 +262,7 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
   };
 
   const addToCart = (product: Product) => {
+    setLastAddedProduct(product);
     const existingItem = cart.find(item => item.product.id === product.id);
     const currentQtyInCart = existingItem ? existingItem.quantity : 0;
     if (currentQtyInCart + 1 > product.quantity) {
@@ -394,7 +391,16 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
     setPaymentEntries([{ method: 'Dinheiro', amount: 0 }]);
     setShowCheckoutModal(false);
     setShowCartDrawer(false);
+    
+    // Impressão Direta conforme solicitado
     setShowReceiptModal(true);
+    setTimeout(() => {
+      try {
+        window.print();
+      } catch (e) {
+        alert("Aviso: Impressora não reconhecida ou erro na comunicação.");
+      }
+    }, 500);
   };
 
   const reprintReceipt = (sale: Sale) => {
@@ -459,6 +465,11 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
     }
     
     setLastChange(sale.change || 0);
+    
+    setTimeout(() => {
+      window.print();
+    }, 500);
+    
     setShowHistoryReceiptModal(true);
   };
 
@@ -484,8 +495,6 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
     return { sortedProducts: sorted, topSellers: topIds };
   }, [products, sales, productSearch]);
 
-  const paginatedProducts = sortedProducts.slice(0, settings.itemsPerPage * currentPage);
-
   const sortedSales = useMemo(() => {
     let filtered = [...sales];
     if (historySearch) {
@@ -497,12 +506,6 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
     }
     return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [sales, historySearch]);
-
-  const paginatedSales = sortedSales.slice(0, settings.itemsPerPage * currentPage);
-
-  const loadMore = () => {
-    setCurrentPage(prev => prev + 1);
-  };
 
   const toggleLayout = () => {
     const modes: ('small' | 'medium' | 'list')[] = ['small', 'medium', 'list'];
@@ -538,7 +541,7 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
           </div>
 
           <div className="grid gap-2">
-            {paginatedSales.map(sale => (
+            {sortedSales.map(sale => (
               <div 
                 key={sale.id} 
                 onClick={() => reprintReceipt(sale)}
@@ -566,180 +569,462 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
               </div>
             ))}
           </div>
-
-          {sales.length > paginatedSales.length && (
-            <button 
-              onClick={loadMore}
-              className="w-full py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-xs tracking-widest mt-4 active:scale-95 transition-transform">
-              Carregar Mais
-            </button>
-          )}
         </div>
       ) : (
-        <>
-          <div className="flex items-center justify-between px-1">
-            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2">
-              <ShoppingCart size={22} className="text-emerald-600" /> VENDAS
-            </h2>
-            <button onClick={() => setShowHistory(true)} className="p-3 text-slate-400 bg-white border border-slate-100 rounded-2xl active:scale-90 transition-all shadow-sm">
-              <History size={20} />
-            </button>
-          </div>
+        <div className="h-full">
+          {/* --- LAYOUT DESKTOP --- */}
+          <div className="hidden lg:flex flex-col gap-3 h-full">
+            {/* Top Banner Area (Desktop) */}
+            <div className="flex items-center justify-between bg-white rounded-xl p-3 border-b border-slate-100 shadow-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center shadow-sm">
+                  <ShoppingCart size={16} />
+                </div>
+                <h2 className="text-base font-black text-slate-800 uppercase tracking-tighter">VENDAS</h2>
+              </div>
+              
+              <div className="flex-1 flex items-center justify-center">
+                <div className="px-6 py-1.5 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                  <h1 className="text-sm font-black text-slate-300 uppercase tracking-[0.3em]">LOGO BANNER</h1>
+                </div>
+              </div>
 
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-              <input type="text" placeholder="Nome ou código..." className="w-full pl-11 pr-4 py-3.5 bg-white border-none rounded-2xl text-sm font-medium shadow-sm outline-none focus:ring-2 focus:ring-slate-900" value={productSearch} onChange={(e) => setProductSearch(e.target.value)} />
+              <button onClick={() => setShowHistory(true)} className="p-2.5 text-slate-400 bg-white border border-slate-100 rounded-lg active:scale-90 transition-all shadow-sm hover:text-slate-600">
+                <History size={18} />
+              </button>
             </div>
-            <button onClick={() => startScanner('search')} className="p-3.5 bg-white text-slate-600 rounded-2xl shadow-sm active:scale-95 shrink-0">
-              <ScanBarcode size={20} />
-            </button>
-            <button onClick={toggleLayout} className="p-3.5 bg-white text-slate-400 hover:text-slate-600 transition-colors rounded-2xl shadow-sm active:scale-95 shrink-0">
-               {layoutMode === 'small' && <Grid size={20} />}
-               {layoutMode === 'medium' && <LayoutGrid size={20} />}
-               {layoutMode === 'list' && <Rows size={20} />}
-            </button>
-          </div>
 
-          {/* --- GRID DE VENDAS --- */}
-          <div className={`grid gap-3 ${
-            layoutMode === 'small' ? 'grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10' :
-            layoutMode === 'medium' ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8' :
-            'grid-cols-1'
-          }`}>
-            {paginatedProducts.map(product => {
-              const isTopSeller = topSellers.includes(product.id);
-              return (
-                <button 
-                  key={product.id} 
-                  onClick={() => addToCart(product)} 
-                  className={`bg-white border rounded-[2rem] overflow-hidden shadow-sm text-left active:scale-95 transition-all flex group hover:border-b-emerald-500 border-b-4 ${
-                    isTopSeller ? 'neon-glow border-emerald-400' : 'border-slate-50 border-transparent'
-                  } ${layoutMode === 'list' ? 'flex-row items-center p-2 gap-3' : 'flex-col'}`}
-                >
-                  {/* Imagem */}
-                  <div className={`bg-slate-50 relative overflow-hidden shrink-0 ${
-                    layoutMode === 'list' ? 'w-14 h-14 rounded-2xl' : 
-                    layoutMode === 'small' ? 'h-20' : 
-                    'h-24 md:h-20'
-                  }`}>
-                    {product.photo ? (
-                      <img src={product.photo} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-200"><Package size={layoutMode === 'small' || layoutMode === 'list' ? 16 : 20} /></div>
-                    )}
-                    {layoutMode !== 'list' && (
-                      <span className="absolute top-2 right-2 bg-slate-950/80 text-white text-[7px] font-black px-1.5 py-0.5 rounded shadow-lg">
-                        {product.quantity}
-                      </span>
-                    )}
-                    {isTopSeller && (
-                      <div className="absolute top-2 left-2 bg-emerald-500 text-white text-[6px] font-black px-1.5 py-0.5 rounded shadow-lg uppercase tracking-tighter">
-                        Top
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Conteúdo */}
-                  <div className={`${layoutMode === 'list' ? 'flex-1 flex items-center justify-between pr-2 min-w-0' : 'p-2'}`}>
-                    <div className="min-w-0 flex-1 mr-2">
-                      <h3 className={`font-bold text-slate-800 uppercase truncate mb-0.5 ${layoutMode === 'small' ? 'text-[8px]' : 'text-[9px] sm:text-[10px]'}`}>{product.name}</h3>
-                      <p className="text-emerald-600 font-black text-[10px] sm:text-xs">{formatCurrency(product.salePrice)}</p>
-                      {layoutMode === 'list' && (
-                         <div className="flex items-center gap-2 mt-0.5">
-                            <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${product.quantity <= 2 ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'}`}>Estoque: {product.quantity}</span>
-                         </div>
-                      )}
-                    </div>
-                    
-                    {layoutMode === 'list' && (
-                      <div className="flex items-center justify-center w-8 h-8 bg-emerald-50 text-emerald-600 rounded-full shrink-0">
-                        <Plus size={16} />
-                      </div>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {sortedProducts.length > paginatedProducts.length && (
-            <button 
-              onClick={loadMore}
-              className="w-full py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-xs tracking-widest my-4 active:scale-95 transition-transform">
-              Carregar Mais
-            </button>
-          )}
-
-          {/* BARRA DE CARRINHO (RODAPÉ) */}
-          <div className="fixed bottom-20 left-0 right-0 md:bottom-6 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-[600px] p-4 z-40 pointer-events-none">
-            <div className="max-w-xl mx-auto pointer-events-auto md:max-w-none">
-              <div className="bg-slate-950 rounded-[2.5rem] shadow-2xl overflow-hidden border border-white/10">
-                <div className="py-2 px-4 md:py-2 md:px-6 flex items-center justify-between cursor-pointer" onClick={() => setShowCartDrawer(!showCartDrawer)}>
-                  <div className="flex items-center gap-4">
-                    <div className="relative">
-                      <div className="w-8 h-8 md:w-8 md:h-8 bg-white/10 rounded-xl flex items-center justify-center text-emerald-500"><ShoppingCart size={16} className="md:w-4 md:h-4" /></div>
-                      <span className="absolute -top-2 -right-2 bg-emerald-500 text-white text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-slate-950">{cart.length}</span>
-                    </div>
-                    <div className="flex flex-col md:flex-row md:items-center md:gap-2">
-                      <p className="text-[8px] font-black uppercase text-slate-500 md:text-[9px]">TOTAL</p>
-                      <p className="text-base font-black text-white md:text-base">{formatCurrency(cartTotal)}</p>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      if(cart.length > 0) {
-                        setPaymentEntries([{ method: 'Dinheiro', amount: finalTotal }]);
-                        setShowCheckoutModal(true); 
-                      }
-                    }} 
-                    disabled={cart.length === 0} 
-                    className="bg-emerald-500 text-white px-4 py-2 md:px-8 md:py-2 rounded-xl font-black text-[10px] uppercase disabled:opacity-20 shadow-xl shadow-emerald-500/20 hover:bg-emerald-400 transition-colors"
-                  >
-                    COBRAR
+            <div className="grid grid-cols-12 gap-3 flex-1 min-h-0">
+              {/* Coluna Esquerda: Lista de Produtos */}
+              <div className="col-span-4 flex flex-col gap-2.5 min-h-0">
+                {/* Layout Toggle for Desktop */}
+                <div className="flex items-center justify-end">
+                  <button onClick={toggleLayout} className="p-2 bg-white text-slate-400 hover:text-slate-600 transition-colors rounded-lg shadow-sm active:scale-95 border border-slate-100 flex items-center gap-2 text-[8px] font-black uppercase tracking-widest">
+                     {layoutMode === 'small' ? <Grid size={14} /> : layoutMode === 'medium' ? <LayoutGrid size={14} /> : <Rows size={14} />}
+                     Visualização
                   </button>
                 </div>
-                {showCartDrawer && (
-                  <div className="px-5 pb-6 max-h-[30vh] md:max-h-[40vh] overflow-y-auto space-y-2 custom-scrollbar">
+
+                {/* --- GRID DE VENDAS --- */}
+                <div className={`grid gap-2 overflow-y-auto custom-scrollbar pr-1 flex-1 ${
+                  layoutMode === 'small' ? 'grid-cols-2 lg:grid-cols-2 xl:grid-cols-3' :
+                  layoutMode === 'medium' ? 'lg:grid-cols-1 xl:grid-cols-2' :
+                  'grid-cols-1'
+                }`}>
+                  {sortedProducts.slice(0, 6).map(product => {
+                    const isTopSeller = topSellers.includes(product.id);
+                    return (
+                      <button 
+                        key={product.id} 
+                        onClick={() => addToCart(product)} 
+                        className={`bg-white border overflow-hidden shadow-sm text-left active:scale-95 transition-all flex group ${
+                          layoutMode === 'list' ? 'rounded-lg p-1.5 pr-2 border' : 'rounded-xl border-b'
+                        } ${
+                          isTopSeller ? 'border-emerald-400 bg-emerald-50/30' : 'border-slate-100'
+                        } ${layoutMode === 'list' ? 'flex-row items-center gap-2' : 'flex-col'}`}
+                      >
+                        {/* Imagem */}
+                        <div className={`bg-slate-50 relative overflow-hidden shrink-0 ${
+                          layoutMode === 'list' ? 'w-10 h-10 rounded-md ml-0.5' : 
+                          layoutMode === 'small' ? 'h-16' : 
+                          'h-24'
+                        }`}>
+                          {product.photo ? (
+                            <img src={product.photo} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-200"><Package size={layoutMode === 'small' || layoutMode === 'list' ? 14 : 18} /></div>
+                          )}
+                          
+                          {isTopSeller && (
+                            <div className={`absolute top-1 left-1 bg-emerald-500 text-white font-black flex items-center justify-center shadow-lg uppercase tracking-tighter px-1 py-0.5 rounded-full text-[5px]`}>
+                              MAIS VENDIDO
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Conteúdo */}
+                        <div className={`${layoutMode === 'list' ? 'flex-1 flex items-center justify-between pr-1 min-w-0' : 'p-2'}`}>
+                          <div className="min-w-0 flex-1 mr-1">
+                            <h3 className={`font-black text-slate-800 uppercase truncate mb-0.5 ${layoutMode === 'small' ? 'text-[7px]' : 'text-[9px]'}`}>{product.name}</h3>
+                            <div className="flex items-center justify-between gap-1">
+                              <p className="text-emerald-600 font-black text-[9px] sm:text-[10px] whitespace-nowrap">{formatCurrency(product.salePrice)}</p>
+                              <span className={`text-[6px] font-black uppercase px-1.5 py-0.5 rounded-md shrink-0 ${
+                                product.quantity <= 0 ? 'bg-red-500 text-white' : 
+                                product.quantity <= 2 ? 'bg-amber-500 text-white' : 
+                                'bg-slate-900 text-white'
+                              }`}>
+                                Estoque: {product.quantity}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          {layoutMode === 'list' && (
+                            <div className="flex items-center justify-center w-6 h-6 bg-emerald-500 text-white rounded-full shrink-0 shadow-lg group-hover:scale-110 transition-transform">
+                              <Plus size={12} />
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Coluna Central: Banner/Display (Desktop) */}
+              <div className="flex col-span-4 flex-col gap-3 min-h-0">
+                <div className="flex-1 bg-white rounded-xl border border-slate-100 flex flex-col items-center justify-center p-6 text-center gap-6 relative overflow-hidden shadow-sm">
+                  <div className="absolute inset-0 bg-gradient-to-b from-slate-50 to-transparent opacity-50"></div>
+                  
+                  {lastAddedProduct ? (
+                    <div className="flex flex-col items-center gap-6 animate-in zoom-in-95 duration-300 relative z-10 w-full">
+                      <div className="w-full aspect-square bg-slate-50 rounded-2xl shadow-inner flex items-center justify-center overflow-hidden border border-slate-100 max-w-[240px]">
+                        {lastAddedProduct.photo ? (
+                          <img src={lastAddedProduct.photo} className="w-full h-full object-contain p-4" referrerPolicy="no-referrer" />
+                        ) : (
+                          <Package size={100} className="text-slate-200" strokeWidth={0.5} />
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter leading-tight">{lastAddedProduct.name}</h2>
+                        <p className="text-xl font-black text-emerald-600">{formatCurrency(lastAddedProduct.salePrice)}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-4 opacity-20 relative z-10">
+                      <Package size={100} strokeWidth={0.5} />
+                      <h2 className="text-xl font-black uppercase tracking-widest">Aguardando Produto</h2>
+                    </div>
+                  )}
+
+                  {/* Search Bar moved here for Desktop */}
+                  <div className="w-full max-w-sm mt-4 space-y-3 relative z-10">
+                     <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <ScanBarcode className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <input 
+                          type="text" 
+                          placeholder="BIPAR CÓDIGO OU NOME..." 
+                          className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black shadow-sm outline-none focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5 transition-all uppercase placeholder:text-slate-300" 
+                          value={productSearch} 
+                          onChange={(e) => setProductSearch(e.target.value)} 
+                          autoFocus
+                        />
+                      </div>
+                      <button onClick={() => startScanner('search')} className="p-4 bg-slate-900 text-white rounded-xl shadow-lg active:scale-95 shrink-0">
+                        <Search size={18} />
+                      </button>
+                    </div>
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Passe o produto no leitor ou digite o nome</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Coluna Direita: Cupom de Venda (Desktop) */}
+              <div className="flex col-span-4 flex-col bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden h-full sticky top-4">
+                <div className="p-3 bg-slate-900 text-white flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 bg-white/10 rounded-lg flex items-center justify-center text-emerald-400">
+                      <Receipt size={14} />
+                    </div>
+                    <div>
+                      <h3 className="font-black uppercase text-[9px] tracking-widest">Cupom de Venda</h3>
+                      <p className="text-[7px] text-slate-400 font-bold uppercase">Itens: {cart.length}</p>
+                    </div>
+                  </div>
+                  {cart.length > 0 && (
+                    <button onClick={() => setCart([])} className="p-1.5 text-slate-400 hover:text-red-400 transition-colors">
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
+                  {cart.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-2 opacity-50">
+                      <ShoppingCart size={28} strokeWidth={1} />
+                      <p className="text-[7px] font-black uppercase tracking-widest">Carrinho Vazio</p>
+                    </div>
+                  ) : (
+                    cart.map(item => (
+                      <div key={item.product.id} className="flex items-start justify-between gap-2 group">
+                        <div className="flex gap-2 min-w-0">
+                          <div className="w-7 h-7 bg-slate-50 rounded-md flex items-center justify-center text-slate-300 shrink-0 overflow-hidden border border-slate-100">
+                            {item.product.photo ? <img src={item.product.photo} className="w-full h-full object-cover" /> : <Package size={12} />}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="text-[8px] font-black text-slate-800 uppercase truncate leading-tight">{item.product.name}</h4>
+                            <p className="text-[7px] font-bold text-slate-400 uppercase mt-0.5">
+                              {item.quantity} UN x {formatCurrency(item.product.salePrice)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-0.5">
+                          <p className="text-[9px] font-black text-slate-900">{formatCurrency(item.product.salePrice * item.quantity)}</p>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => updateCartQuantity(item.product.id, -1)} className="p-0.5 text-slate-400 hover:text-slate-900"><Minus size={8} /></button>
+                            <button onClick={() => updateCartQuantity(item.product.id, 1)} className="p-0.5 text-slate-400 hover:text-slate-900"><Plus size={8} /></button>
+                            <button onClick={() => removeFromCart(item.product.id)} className="p-1 text-red-400 hover:text-red-600 ml-0.5 bg-red-50 rounded-md transition-colors"><Trash2 size={10} /></button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="p-3 bg-slate-50 border-t border-slate-100 space-y-2">
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-lg font-bold text-slate-400 uppercase">
+                      <span>Subtotal</span>
+                      <span>{formatCurrency(cartTotal)}</span>
+                    </div>
+                    {totalDiscount > 0 && (
+                      <div className="flex justify-between text-[8px] font-bold text-red-500 uppercase">
+                        <span>Desconto</span>
+                        <span>- {formatCurrency(totalDiscount)}</span>
+                      </div>
+                    )}
+                    {totalSurcharge > 0 && (
+                      <div className="flex justify-between text-[8px] font-bold text-blue-500 uppercase">
+                        <span>Acréscimo ({totalSurcharge}%)</span>
+                        <span>+ {formatCurrency(cartTotal * (totalSurcharge / 100))}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-end pt-2 border-t border-slate-200">
+                      <span className="text-xs font-black text-slate-900 uppercase tracking-widest">Total</span>
+                      <span className="text-4xl font-black text-emerald-600 leading-none">{formatCurrency(finalTotal)}</span>
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={() => {
+                      if(cart.length > 0) {
+                        setPaymentEntries([{ method: 'Dinheiro', amount: finalTotal }]);
+                        setShowCheckoutModal(true);
+                      }
+                    }}
+                    disabled={cart.length === 0}
+                    className="w-full py-3 bg-emerald-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow-lg shadow-emerald-500/20 active:scale-95 transition-all disabled:opacity-20 flex items-center justify-center gap-2"
+                  >
+                    <CreditCard size={14} /> Finalizar Venda
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* --- LAYOUT MOBILE --- */}
+          <div className="lg:hidden flex flex-col gap-1.5 h-full relative">
+            <div className="flex items-center justify-between px-1">
+              <h2 className="text-sm font-black text-slate-800 uppercase tracking-tighter flex items-center gap-1.5">
+                <ShoppingCart size={16} className="text-emerald-600" /> VENDAS
+              </h2>
+              <button onClick={() => setShowHistory(true)} className="p-1.5 text-slate-400 bg-white border border-slate-100 rounded-lg active:scale-90 transition-all shadow-sm">
+                <History size={14} />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <div className="relative flex-1">
+                <ScanBarcode className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-300" size={10} />
+                <input 
+                  type="text" 
+                  placeholder="BIPAR CÓDIGO OU NOME..." 
+                  className="w-full h-7 pl-7 pr-2 bg-white border border-slate-200 rounded-lg text-[8px] font-black shadow-sm outline-none focus:border-slate-900 transition-all uppercase placeholder:text-slate-300" 
+                  value={productSearch} 
+                  onChange={(e) => setProductSearch(e.target.value)} 
+                />
+              </div>
+              <button onClick={() => startScanner('search')} className="w-7 h-7 bg-slate-900 text-white rounded-lg shadow-lg active:scale-95 shrink-0 flex items-center justify-center">
+                <Search size={12} />
+              </button>
+              <button onClick={toggleLayout} className="w-7 h-7 bg-white text-slate-400 hover:text-slate-600 transition-colors rounded-lg shadow-sm active:scale-95 shrink-0 border border-slate-100 flex items-center justify-center">
+                 {layoutMode === 'small' && <Grid size={12} />}
+                 {layoutMode === 'medium' && <LayoutGrid size={12} />}
+                 {layoutMode === 'list' && <Rows size={12} />}
+              </button>
+            </div>
+
+            {/* --- GRID DE VENDAS MOBILE --- */}
+            <div className={`grid gap-1 overflow-y-auto custom-scrollbar pr-1 flex-1 ${
+              layoutMode === 'small' ? 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5' :
+              layoutMode === 'medium' ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4' :
+              'grid-cols-1'
+            }`}>
+              {sortedProducts.slice(0, 6).map(product => {
+                const isTopSeller = topSellers.includes(product.id);
+                return (
+                  <button 
+                    key={product.id} 
+                    onClick={() => addToCart(product)} 
+                    className={`bg-white border overflow-hidden shadow-sm text-left active:scale-95 transition-all flex group ${
+                      layoutMode === 'list' ? 'rounded-lg p-0.5 pr-1 border' : 'rounded-lg border'
+                    } ${
+                      isTopSeller ? 'border-emerald-400 bg-emerald-50/30' : 'border-slate-100'
+                    } ${layoutMode === 'list' ? 'flex-row items-center gap-1.5' : 'flex-col'}`}
+                  >
+                    {/* Imagem */}
+                    <div className={`bg-slate-50 relative overflow-hidden shrink-0 ${
+                      layoutMode === 'list' ? 'w-8 h-8 rounded ml-0.5' : 
+                      layoutMode === 'small' ? 'h-12' : 
+                      'h-18'
+                    }`}>
+                      {product.photo ? (
+                        <img src={product.photo} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-200"><Package size={layoutMode === 'small' || layoutMode === 'list' ? 10 : 14} /></div>
+                      )}
+                    </div>
+
+                    {/* Conteúdo */}
+                    <div className={`${layoutMode === 'list' ? 'flex-1 flex items-center justify-between pr-0.5 min-w-0' : 'p-1'}`}>
+                      <div className="min-w-0 flex-1 mr-1">
+                        <h3 className={`font-black text-slate-800 uppercase truncate mb-0.5 ${layoutMode === 'small' ? 'text-[5.5px]' : 'text-[7.5px]'}`}>{product.name}</h3>
+                        <div className="flex items-center justify-between gap-1">
+                          <p className={`text-emerald-600 font-black whitespace-nowrap ${layoutMode === 'small' ? 'text-[7px]' : 'text-[8px]'}`}>{formatCurrency(product.salePrice)}</p>
+                          <span className={`text-[4.5px] font-black uppercase px-0.5 py-0.5 rounded shrink-0 ${
+                            product.quantity <= 0 ? 'bg-red-500 text-white' : 
+                            product.quantity <= 2 ? 'bg-amber-500 text-white' : 
+                            'bg-slate-900 text-white'
+                          }`}>
+                            Estoque: {product.quantity}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* PERSISTENT BOTTOM CART BAR (Mobile) */}
+            <div className="fixed bottom-[72px] left-0 right-0 px-4 py-1.5 z-40 lg:hidden pointer-events-none">
+              <button 
+                onClick={() => setShowCartDrawer(true)}
+                className={`w-full h-9 rounded-lg shadow-lg flex items-center justify-between px-3.5 transition-all active:scale-[0.98] pointer-events-auto ${
+                  cart.length > 0 
+                    ? 'bg-emerald-500 text-white' 
+                    : 'bg-white text-slate-400 border border-slate-100'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <ShoppingCart size={14} />
+                    {cart.length > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[6px] font-black w-3 h-3 rounded-full flex items-center justify-center border border-white">
+                        {cart.length}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-left">
+                    <p className="text-[6px] font-black uppercase tracking-widest opacity-80 leading-none mb-0.5">Carrinho</p>
+                    <p className="text-[9px] font-black leading-none">{cart.length} {cart.length === 1 ? 'item' : 'itens'}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-[6px] font-black uppercase tracking-widest opacity-80 leading-none mb-0.5">Total</p>
+                  <p className="text-xs font-black leading-none">{formatCurrency(finalTotal)}</p>
+                </div>
+              </button>
+            </div>
+
+            {/* MOBILE CART DRAWER */}
+            {showCartDrawer && (
+              <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 animate-in fade-in duration-300">
+                <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[20px] max-h-[75vh] flex flex-col animate-in slide-in-from-bottom duration-300 shadow-2xl">
+                  <div className="px-4 py-3 flex items-center justify-between border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 bg-slate-900 text-white rounded-lg flex items-center justify-center">
+                        <ShoppingCart size={16} />
+                      </div>
+                      <div>
+                        <h3 className="font-black uppercase text-[10px] tracking-tighter">Carrinho</h3>
+                        <p className="text-[8px] text-slate-400 font-bold uppercase">{cart.length} Itens Selecionados</p>
+                      </div>
+                    </div>
+                    <button onClick={() => setShowCartDrawer(false)} className="p-2 bg-slate-100 text-slate-400 rounded-lg active:scale-90 transition-transform">
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5 custom-scrollbar">
                     {cart.map(item => (
-                      <div key={item.product.id} className="bg-white/5 p-3 rounded-xl flex items-center justify-between">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <h4 className="text-[9px] font-black text-white uppercase truncate max-w-[200px]" title={item.product.name}>
-                            {item.product.name.length > 25 ? item.product.name.substring(0, 25) + '...' : item.product.name}
-                          </h4>
+                      <div key={item.product.id} className="flex items-center justify-between gap-2.5 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 bg-white rounded flex items-center justify-center text-slate-300 shrink-0 overflow-hidden border border-slate-100 shadow-sm">
+                            {item.product.photo ? <img src={item.product.photo} className="w-full h-full object-cover" /> : <Package size={14} />}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="text-[9px] font-black text-slate-800 uppercase truncate leading-tight">{item.product.name}</h4>
+                            <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">
+                              {formatCurrency(item.product.salePrice)}
+                            </p>
+                          </div>
                         </div>
                         <div className="flex items-center gap-2">
-                           <div className="flex items-center bg-slate-900 rounded-lg p-1 border border-white/5">
-                             <button onClick={() => updateCartQuantity(item.product.id, -1)} className="p-1 text-slate-400 hover:text-white"><Minus size={10} /></button>
-                             <span className="w-5 text-center text-[9px] font-black text-white">{item.quantity}</span>
-                             <button onClick={() => updateCartQuantity(item.product.id, 1)} className="p-1 text-slate-400 hover:text-white"><Plus size={10} /></button>
-                           </div>
-                           <button onClick={() => removeFromCart(item.product.id)} className="text-red-500 hover:text-red-400"><Trash2 size={12} /></button>
+                          <div className="flex items-center gap-1.5 bg-white p-0.5 rounded border border-slate-200 shadow-sm">
+                            <button onClick={() => updateCartQuantity(item.product.id, -1)} className="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-slate-900 active:scale-75 transition-transform"><Minus size={10} /></button>
+                            <span className="text-[9px] font-black text-slate-900 w-2.5 text-center">{item.quantity}</span>
+                            <button onClick={() => updateCartQuantity(item.product.id, 1)} className="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-slate-900 active:scale-75 transition-transform"><Plus size={10} /></button>
+                          </div>
+                          <button onClick={() => removeFromCart(item.product.id)} className="p-1.5 text-red-500 bg-red-50 rounded-lg active:scale-90 transition-transform">
+                            <Trash2 size={12} />
+                          </button>
                         </div>
                       </div>
                     ))}
                   </div>
-                )}
+
+                  <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 space-y-2.5">
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        <span>Subtotal</span>
+                        <span>{formatCurrency(cartTotal)}</span>
+                      </div>
+                      <div className="flex justify-between items-end pt-1 border-t border-slate-200">
+                        <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest">Total</span>
+                        <span className="text-3xl font-black text-emerald-600 leading-none">{formatCurrency(finalTotal)}</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button 
+                        onClick={() => setCart([])}
+                        className="py-2.5 bg-white border border-slate-200 text-slate-400 rounded-lg font-black uppercase text-[8px] tracking-widest active:scale-95 transition-all"
+                      >
+                        Limpar
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setShowCartDrawer(false);
+                          setPaymentEntries([{ method: 'Dinheiro', amount: finalTotal }]);
+                          setShowCheckoutModal(true);
+                        }}
+                        className="py-2.5 bg-emerald-500 text-white rounded-lg font-black uppercase text-[8px] tracking-widest shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
+                      >
+                        Pagar Agora
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
-        </>
+        </div>
       )}
 
       {/* MODAL DE CHECKOUT */}
       {showCheckoutModal && (
         <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center z-[100] p-4 backdrop-blur-md">
-          <div className="bg-white w-full max-w-sm rounded-[3rem] p-8 space-y-4 overflow-y-auto max-h-[90vh]">
-            <h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter text-center">Checkout</h3>
+          <div className="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4 overflow-y-auto max-h-[90vh] shadow-2xl border border-slate-100">
+            <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter text-center">Checkout</h3>
             
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {/* DESCONTO E ACRÉSCIMO (Compact) */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-4">Desconto (R$)</label>
+                  <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest ml-3">Desconto (R$)</label>
                   <div className="relative">
-                    <Minus className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                    <Minus className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={12} />
                     <input 
                       type="number" 
                       value={totalDiscount || ''} 
@@ -750,16 +1035,16 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
                           setPaymentEntries([{ ...paymentEntries[0], amount: calculateFinalTotal(val, totalSurcharge) }]);
                         }
                       }}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-black outline-none focus:border-emerald-500 transition-colors"
+                      className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-100 rounded-lg text-[10px] font-black outline-none focus:border-emerald-500 transition-colors"
                       placeholder="0,00"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-4">Acréscimo (%)</label>
+                  <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest ml-3">Acréscimo (%)</label>
                   <div className="relative">
-                    <Plus className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                    <Plus className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={12} />
                     <input 
                       type="number" 
                       value={totalSurcharge || ''} 
@@ -770,7 +1055,7 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
                           setPaymentEntries([{ ...paymentEntries[0], amount: calculateFinalTotal(totalDiscount, val) }]);
                         }
                       }}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-black outline-none focus:border-blue-500 transition-colors"
+                      className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-100 rounded-lg text-[10px] font-black outline-none focus:border-blue-500 transition-colors"
                       placeholder="0%"
                     />
                   </div>
@@ -779,14 +1064,14 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
 
               {/* FORMAS DE PAGAMENTO (Max 2) */}
               <div className="space-y-2">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-4">Pagamento</p>
+                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest ml-3">Pagamento</p>
                 {paymentEntries.map((entry, index) => (
                   <div key={index} className="space-y-1">
-                    <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-100">
+                    <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-lg border border-slate-100">
                       <select
                         value={entry.method}
                         onChange={(e) => updatePaymentEntry(index, 'method', e.target.value as 'Dinheiro' | 'Cartão' | 'PIX')}
-                        className="bg-transparent outline-none font-bold text-[8px] uppercase w-16"
+                        className="bg-transparent outline-none font-bold text-[7px] uppercase w-14"
                       >
                         <option>Dinheiro</option>
                         <option>Cartão</option>
@@ -797,11 +1082,11 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
                         value={entry.amount || ''}
                         onChange={(e) => updatePaymentEntry(index, 'amount', Number(e.target.value))}
                         placeholder="0.00"
-                        className="flex-1 bg-white px-1 py-0 rounded-md outline-none font-black text-xs text-right border-2 border-slate-200 focus:border-emerald-500 transition-all"
+                        className="flex-1 bg-white px-1 py-0.5 rounded-md outline-none font-black text-[10px] text-right border border-slate-200 focus:border-emerald-500 transition-all"
                       />
                       {paymentEntries.length > 1 && (
-                        <button onClick={() => removePaymentEntry(index)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg">
-                          <X size={14} />
+                        <button onClick={() => removePaymentEntry(index)} className="p-1 text-red-500 hover:bg-red-50 rounded-md">
+                          <X size={12} />
                         </button>
                       )}
                     </div>
@@ -863,22 +1148,22 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
                 return null;
               })()}
 
-              {/* TOTAL A PAGAR (Grande, no final) */}
-              <div className="bg-emerald-50 p-6 rounded-[2rem] text-center mt-4">
-                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Total a Pagar</p>
-                <p className="text-4xl font-black text-emerald-800">{formatCurrency(finalTotal)}</p>
+              {/* TOTAL A PAGAR (Compact) */}
+              <div className="bg-emerald-50 p-4 rounded-xl text-center mt-2 border border-emerald-100">
+                <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-0.5">Total a Pagar</p>
+                <p className="text-2xl font-black text-emerald-800">{formatCurrency(finalTotal)}</p>
               </div>
             </div>
 
-            <div className="space-y-2 pt-2">
+            <div className="space-y-1.5 pt-1">
               <button 
                 onClick={handleFinalizeSale} 
                 disabled={paymentEntries.reduce((acc, curr) => acc + curr.amount, 0) < finalTotal - 0.001} 
-                className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black uppercase text-[10px] shadow-xl disabled:opacity-50 active:scale-95 transition-all"
+                className="w-full py-3 bg-emerald-600 text-white rounded-lg font-black uppercase text-[9px] shadow-lg disabled:opacity-50 active:scale-95 transition-all flex items-center justify-center gap-2"
               >
-                FINALIZAR VENDA
+                <CheckCircle2 size={16} /> FINALIZAR VENDA
               </button>
-              <button onClick={() => setShowCheckoutModal(false)} className="w-full py-2 text-slate-400 font-black uppercase text-[8px]">Cancelar</button>
+              <button onClick={() => setShowCheckoutModal(false)} className="w-full py-1.5 text-slate-400 font-black uppercase text-[7px] tracking-widest">Cancelar</button>
             </div>
           </div>
         </div>
@@ -887,25 +1172,25 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
 
       {/* MODAL DE SUCESSO DA VENDA (APÓS FINALIZAR) */}
       {showReceiptModal && (
-        <div className="fixed inset-0 bg-slate-950/90 flex items-center justify-center z-[110] p-6 backdrop-blur-xl animate-in fade-in">
-          <div className="bg-white w-full max-w-xs rounded-[3rem] p-10 text-center shadow-2xl animate-in zoom-in-95">
-            <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 shadow-lg">
-              <CheckCircle2 size={48} />
+        <div className="fixed inset-0 bg-slate-950/90 flex items-center justify-center z-[110] p-4 backdrop-blur-xl animate-in fade-in">
+          <div className="bg-white w-full max-w-xs rounded-2xl p-6 text-center shadow-2xl animate-in zoom-in-95 border border-slate-100">
+            <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+              <CheckCircle2 size={24} />
             </div>
-            <h3 className="text-xl font-black text-slate-800 uppercase mb-2">Venda Realizada!</h3>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-8">O que deseja fazer agora?</p>
+            <h3 className="text-base font-black text-slate-800 uppercase mb-1">Venda Realizada!</h3>
+            <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest mb-6">O que deseja fazer agora?</p>
             
-            <div className="flex flex-col gap-3">
-              <button onClick={handleDownloadReceipt} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2">
-                <Download size={18} /> Baixar Cupom
+            <div className="flex flex-col gap-2">
+              <button onClick={handleDownloadReceipt} className="w-full py-3 bg-blue-600 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2">
+                <Download size={14} /> Baixar Cupom
               </button>
-              <button onClick={handleShareWhatsApp} disabled={isGeneratingReceipt} className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
-                {isGeneratingReceipt ? <Loader2 size={18} className="animate-spin" /> : <Share2 size={18} />} Compartilhar WhatsApp
+              <button onClick={handleShareWhatsApp} disabled={isGeneratingReceipt} className="w-full py-3 bg-emerald-600 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                {isGeneratingReceipt ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />} Compartilhar WhatsApp
               </button>
-              <button onClick={() => window.print()} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2">
-                <Printer size={18} /> Imprimir Direto
+              <button onClick={() => window.print()} className="w-full py-3 bg-slate-900 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2">
+                <Printer size={14} /> Imprimir Direto
               </button>
-              <button onClick={() => { setShowReceiptModal(false); setLastChange(0); }} className="w-full py-4 text-slate-400 font-black uppercase text-[10px] tracking-widest">Nova Venda</button>
+              <button onClick={() => { setShowReceiptModal(false); setLastChange(0); }} className="w-full py-2 text-slate-400 font-black uppercase text-[8px] tracking-widest">Nova Venda</button>
             </div>
           </div>
         </div>
@@ -969,8 +1254,8 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
                 </div>
               </div>
 
-              <div className="bg-slate-50 rounded-3xl p-6 space-y-3 border border-slate-100">
-                <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              <div className="bg-slate-50 rounded-3xl p-6 space-y-4 border border-slate-100">
+                <div className="flex justify-between items-center text-sm font-bold text-slate-400 uppercase tracking-widest">
                   <span>Subtotal</span>
                   <span>{formatCurrency(lastTransactionItems.reduce((acc, item) => acc + (item.product.salePrice * item.quantity), 0))}</span>
                 </div>
@@ -986,9 +1271,9 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
                     <span>+{formatCurrency(lastSurcharge)}</span>
                   </div>
                 )}
-                <div className="flex justify-between items-center pt-3 border-t border-slate-200">
-                  <span className="text-xs font-black text-slate-800 uppercase tracking-widest">Valor Total</span>
-                  <span className="text-2xl font-black text-blue-600">{formatCurrency(lastSaleAmount)}</span>
+                <div className="flex justify-between items-center pt-4 border-t border-slate-200">
+                  <span className="text-sm font-black text-slate-800 uppercase tracking-widest">Valor Total</span>
+                  <span className="text-5xl font-black text-blue-600">{formatCurrency(lastSaleAmount)}</span>
                 </div>
               </div>
 
@@ -1184,12 +1469,12 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
       {document.getElementById('print-section') && createPortal(
         <div 
           style={{ 
-            width: settings.printerSize === 80 ? '80mm' : '58mm', 
-            padding: settings.printerSize === 80 ? '4mm' : '2mm', 
+            width: Number(settings.printerSize) === 80 ? '80mm' : '58mm', 
+            padding: Number(settings.printerSize) === 80 ? '4mm' : '2mm', 
             backgroundColor: 'white', 
             color: 'black', 
             fontFamily: 'monospace',
-            fontSize: settings.printerSize === 80 ? '11px' : '10px',
+            fontSize: Number(settings.printerSize) === 80 ? '11px' : '10px',
             lineHeight: '1.2'
           }}
         >
@@ -1294,17 +1579,17 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
       {/* MODAL DE AUTENTICAÇÃO PARA CANCELAMENTO */}
       {isAuthModalOpen && (
         <div className="fixed inset-0 bg-slate-950/90 z-[200] flex items-center justify-center p-6 backdrop-blur-xl animate-in fade-in">
-           <div className="bg-white w-full max-w-xs rounded-[3rem] p-10 shadow-2xl animate-in zoom-in-95 border border-slate-100">
-              <div className="w-20 h-20 bg-red-50 text-red-600 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 shadow-inner">
-                 <Lock size={36} />
+           <div className="bg-white w-full max-w-xs rounded-2xl p-6 shadow-2xl animate-in zoom-in-95 border border-slate-100">
+              <div className="w-12 h-12 bg-red-50 text-red-600 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-inner">
+                 <Lock size={24} />
               </div>
-              <h3 className="text-center font-black text-slate-800 uppercase text-sm mb-1">Autorização Requerida</h3>
-              <p className="text-center text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-10 leading-tight">
+              <h3 className="text-center font-black text-slate-800 uppercase text-xs mb-1">Autorização Requerida</h3>
+              <p className="text-center text-[8px] text-slate-400 font-bold uppercase tracking-widest mb-6 leading-tight">
                 Insira a senha do administrador<br/>para cancelar esta venda
               </p>
               
-              <div className={`flex items-center gap-3 bg-slate-50 border rounded-2xl px-5 py-5 mb-4 transition-all ${authError ? 'border-red-500 bg-red-50 ring-4 ring-red-100' : 'border-slate-100 focus-within:border-blue-500'}`}>
-                 <KeyRound size={20} className={authError ? 'text-red-500' : 'text-slate-300'} />
+              <div className={`flex items-center gap-2 bg-slate-50 border rounded-xl px-4 py-3 mb-3 transition-all ${authError ? 'border-red-500 bg-red-50 ring-2 ring-red-100' : 'border-slate-100 focus-within:border-blue-500'}`}>
+                 <KeyRound size={16} className={authError ? 'text-red-500' : 'text-slate-300'} />
                  <input 
                    type="password" 
                    autoFocus
@@ -1312,17 +1597,17 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
                    onChange={(e) => setPasswordInput(e.target.value)}
                    onKeyDown={(e) => e.key === 'Enter' && confirmCancellation()}
                    placeholder="SENHA DO ADM"
-                   className="bg-transparent w-full outline-none font-black text-sm uppercase placeholder:text-slate-200"
+                   className="bg-transparent w-full outline-none font-black text-[10px] uppercase placeholder:text-slate-200"
                  />
               </div>
               
-              {authError && <p className="text-center text-[9px] font-black text-red-500 uppercase mb-4 animate-bounce">Senha Incorreta!</p>}
+              {authError && <p className="text-center text-[8px] font-black text-red-500 uppercase mb-3 animate-bounce">Senha Incorreta!</p>}
 
-              <div className="flex flex-col gap-2">
-                 <button onClick={confirmCancellation} disabled={verifyingPassword} className="w-full py-5 bg-red-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-red-500/20 active:scale-95 transition-all flex items-center justify-center disabled:opacity-50">
-                   {verifyingPassword ? <Loader2 size={18} className="animate-spin" /> : 'AUTORIZAR CANCELAMENTO'}
+              <div className="flex flex-col gap-1.5">
+                 <button onClick={confirmCancellation} disabled={verifyingPassword} className="w-full py-3 bg-red-600 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow-xl shadow-red-500/20 active:scale-95 transition-all flex items-center justify-center disabled:opacity-50">
+                   {verifyingPassword ? <Loader2 size={16} className="animate-spin" /> : 'AUTORIZAR CANCELAMENTO'}
                  </button>
-                 <button onClick={() => { setIsAuthModalOpen(false); setPasswordInput(''); setSelectedSaleToCancel(null); }} className="w-full py-4 text-slate-400 font-black uppercase text-[10px] tracking-widest">VOLTAR</button>
+                 <button onClick={() => { setIsAuthModalOpen(false); setPasswordInput(''); setSelectedSaleToCancel(null); }} className="w-full py-2 text-slate-400 font-black uppercase text-[8px] tracking-widest">VOLTAR</button>
               </div>
            </div>
         </div>
