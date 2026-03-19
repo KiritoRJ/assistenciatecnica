@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ShoppingBag, Search, X, History, ShoppingCart, Package, ArrowLeft, CheckCircle2, Eye, Loader2, Plus, Minus, Trash2, ChevronUp, ChevronDown, Receipt, Share2, Download, ScanBarcode, Lock, KeyRound, Printer, LayoutGrid, Grid, List, Rows, CreditCard } from 'lucide-react';
+import { ShoppingBag, Search, X, History, ShoppingCart, Package, ArrowLeft, CheckCircle2, Eye, Loader2, Plus, Minus, Trash2, ChevronUp, ChevronDown, Receipt, Share2, Download, ScanBarcode, Lock, KeyRound, Printer, LayoutGrid, Grid, List, Rows, CreditCard, Camera, Image as ImageIcon } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import html2canvas from 'html2canvas';
 import { Product, Sale, AppSettings, User } from '../types';
@@ -37,9 +37,6 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
   const [productSearch, setProductSearch] = useState('');
   const [historySearch, setHistorySearch] = useState('');
 
-  const [showReceiptModal, setShowReceiptModal] = useState(false);
-  const [showHistoryReceiptModal, setShowHistoryReceiptModal] = useState(false);
-  const [showReceiptOptions, setShowReceiptOptions] = useState(false);
   const [lastSaleAmount, setLastSaleAmount] = useState(0);
   const [lastTransactionItems, setLastTransactionItems] = useState<CartItem[]>([]);
   const [lastPaymentMethod, setLastPaymentMethod] = useState('');
@@ -54,6 +51,7 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
 
   const [isCancelling, setIsCancelling] = useState<string | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authAction, setAuthAction] = useState<'cancel_sale' | 'remove_banner' | null>(null);
   const [passwordInput, setPasswordInput] = useState('');
   const [verifyingPassword, setVerifyingPassword] = useState(false);
   const [authError, setAuthError] = useState(false);
@@ -66,6 +64,50 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
   const [totalSurcharge, setTotalSurcharge] = useState(0); // Acréscimo em %
   const [paymentEntries, setPaymentEntries] = useState<PaymentEntry[]>([{ method: 'Dinheiro', amount: 0 }]);
   const [isGeneratingReceipt, setIsGeneratingReceipt] = useState(false);
+  const [isCompressingBanner, setIsCompressingBanner] = useState(false);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
+
+  const compressImage = (base64Str: string, size: number = 800): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > size) { height *= size / width; width = size; }
+        } else {
+          if (height > size) { width *= size / height; height = size; }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/webp', 0.7));
+      };
+    });
+  };
+
+  const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsCompressingBanner(true);
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64 = event.target?.result as string;
+        const compressed = await compressImage(base64, 1200);
+        await onUpdateSettings({ ...settings, salesBannerUrl: compressed });
+        setIsCompressingBanner(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Erro ao processar banner:', error);
+      setIsCompressingBanner(false);
+    }
+  };
 
   const handleDownloadReceipt = () => {
     const element = document.getElementById('receipt-pdf-container');
@@ -202,13 +244,25 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
 
   const initiateCancelSale = (sale: Sale) => {
     setSelectedSaleToCancel(sale);
+    setAuthAction('cancel_sale');
     setIsAuthModalOpen(true);
     setPasswordInput('');
     setAuthError(false);
   };
 
-  const confirmCancellation = async () => {
-    if (!selectedSaleToCancel || !passwordInput || !tenantId) return;
+  const initiateRemoveBanner = () => {
+    setAuthAction('remove_banner');
+    setIsAuthModalOpen(true);
+    setPasswordInput('');
+    setAuthError(false);
+  };
+
+  const confirmAuth = async () => {
+    if (!passwordInput || !tenantId) return;
+    
+    // Se for cancelamento de venda, precisa ter a venda selecionada
+    if (authAction === 'cancel_sale' && !selectedSaleToCancel) return;
+
     setVerifyingPassword(true);
     setAuthError(false);
 
@@ -216,15 +270,24 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
       const { OnlineDB } = await import('../utils/api');
       const authResult = await OnlineDB.verifyAdminPassword(tenantId, passwordInput);
       if (authResult.success) {
-        setIsCancelling(selectedSaleToCancel.id);
-        setIsAuthModalOpen(false);
-        try {
-          await onDeleteSale(selectedSaleToCancel);
-        } catch (e: any) {
-          alert(`ERRO AO CANCELAR: ${e.message}`);
-        } finally {
-          setIsCancelling(null);
-          setSelectedSaleToCancel(null);
+        if (authAction === 'cancel_sale' && selectedSaleToCancel) {
+          setIsCancelling(selectedSaleToCancel.id);
+          setIsAuthModalOpen(false);
+          try {
+            await onDeleteSale(selectedSaleToCancel);
+          } catch (e: any) {
+            alert(`ERRO AO CANCELAR: ${e.message}`);
+          } finally {
+            setIsCancelling(null);
+            setSelectedSaleToCancel(null);
+            setAuthAction(null);
+            setPasswordInput('');
+          }
+        } else if (authAction === 'remove_banner') {
+          await onUpdateSettings({ ...settings, salesBannerUrl: null });
+          setIsAuthModalOpen(false);
+          setAuthAction(null);
+          setPasswordInput('');
         }
       } else {
         setAuthError(true);
@@ -393,7 +456,6 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
     setShowCartDrawer(false);
     
     // Impressão Direta conforme solicitado
-    setShowReceiptModal(true);
     setTimeout(() => {
       try {
         window.print();
@@ -469,8 +531,6 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
     setTimeout(() => {
       window.print();
     }, 500);
-    
-    setShowHistoryReceiptModal(true);
   };
 
   const { sortedProducts, topSellers } = useMemo(() => {
@@ -584,8 +644,47 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
               </div>
               
               <div className="flex-1 flex items-center justify-center">
-                <div className="px-6 py-1.5 bg-slate-50 rounded-lg border border-dashed border-slate-200">
-                  <h1 className="text-sm font-black text-slate-300 uppercase tracking-[0.3em]">LOGO BANNER</h1>
+                <div 
+                  onClick={() => currentUser?.role === 'admin' && bannerInputRef.current?.click()}
+                  className={`relative group ${currentUser?.role === 'admin' ? 'cursor-pointer' : ''} max-w-[400px] w-full h-12 bg-slate-50 rounded-lg border border-dashed border-slate-200 flex items-center justify-center overflow-hidden hover:border-blue-400 transition-all`}
+                >
+                  {isCompressingBanner ? (
+                    <Loader2 className="animate-spin text-blue-500" size={20} />
+                  ) : settings.salesBannerUrl ? (
+                    <>
+                      <img src={settings.salesBannerUrl} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                      {currentUser?.role === 'admin' && (
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-all">
+                          <Camera size={16} className="text-white" />
+                          <button 
+                            onClick={(e) => { 
+                              e.preventDefault();
+                              e.stopPropagation(); 
+                              initiateRemoveBanner(); 
+                            }}
+                            className="p-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors shadow-lg pointer-events-auto"
+                            title="Remover Banner"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-2 text-slate-300">
+                      <ImageIcon size={16} />
+                      <h1 className="text-[10px] font-black uppercase tracking-[0.2em]">
+                        {currentUser?.role === 'admin' ? 'ANEXAR LOGO / BANNER' : 'LOGO BANNER'}
+                      </h1>
+                    </div>
+                  )}
+                  <input 
+                    type="file" 
+                    ref={bannerInputRef} 
+                    onChange={handleBannerUpload} 
+                    accept="image/*" 
+                    className="hidden" 
+                  />
                 </div>
               </div>
 
@@ -1170,185 +1269,6 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
       )}
 
 
-      {/* MODAL DE SUCESSO DA VENDA (APÓS FINALIZAR) */}
-      {showReceiptModal && (
-        <div className="fixed inset-0 bg-slate-950/90 flex items-center justify-center z-[110] p-4 backdrop-blur-xl animate-in fade-in">
-          <div className="bg-white w-full max-w-xs rounded-2xl p-6 text-center shadow-2xl animate-in zoom-in-95 border border-slate-100">
-            <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-              <CheckCircle2 size={24} />
-            </div>
-            <h3 className="text-base font-black text-slate-800 uppercase mb-1">Venda Realizada!</h3>
-            <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest mb-6">O que deseja fazer agora?</p>
-            
-            <div className="flex flex-col gap-2">
-              <button onClick={handleDownloadReceipt} className="w-full py-3 bg-blue-600 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2">
-                <Download size={14} /> Baixar Cupom
-              </button>
-              <button onClick={handleShareWhatsApp} disabled={isGeneratingReceipt} className="w-full py-3 bg-emerald-600 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
-                {isGeneratingReceipt ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />} Compartilhar WhatsApp
-              </button>
-              <button onClick={() => window.print()} className="w-full py-3 bg-slate-900 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2">
-                <Printer size={14} /> Imprimir Direto
-              </button>
-              <button onClick={() => { setShowReceiptModal(false); setLastChange(0); }} className="w-full py-2 text-slate-400 font-black uppercase text-[8px] tracking-widest">Nova Venda</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL DE VISUALIZAÇÃO DE RECIBO (HISTÓRICO) */}
-      {showHistoryReceiptModal && (
-        <div className="fixed inset-0 bg-slate-950/90 flex items-center justify-center z-[110] p-4 md:p-6 backdrop-blur-xl animate-in fade-in overflow-y-auto">
-          <div className="bg-white w-full max-w-md rounded-[2.5rem] p-6 md:p-8 text-center shadow-2xl animate-in zoom-in-95 my-auto relative border-4 border-blue-500/10">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center shadow-sm">
-                  <Receipt size={20} />
-                </div>
-                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter">Visualizar Cupom</h3>
-              </div>
-              <button onClick={() => { setShowHistoryReceiptModal(false); setShowReceiptOptions(false); }} className="p-2 text-slate-400 hover:text-slate-600 bg-slate-100 rounded-full transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* INFORMAÇÕES DO CUPOM (Digital View) */}
-            <div className="mb-20 text-left space-y-8 overflow-y-auto max-h-[60vh] pr-2 custom-scrollbar">
-              <div className="space-y-1 pb-6 border-b border-slate-100">
-                <h4 className="font-black text-slate-900 uppercase text-lg tracking-tighter leading-tight">{settings.storeName}</h4>
-                <div className="flex flex-wrap gap-x-4 gap-y-1">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{settings.storeAddress}</p>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{settings.storePhone}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-8">
-                <div className="space-y-1">
-                  <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Identificação</p>
-                  <p className="text-xs font-black text-slate-700">Pedido {lastTransactionId}</p>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{formatDateTime(lastSaleDate)}</p>
-                </div>
-                <div className="space-y-1 text-right">
-                  <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Vendedor</p>
-                  <p className="text-xs font-black text-slate-700 truncate">{currentUser?.name?.toUpperCase() || 'SISTEMA'}</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Produtos</p>
-                  <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{lastTransactionItems.length} Itens</span>
-                </div>
-                <div className="space-y-4">
-                  {lastTransactionItems.map((item, index) => (
-                    <div key={index} className="flex justify-between items-start group">
-                      <div className="space-y-1">
-                        <p className="text-xs font-black text-slate-800 uppercase group-hover:text-blue-600 transition-colors">{item.product.name}</p>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                          {item.quantity} UN <span className="mx-1 text-slate-200">|</span> {formatCurrency(item.product.salePrice)}
-                        </p>
-                      </div>
-                      <p className="text-xs font-black text-slate-900">{formatCurrency(item.product.salePrice * item.quantity)}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="bg-slate-50 rounded-3xl p-6 space-y-4 border border-slate-100">
-                <div className="flex justify-between items-center text-sm font-bold text-slate-400 uppercase tracking-widest">
-                  <span>Subtotal</span>
-                  <span>{formatCurrency(lastTransactionItems.reduce((acc, item) => acc + (item.product.salePrice * item.quantity), 0))}</span>
-                </div>
-                {lastDiscount > 0 && (
-                  <div className="flex justify-between items-center text-[10px] font-bold text-red-500 uppercase tracking-widest">
-                    <span>Desconto Aplicado</span>
-                    <span>-{formatCurrency(lastDiscount)}</span>
-                  </div>
-                )}
-                {lastSurcharge > 0 && (
-                  <div className="flex justify-between items-center text-[10px] font-bold text-emerald-500 uppercase tracking-widest">
-                    <span>Acréscimo</span>
-                    <span>+{formatCurrency(lastSurcharge)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between items-center pt-4 border-t border-slate-200">
-                  <span className="text-sm font-black text-slate-800 uppercase tracking-widest">Valor Total</span>
-                  <span className="text-5xl font-black text-blue-600">{formatCurrency(lastSaleAmount)}</span>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Pagamento Efetuado</p>
-                <div className="grid grid-cols-1 gap-2">
-                  {lastPaymentEntries.map((entry, idx) => (
-                    <div key={idx} className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-blue-50 text-blue-500 rounded-lg flex items-center justify-center">
-                          <CreditCard size={14} />
-                        </div>
-                        <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">
-                          {entry.method === 'Cartão' && entry.installments && entry.installments > 1 
-                            ? `Cartão de Crédito (${entry.installments}x)` 
-                            : entry.method}
-                        </span>
-                      </div>
-                      <span className="text-xs font-black text-slate-900">{formatCurrency(entry.amount)}</span>
-                    </div>
-                  ))}
-                  {lastChange > 0 && (
-                    <div className="flex justify-between items-center bg-amber-50 p-4 rounded-2xl border border-amber-100 shadow-sm">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center">
-                          <History size={14} />
-                        </div>
-                        <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Troco</span>
-                      </div>
-                      <span className="text-xs font-black text-amber-700">{formatCurrency(lastChange)}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* BOTÃO EXPANSÍVEL DE OPÇÕES */}
-            <div className="absolute bottom-8 right-8 flex flex-col items-end gap-3">
-              {showReceiptOptions && (
-                <div className="flex flex-col gap-3 animate-in slide-in-from-bottom-4 duration-300">
-                  <button 
-                    onClick={handleDownloadReceipt}
-                    className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-all"
-                    title="Baixar PDF"
-                  >
-                    <Download size={20} />
-                  </button>
-                  <button 
-                    onClick={handleShareWhatsApp}
-                    disabled={isGeneratingReceipt}
-                    className="w-12 h-12 bg-emerald-600 text-white rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-all disabled:opacity-50"
-                    title="WhatsApp"
-                  >
-                    {isGeneratingReceipt ? <Loader2 size={20} className="animate-spin" /> : <Share2 size={20} />}
-                  </button>
-                  <button 
-                    onClick={() => window.print()}
-                    className="w-12 h-12 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-all"
-                    title="Imprimir"
-                  >
-                    <Printer size={20} />
-                  </button>
-                </div>
-              )}
-              <button 
-                onClick={() => setShowReceiptOptions(!showReceiptOptions)}
-                className={`w-14 h-14 ${showReceiptOptions ? 'bg-red-500 rotate-45' : 'bg-blue-600'} text-white rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 active:scale-95`}
-              >
-                <Plus size={28} />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* CONTEÚDO DO RECIBO (OCULTO NA TELA, MAS USADO PARA IMPRESSÃO/PDF) */}
       <div style={{ position: 'absolute', left: '-9999px', top: '0' }}>
         <div id="receipt-pdf-container" style={{ width: '210mm', minHeight: '297mm', display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: 'white', padding: '20mm 0' }}>
@@ -1586,7 +1506,7 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
               </div>
               <h3 className="text-center font-black text-slate-800 uppercase text-xs mb-1">Autorização Requerida</h3>
               <p className="text-center text-[8px] text-slate-400 font-bold uppercase tracking-widest mb-6 leading-tight">
-                Insira a senha do administrador<br/>para cancelar esta venda
+                {authAction === 'cancel_sale' ? 'Insira a senha do administrador para cancelar esta venda' : 'Insira a senha do administrador para remover o banner'}
               </p>
               
               <div className={`flex items-center gap-2 bg-slate-50 border rounded-xl px-4 py-3 mb-3 transition-all ${authError ? 'border-red-500 bg-red-50 ring-2 ring-red-100' : 'border-slate-100 focus-within:border-blue-500'}`}>
@@ -1596,7 +1516,7 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
                    autoFocus
                    value={passwordInput}
                    onChange={(e) => setPasswordInput(e.target.value)}
-                   onKeyDown={(e) => e.key === 'Enter' && confirmCancellation()}
+                   onKeyDown={(e) => e.key === 'Enter' && confirmAuth()}
                    placeholder="SENHA DO ADM"
                    className="bg-transparent w-full outline-none font-black text-[10px] uppercase placeholder:text-slate-200"
                  />
@@ -1605,10 +1525,10 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
               {authError && <p className="text-center text-[8px] font-black text-red-500 uppercase mb-3 animate-bounce">Senha Incorreta!</p>}
 
               <div className="flex flex-col gap-1.5">
-                 <button onClick={confirmCancellation} disabled={verifyingPassword} className="w-full py-3 bg-red-600 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow-xl shadow-red-500/20 active:scale-95 transition-all flex items-center justify-center disabled:opacity-50">
-                   {verifyingPassword ? <Loader2 size={16} className="animate-spin" /> : 'AUTORIZAR CANCELAMENTO'}
+                 <button onClick={confirmAuth} disabled={verifyingPassword} className="w-full py-3 bg-red-600 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow-xl shadow-red-500/20 active:scale-95 transition-all flex items-center justify-center disabled:opacity-50">
+                   {verifyingPassword ? <Loader2 size={16} className="animate-spin" /> : authAction === 'cancel_sale' ? 'AUTORIZAR CANCELAMENTO' : 'AUTORIZAR REMOÇÃO'}
                  </button>
-                 <button onClick={() => { setIsAuthModalOpen(false); setPasswordInput(''); setSelectedSaleToCancel(null); }} className="w-full py-2 text-slate-400 font-black uppercase text-[8px] tracking-widest">VOLTAR</button>
+                 <button onClick={() => { setIsAuthModalOpen(false); setPasswordInput(''); setSelectedSaleToCancel(null); setAuthAction(null); }} className="w-full py-2 text-slate-400 font-black uppercase text-[8px] tracking-widest">VOLTAR</button>
               </div>
            </div>
         </div>

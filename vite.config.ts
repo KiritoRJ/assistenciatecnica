@@ -29,9 +29,9 @@ export default defineConfig(({ mode }) => {
             maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
           },
           manifest: {
-            name: 'Assistência Técnica Pro',
-            short_name: 'Assistência Pro',
-            description: 'Sistema de Gestão para Assistência Técnica Profissional',
+            name: 'Lojas Cloud',
+            short_name: 'Lojas Cloud',
+            description: 'Sistema de Gestão lojas profissional',
             theme_color: '#2563eb',
             background_color: '#ffffff',
             display: 'standalone',

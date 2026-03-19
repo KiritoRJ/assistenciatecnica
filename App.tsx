@@ -1041,37 +1041,6 @@ const App: React.FC = () => {
           </button>
         </div>
 
-        {(session.subscriptionStatus === 'trial' || session.enabledFeatures?.promoBanner) && (
-          <div 
-            onClick={() => setIsSubscriptionModalOpen(true)}
-            className="relative bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-500 text-white py-1.5 px-4 cursor-pointer hover:brightness-110 transition-all shrink-0 shadow-xl z-40 flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-6 text-center sticky top-0 overflow-hidden border-b border-white/10"
-          >
-            {/* Decorative background elements */}
-            <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
-              <div className="absolute -top-10 -left-10 w-40 h-40 bg-white rounded-full blur-3xl"></div>
-              <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-blue-400 rounded-full blur-3xl"></div>
-            </div>
-
-            <div className="relative z-10 flex items-center gap-2">
-              <span className="text-base sm:text-lg drop-shadow-lg animate-pulse">🚀</span>
-              <div className="flex flex-col sm:flex-row items-center gap-0 sm:gap-3">
-                <h2 className="text-[9px] sm:text-xs font-black uppercase tracking-tight drop-shadow-sm">
-                  {session.subscriptionStatus === 'trial' 
-                    ? `Seu teste termina em ${Math.max(0, Math.ceil((new Date(session.subscriptionExpiresAt || new Date()).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))} dias` 
-                    : 'Oferta Especial Ativa'}
-                </h2>
-                <span className="hidden sm:block opacity-30">|</span>
-                <p className="text-[7px] sm:text-[9px] font-bold text-indigo-100 uppercase tracking-widest opacity-90">
-                  {session.subscriptionStatus === 'trial' ? 'Ative o Plano Pro e não perca o acesso' : 'Clique para ver as condições'}
-                </p>
-              </div>
-            </div>
-            
-            <div className="relative z-10 bg-white text-indigo-600 px-3 py-0.5 rounded-full font-black text-[8px] uppercase tracking-wider shadow-lg flex items-center gap-1 hover:scale-105 transition-transform active:scale-95">
-              ASSINAR <ChevronRight size={10} strokeWidth={3} />
-            </div>
-          </div>
-        )}
         <div className={`flex-1 overflow-y-auto p-4 pt-4 pb-24 md:pt-10 md:pb-4 max-w-none mx-auto w-full animate-in fade-in duration-700 hide-scrollbar [&::-webkit-scrollbar]:hidden ${isSidebarCollapsed ? 'md:pl-20' : 'md:pl-4'}`}>
           {activeTab === 'os' && <ServiceOrderTab orders={orders} setOrders={saveOrders} settings={settings} onUpdateSettings={saveSettings} onDeleteOrder={removeOrder} tenantId={session.tenantId || ''} maxOS={session.maxOS} currentUser={currentUser} />}
           {activeTab === 'estoque' && <StockTab products={products} setProducts={saveProducts} onDeleteProduct={removeProduct} settings={settings} onUpdateSettings={saveSettings} maxProducts={session.maxProducts} />}
