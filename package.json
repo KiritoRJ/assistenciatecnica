@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build",
+    "build": "cross-env NODE_OPTIONS=--max-old-space-size=2048 vite build",
     "lint": "tsc --noEmit",
     "preview": "vite preview",
     "start": "cross-env NODE_ENV=production tsx server.ts",
