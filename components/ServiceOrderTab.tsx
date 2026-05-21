@@ -40,6 +40,14 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
   const [selectedOrderForPhotos, setSelectedOrderForPhotos] = useState<ServiceOrder | null>(null);
   const [statusChangeOrder, setStatusChangeOrder] = useState<ServiceOrder | null>(null);
   const [fullScreenPhoto, setFullScreenPhoto] = useState<string | null>(null);
+
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (tenantId) {
+      OnlineDB.fetchSuppliers(tenantId).then(setSuppliers);
+    }
+  }, [tenantId, isModalOpen]);
   const [osLayout, setOsLayout] = useState<'small' | 'medium' | 'large'>(settings.osLayout || 'medium');
   const [isSigning, setIsSigning] = useState(false);
   const signatureRef = React.useRef<HTMLCanvasElement>(null);
@@ -51,6 +59,18 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
   const visibleOrders = useMemo(() => orders.filter(o => !o.isDeleted), [orders]);
   const osCount = visibleOrders.length;
   const limitReached = maxOS !== undefined && osCount >= maxOS;
+
+  const isExpired = (dateStr: string) => {
+    if (!dateStr) return false;
+    const orderDate = new Date(dateStr);
+    if (isNaN(orderDate.getTime())) return false;
+    
+    // 3 meses atrás
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    
+    return orderDate < threeMonthsAgo;
+  };
 
   const handleLayoutChange = async () => {
     const modes: ('small' | 'medium' | 'large')[] = ['small', 'medium', 'large'];
@@ -65,7 +85,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
     customerName: '', phoneNumber: '', address: '', deviceBrand: '', deviceModel: '',
     defect: '', repairDetails: '', partsCost: 0, serviceCost: 0, status: 'Pendente',
     photos: [], finishedPhotos: [], entryDate: '', exitDate: '',
-    checklist: [], signature: ''
+    checklist: [], signature: '', partSupplierId: '', partSupplierWarranty: ''
   });
 
   // Manipula mudanças nos campos de texto e select
@@ -233,7 +253,9 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
       checklist: [],
       signature: '',
       paymentMethod: undefined,
-      paymentInstallments: 1
+      paymentInstallments: 1,
+      partSupplierId: '',
+      partSupplierWarranty: ''
     });
   };
 
@@ -732,75 +754,85 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
 
       {/* LISTA DE ORDENS */}
       <div className={`grid gap-3 ${osLayout === 'large' ? 'sm:grid-cols-2' : ''}`}>
-        {paginatedOrders.length > 0 ? paginatedOrders.map(order => (
-          <div 
-            key={order.id} 
-            className={`bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-slate-50 flex items-center justify-between gap-2 sm:gap-4 group animate-in fade-in
-              ${osLayout === 'small' ? 'p-2' : osLayout === 'medium' ? 'p-3 sm:p-4' : 'p-5 sm:p-6'}
-            `}
-          >
-            <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0 cursor-pointer" onClick={() => { setEditingOrder(order); setFormData(order); setIsModalOpen(true); }}>
-              <div 
-                onClick={(e) => { e.stopPropagation(); setStatusChangeOrder(order); }}
-                className={`bg-slate-50 rounded-xl sm:rounded-2xl flex items-center justify-center text-custom-primary overflow-hidden border border-slate-100 shrink-0 hover:bg-blue-50 transition-colors
-                ${osLayout === 'small' ? 'w-8 h-8 sm:w-10 sm:h-10' : osLayout === 'medium' ? 'w-10 h-10 sm:w-14 sm:h-14' : 'w-14 h-14 sm:w-20 sm:h-20'}
-              `}>
-                {order.photos && order.photos.length > 0 ? (
-                  <img src={order.photos[0]} className="w-full h-full object-cover" />
-                ) : (
-                  <>
-                    <Smartphone size={osLayout === 'small' ? 12 : 16} className="sm:hidden" />
-                    <Smartphone size={osLayout === 'small' ? 16 : 24} className="hidden sm:block" />
-                  </>
-                )}
-              </div>
-              <div className="min-w-0">
-                <h3 className={`font-bold text-slate-800 truncate uppercase leading-tight
-                  ${osLayout === 'small' ? (order.customerName.length > 15 ? 'text-[9px]' : 'text-[10px]') : 
-                    osLayout === 'medium' ? (order.customerName.length > 15 ? 'text-[10px]' : 'text-[11px]') : 
-                    (order.customerName.length > 15 ? 'text-[12px]' : 'text-sm')}
-                  sm:${osLayout === 'small' ? 'text-xs' : osLayout === 'medium' ? 'text-sm' : 'text-base'}
+        {paginatedOrders.length > 0 ? paginatedOrders.map(order => {
+          const expired = isExpired(order.date);
+          return (
+            <div 
+              key={order.id} 
+              className={`rounded-2xl sm:rounded-3xl shadow-sm border flex items-center justify-between gap-2 sm:gap-4 group animate-in fade-in transition-all
+                ${expired ? 'bg-red-50/95 border-red-200 shadow-sm shadow-red-100/50' : 'bg-white border-slate-50'}
+                ${osLayout === 'small' ? 'p-2' : osLayout === 'medium' ? 'p-3 sm:p-4' : 'p-5 sm:p-6'}
+              `}
+            >
+              <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0 cursor-pointer" onClick={() => { setEditingOrder(order); setFormData(order); setIsModalOpen(true); }}>
+                <div 
+                  onClick={(e) => { e.stopPropagation(); setStatusChangeOrder(order); }}
+                  className={`rounded-xl sm:rounded-2xl flex items-center justify-center text-custom-primary overflow-hidden border shrink-0 transition-colors
+                  ${expired ? 'bg-red-100/50 border-red-200/50 hover:bg-red-100' : 'bg-slate-50 border-slate-100 hover:bg-blue-50'}
+                  ${osLayout === 'small' ? 'w-8 h-8 sm:w-10 sm:h-10' : osLayout === 'medium' ? 'w-10 h-10 sm:w-14 sm:h-14' : 'w-14 h-14 sm:w-20 sm:h-20'}
                 `}>
-                  {order.customerName.length > 15 ? order.customerName.substring(0, 15) + '...' : order.customerName}
-                </h3>
-                <p className={`text-slate-400 font-bold uppercase truncate leading-tight
-                  ${osLayout === 'small' ? 'text-[8px] sm:text-[9px]' : osLayout === 'medium' ? 'text-[9px] sm:text-[10px]' : 'text-[10px] sm:text-xs'}
-                `}>{order.deviceBrand} {order.deviceModel}</p>
-                <div className="flex items-center gap-2 mt-0.5">
-                   <span className={`font-black px-1.5 py-0.5 rounded-full ${order.status === 'Entregue' ? 'bg-emerald-50 text-emerald-500' : 'bg-blue-50 text-blue-500'} uppercase
-                     ${osLayout === 'small' ? 'text-[6px] sm:text-[7px]' : osLayout === 'medium' ? 'text-[7px] sm:text-[8px]' : 'text-[8px] sm:text-[9px]'}
-                   `}>{order.status}</span>
+                  {order.photos && order.photos.length > 0 ? (
+                    <img src={order.photos[0]} className="w-full h-full object-cover" />
+                  ) : (
+                    <>
+                      <Smartphone size={osLayout === 'small' ? 12 : 16} className="sm:hidden" />
+                      <Smartphone size={osLayout === 'small' ? 16 : 24} className="hidden sm:block" />
+                    </>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <h3 className={`font-bold text-slate-800 truncate uppercase leading-tight
+                    ${osLayout === 'small' ? (order.customerName.length > 15 ? 'text-[9px]' : 'text-[10px]') : 
+                      osLayout === 'medium' ? (order.customerName.length > 15 ? 'text-[10px]' : 'text-[11px]') : 
+                      (order.customerName.length > 15 ? 'text-[12px]' : 'text-sm')}
+                    sm:${osLayout === 'small' ? 'text-xs' : osLayout === 'medium' ? 'text-sm' : 'text-base'}
+                  `}>
+                    {order.customerName.length > 15 ? order.customerName.substring(0, 15) + '...' : order.customerName}
+                  </h3>
+                  <p className={`text-slate-400 font-bold uppercase truncate leading-tight
+                    ${osLayout === 'small' ? 'text-[8px] sm:text-[9px]' : osLayout === 'medium' ? 'text-[9px] sm:text-[10px]' : 'text-[10px] sm:text-xs'}
+                  `}>{order.deviceBrand} {order.deviceModel}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                     <span className={`font-black px-1.5 py-0.5 rounded-full ${order.status === 'Entregue' ? 'bg-emerald-50 text-emerald-500' : 'bg-blue-50 text-blue-500'} uppercase
+                       ${osLayout === 'small' ? 'text-[6px] sm:text-[7px]' : osLayout === 'medium' ? 'text-[7px] sm:text-[8px]' : 'text-[8px] sm:text-[9px]'}
+                     `}>{order.status}</span>
+                     {expired && (
+                       <span className={`font-black px-2 py-0.5 rounded-full bg-red-600 text-white uppercase animate-pulse
+                         ${osLayout === 'small' ? 'text-[6px] sm:text-[7px]' : osLayout === 'medium' ? 'text-[7px] sm:text-[8px]' : 'text-[8px] sm:text-[9px]'}
+                       `}>EXPIRADA</span>
+                     )}
+                  </div>
                 </div>
               </div>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <button onClick={(e) => { 
+                  e.stopPropagation(); 
+                  setOrderToPrint(order);
+                  setTimeout(() => window.print(), 500);
+                }} className={`bg-slate-900 text-white rounded-lg sm:rounded-xl shadow-md active:scale-90 flex items-center justify-center
+                  ${osLayout === 'small' ? 'p-1 sm:p-1.5' : osLayout === 'medium' ? 'p-1.5 sm:p-2.5' : 'p-2.5 sm:p-3.5'}
+                `} title="Imprimir Cupom">
+                  <Printer size={14} className={osLayout === 'large' ? 'sm:w-[20px] sm:h-[20px]' : 'sm:w-[18px] sm:h-[18px]'} />
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); generateReceiptImage(order); }} disabled={isGeneratingReceipt} className={`bg-blue-600 text-white rounded-lg sm:rounded-xl shadow-md active:scale-90 disabled:opacity-50 flex items-center justify-center
+                  ${osLayout === 'small' ? 'p-1 sm:p-1.5' : osLayout === 'medium' ? 'p-1.5 sm:p-2.5' : 'p-2.5 sm:p-3.5'}
+                `} title="Ver Recibo">
+                  {isGeneratingReceipt ? <Loader2 className="animate-spin" size={14} /> : <Eye size={14} className={osLayout === 'large' ? 'sm:w-[20px] sm:h-[20px]' : 'sm:w-[18px] sm:h-[18px]'} />}
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); setSelectedOrderForPhotos(order); }} className={`bg-emerald-600 text-white rounded-lg sm:rounded-xl shadow-md active:scale-90 flex items-center justify-center
+                  ${osLayout === 'small' ? 'p-1 sm:p-1.5' : osLayout === 'medium' ? 'p-1.5 sm:p-2.5' : 'p-2.5 sm:p-3.5'}
+                `} title="Ver Fotos">
+                  <ImageIcon size={14} className={osLayout === 'large' ? 'sm:w-[20px] sm:h-[20px]' : 'sm:w-[18px] sm:h-[18px]'} />
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); initiateDelete(order.id); }} className={`bg-red-50 text-red-500 rounded-lg sm:rounded-xl hover:bg-red-500 hover:text-white transition-all active:scale-90 flex items-center justify-center
+                  ${osLayout === 'small' ? 'p-1 sm:p-1.5' : osLayout === 'medium' ? 'p-1.5 sm:p-2.5' : 'p-2.5 sm:p-3.5'}
+                `} title="Excluir">
+                  <Trash2 size={14} className={osLayout === 'large' ? 'sm:w-[20px] sm:h-[20px]' : 'sm:w-[18px] sm:h-[18px]'} />
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <button onClick={(e) => { 
-                e.stopPropagation(); 
-                setOrderToPrint(order);
-                setTimeout(() => window.print(), 500);
-              }} className={`bg-slate-900 text-white rounded-lg sm:rounded-xl shadow-md active:scale-90 flex items-center justify-center
-                ${osLayout === 'small' ? 'p-1 sm:p-1.5' : osLayout === 'medium' ? 'p-1.5 sm:p-2.5' : 'p-2.5 sm:p-3.5'}
-              `} title="Imprimir Cupom">
-                <Printer size={14} className={osLayout === 'large' ? 'sm:w-[20px] sm:h-[20px]' : 'sm:w-[18px] sm:h-[18px]'} />
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); generateReceiptImage(order); }} disabled={isGeneratingReceipt} className={`bg-blue-600 text-white rounded-lg sm:rounded-xl shadow-md active:scale-90 disabled:opacity-50 flex items-center justify-center
-                ${osLayout === 'small' ? 'p-1 sm:p-1.5' : osLayout === 'medium' ? 'p-1.5 sm:p-2.5' : 'p-2.5 sm:p-3.5'}
-              `} title="Ver Recibo">
-                {isGeneratingReceipt ? <Loader2 className="animate-spin" size={14} /> : <Eye size={14} className={osLayout === 'large' ? 'sm:w-[20px] sm:h-[20px]' : 'sm:w-[18px] sm:h-[18px]'} />}
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); setSelectedOrderForPhotos(order); }} className={`bg-emerald-600 text-white rounded-lg sm:rounded-xl shadow-md active:scale-90 flex items-center justify-center
-                ${osLayout === 'small' ? 'p-1 sm:p-1.5' : osLayout === 'medium' ? 'p-1.5 sm:p-2.5' : 'p-2.5 sm:p-3.5'}
-              `} title="Ver Fotos">
-                <ImageIcon size={14} className={osLayout === 'large' ? 'sm:w-[20px] sm:h-[20px]' : 'sm:w-[18px] sm:h-[18px]'} />
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); initiateDelete(order.id); }} className={`bg-red-50 text-red-500 rounded-lg sm:rounded-xl hover:bg-red-500 hover:text-white transition-all active:scale-90 flex items-center justify-center
-                ${osLayout === 'small' ? 'p-1 sm:p-1.5' : osLayout === 'medium' ? 'p-1.5 sm:p-2.5' : 'p-2.5 sm:p-3.5'}
-              `} title="Excluir">
-                <Trash2 size={14} className={osLayout === 'large' ? 'sm:w-[20px] sm:h-[20px]' : 'sm:w-[18px] sm:h-[18px]'} />
-              </button>
-            </div>
-          </div>
-        )) : (
+          );
+        }) : (
           <div className="text-center py-20 bg-white rounded-[2.5rem] border-2 border-dashed border-slate-100">
             <p className="text-slate-300 font-black uppercase text-xs">Nenhuma O.S. encontrada</p>
           </div>
@@ -907,6 +939,38 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
                   <div className="space-y-1">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Reparo Efetuado</label>
                     <textarea name="repairDetails" value={formData.repairDetails} onChange={handleInputChange} placeholder="O que foi feito..." className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs h-16 resize-none border border-slate-100" />
+                  </div>
+                </div>
+
+                {/* INFORMAÇÕES DO FORNECEDOR (PEÇA) */}
+                <div className="bg-slate-50 p-4 rounded-3xl space-y-3">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200 pb-2">Informações da Peça (Para Uso Interno)</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Fornecedor</label>
+                      <select 
+                        name="partSupplierId" 
+                        value={formData.partSupplierId || ''} 
+                        onChange={handleInputChange} 
+                        className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100"
+                      >
+                        <option value="">Nenhum</option>
+                        {suppliers.map(s => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Garantia Fornecedor</label>
+                      <input 
+                        type="text" 
+                        name="partSupplierWarranty" 
+                        value={formData.partSupplierWarranty || ''} 
+                        onChange={handleInputChange} 
+                        placeholder="Ex: 3 meses, 90 dias" 
+                        className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100"
+                      />
+                    </div>
                   </div>
                 </div>
                 
