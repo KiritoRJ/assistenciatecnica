@@ -523,9 +523,7 @@ export class OnlineDB {
         exitDate: d.exit_date || '',
         isDeleted: d.is_deleted || false,
         signature: d.signature || '',
-        checklist: d.checklist || [],
-        partSupplierId: d.part_supplier_id || '',
-        partSupplierWarranty: d.part_supplier_warranty || ''
+        checklist: d.checklist || []
       }));
     } catch (e) { 
       console.error("Erro ao buscar ordens do Supabase:", e);
@@ -736,9 +734,7 @@ export class OnlineDB {
         exit_date: os.exitDate,
         is_deleted: os.isDeleted || false,
         signature: os.signature || '',
-        checklist: os.checklist || [],
-        part_supplier_id: os.partSupplierId || '',
-        part_supplier_warranty: os.partSupplierWarranty || ''
+        checklist: os.checklist || []
       }));
       const { error } = await supabase.from('service_orders').upsert(payload, { onConflict: 'id' });
       if (error) throw error;
@@ -1400,66 +1396,6 @@ export class OnlineDB {
       return { success: true };
     } catch (e: any) {
       console.error("Erro ao calcular comissão:", e);
-      return { success: false, message: e.message };
-    }
-  }
-
-  // Busca fornecedores do tenant
-  static async fetchSuppliers(tenantId: string) {
-    if (!tenantId) return [];
-    try {
-      const { data, error } = await supabase
-        .from('suppliers')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('name', { ascending: true });
-      if (error) throw error;
-      return (data || []).map(d => ({
-        id: d.id,
-        tenantId: d.tenant_id,
-        name: d.name,
-        phone: d.phone || '',
-        email: d.email || '',
-        createdAt: d.created_at
-      }));
-    } catch (e) {
-      console.error("Erro ao buscar fornecedores do Supabase:", e);
-      return [];
-    }
-  }
-
-  // Insere ou atualiza fornecedor
-  static async upsertSupplier(tenantId: string, supplier: any) {
-    if (!tenantId) return { success: false, message: 'ID da loja inválido' };
-    try {
-      const payload = {
-        id: supplier.id || undefined,
-        tenant_id: tenantId,
-        name: supplier.name,
-        phone: supplier.phone || '',
-        email: supplier.email || '',
-        created_at: supplier.createdAt || new Date().toISOString()
-      };
-      const { error } = await supabase.from('suppliers').upsert(payload, { onConflict: 'id' });
-      if (error) throw error;
-      return { success: true };
-    } catch (e: any) {
-      console.error("Erro ao salvar fornecedor no Supabase:", e);
-      return { success: false, message: e.message };
-    }
-  }
-
-  // Deleta fornecedor
-  static async deleteSupplier(id: string) {
-    try {
-      const { error } = await supabase
-        .from('suppliers')
-        .delete()
-        .eq('id', id);
-      if (error) throw error;
-      return { success: true };
-    } catch (e: any) {
-      console.error("Erro ao deletar fornecedor do Supabase:", e);
       return { success: false, message: e.message };
     }
   }

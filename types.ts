@@ -66,17 +66,6 @@ export interface ServiceOrder {
   sellerId?: string;
   paymentMethod?: 'Dinheiro' | 'Cartão' | 'PIX';
   paymentInstallments?: number;
-  partSupplierId?: string;
-  partSupplierWarranty?: string;
-}
-
-export interface Supplier {
-  id: string;
-  tenantId: string;
-  name: string;
-  phone?: string;
-  email?: string;
-  createdAt: string;
 }
 
 export interface Product {
