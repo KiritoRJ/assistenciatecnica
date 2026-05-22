@@ -48,12 +48,39 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
     }
   };
 
-  const [view, setView] = useState<'main' | 'print' | 'theme' | 'users' | 'backup' | 'catalog' | 'notifications' | 'subscription'>('main');
+  const [view, setView] = useState<'main' | 'print' | 'theme' | 'users' | 'backup' | 'catalog' | 'notifications' | 'subscription' | 'suppliers'>('main');
   const [showMenu, setShowMenu] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [supportPhone, setSupportPhone] = useState('5511999999999');
+
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [isLoaderSuppliers, setIsLoaderSuppliers] = useState(false);
+  const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
+  const [editingSupplier, setEditingSupplier] = useState<any | null>(null);
+  const [supplierFormData, setSupplierFormData] = useState({ name: '', phone: '', email: '' });
+
+  // Estados para exclusão de fornecedor com senha
+  const [isDeleteSupplierAuthOpen, setIsDeleteSupplierAuthOpen] = useState(false);
+  const [supplierToDelete, setSupplierToDelete] = useState<any | null>(null);
+  const [deleteSupplierPassword, setDeleteSupplierPassword] = useState('');
+  const [isVerifyingDeleteSupplier, setIsVerifyingDeleteSupplier] = useState(false);
+  const [deleteSupplierAuthError, setDeleteSupplierAuthError] = useState(false);
+
+  const loadSuppliers = async () => {
+    if (!tenantId) return;
+    setIsLoaderSuppliers(true);
+    const data = await OnlineDB.fetchSuppliers(tenantId);
+    setSuppliers(data);
+    setIsLoaderSuppliers(false);
+  };
+
+  useEffect(() => {
+    if (view === 'suppliers' && tenantId) {
+      loadSuppliers();
+    }
+  }, [view, tenantId]);
 
   useEffect(() => {
     const loadSupportPhone = async () => {
@@ -612,6 +639,268 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
     };
     input.click();
   };
+
+  const handleSaveSupplier = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supplierFormData.name) {
+      alert("Por favor, preencha o nome do fornecedor.");
+      return;
+    }
+    const payload = {
+      id: editingSupplier?.id || undefined,
+      name: supplierFormData.name,
+      phone: supplierFormData.phone,
+      email: supplierFormData.email,
+      createdAt: editingSupplier?.createdAt || new Date().toISOString()
+    };
+    const res = await OnlineDB.upsertSupplier(tenantId || '', payload);
+    if (res.success) {
+      triggerSaveFeedback(editingSupplier ? "Fornecedor Atualizado!" : "Fornecedor Cadastrado!");
+      setSupplierFormData({ name: '', phone: '', email: '' });
+      setEditingSupplier(null);
+      setIsSupplierModalOpen(false);
+      loadSuppliers();
+    } else {
+      alert("Erro ao salvar fornecedor: " + res.message);
+    }
+  };
+
+  const handleDeleteSupplierClick = (supplier: any) => {
+    setSupplierToDelete(supplier);
+    setDeleteSupplierPassword('');
+    setDeleteSupplierAuthError(false);
+    setIsDeleteSupplierAuthOpen(true);
+  };
+
+  const confirmDeleteSupplier = async () => {
+    if (isVerifyingDeleteSupplier) return;
+    if (!supplierToDelete || !deleteSupplierPassword || !tenantId) return;
+
+    setIsVerifyingDeleteSupplier(true);
+    setDeleteSupplierAuthError(false);
+
+    try {
+      const res = await OnlineDB.verifyAdminPassword(tenantId, deleteSupplierPassword);
+      if (res.success) {
+        const deleteRes = await OnlineDB.deleteSupplier(supplierToDelete.id);
+        if (deleteRes.success) {
+          triggerSaveFeedback("Fornecedor Deletado!");
+          setIsDeleteSupplierAuthOpen(false);
+          setSupplierToDelete(null);
+          setDeleteSupplierPassword('');
+          loadSuppliers();
+        } else {
+          alert("Erro ao excluir fornecedor: " + deleteRes.message);
+        }
+      } else {
+        setDeleteSupplierAuthError(true);
+        setDeleteSupplierPassword('');
+        setTimeout(() => setDeleteSupplierAuthError(false), 2000);
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert("Erro ao verificar senha.");
+    } finally {
+      setIsVerifyingDeleteSupplier(false);
+    }
+  };
+
+  const handleEditSupplierClick = (supplier: any) => {
+    setEditingSupplier(supplier);
+    setSupplierFormData({
+      name: supplier.name,
+      phone: supplier.phone || '',
+      email: supplier.email || ''
+    });
+    setIsSupplierModalOpen(true);
+  };
+
+  if (view === 'suppliers' && isAdmin) {
+    return (
+      <div className="space-y-6 animate-in slide-in-from-right-10 duration-500 pb-24 h-full">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4 flex-wrap">
+            <button onClick={() => setView('main')} className="p-3 bg-white shadow-sm border border-slate-100 rounded-2xl text-slate-600 active:scale-90 transition-all">
+              <ArrowLeft size={24} />
+            </button>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Fornecedores de Peças</h2>
+          </div>
+          <button 
+            onClick={() => { 
+              setEditingSupplier(null); 
+              setSupplierFormData({ name: '', phone: '', email: '' }); 
+              setIsSupplierModalOpen(true); 
+            }} 
+            className="p-3 bg-slate-900 text-white rounded-2xl shadow-xl active:scale-90 transition-all flex items-center gap-2 text-xs font-black uppercase tracking-widest"
+          >
+            Cadastrar Fornecedor
+          </button>
+        </div>
+
+        {isLoaderSuppliers ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="animate-spin text-slate-400" size={32} />
+          </div>
+        ) : suppliers.length > 0 ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {suppliers.map(supplier => (
+              <div 
+                key={supplier.id} 
+                className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center justify-between gap-4"
+              >
+                <div className="min-w-0">
+                  <h3 className="font-bold text-slate-800 uppercase text-xs leading-tight">{supplier.name}</h3>
+                  {supplier.phone && (
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Telefone: {supplier.phone}</p>
+                  )}
+                  {supplier.email && (
+                    <p className="text-[10px] text-slate-400 font-medium lowercase">Email: {supplier.email}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button 
+                    onClick={() => handleEditSupplierClick(supplier)} 
+                    className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl active:scale-90 transition-all"
+                    title="Editar"
+                  >
+                    <Edit2 size={16} />
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteSupplierClick(supplier)} 
+                    className="p-2.5 bg-red-50 hover:bg-red-500 hover:text-white text-red-500 rounded-xl active:scale-90 transition-all animate-out duration-100"
+                    title="Excluir"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-20 bg-white rounded-[2.5rem] border-2 border-dashed border-slate-100">
+            <p className="text-slate-300 font-black uppercase text-xs">Nenhum fornecedor cadastrado</p>
+          </div>
+        )}
+
+        {/* MODAL DO FORNECEDOR */}
+        {isSupplierModalOpen && (
+          <div className="fixed inset-0 bg-slate-950/80 z-[200] flex items-center justify-center p-6 backdrop-blur-md animate-in fade-in">
+            <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-6 shadow-2xl animate-in zoom-in-95 border border-slate-100">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-black text-slate-800 uppercase text-xs tracking-widest">
+                  {editingSupplier ? 'Editar Fornecedor' : 'Novo Fornecedor'}
+                </h3>
+                <button 
+                  onClick={() => setIsSupplierModalOpen(false)} 
+                  className="p-2 bg-slate-50 text-slate-400 hover:bg-slate-100 rounded-full transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveSupplier} className="space-y-4">
+                <div>
+                  <label className="block text-[8px] font-black uppercase text-slate-400 tracking-widest mb-1.5 pl-1">Nome do Fornecedor *</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={supplierFormData.name}
+                    onChange={e => setSupplierFormData({ ...supplierFormData, name: e.target.value })}
+                    placeholder="Ex: Distribuidora de Peças S.A."
+                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 font-semibold text-xs text-slate-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[8px] font-black uppercase text-slate-400 tracking-widest mb-1.5 pl-1">Telefone (Opcional)</label>
+                  <input 
+                    type="text" 
+                    value={supplierFormData.phone}
+                    onChange={e => setSupplierFormData({ ...supplierFormData, phone: e.target.value })}
+                    placeholder="Ex: (11) 99999-9999"
+                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 font-semibold text-xs text-slate-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[8px] font-black uppercase text-slate-400 tracking-widest mb-1.5 pl-1">Email (Opcional)</label>
+                  <input 
+                    type="email" 
+                    value={supplierFormData.email}
+                    onChange={e => setSupplierFormData({ ...supplierFormData, email: e.target.value })}
+                    placeholder="Ex: contato@fornecedor.com"
+                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 font-semibold text-xs text-slate-700"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button 
+                    type="button" 
+                    onClick={() => setIsSupplierModalOpen(false)} 
+                    className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-xl font-bold uppercase text-[9px] tracking-widest"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-black uppercase text-[9px] tracking-widest shadow-xl shadow-blue-500/20"
+                  >
+                    Salvar
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO COM SENHA */}
+        {isDeleteSupplierAuthOpen && (
+          <div className="fixed inset-0 bg-slate-950/80 z-[200] flex items-center justify-center p-6 backdrop-blur-md animate-in fade-in">
+            <div className={`bg-white w-full max-w-xs rounded-[2rem] overflow-hidden shadow-2xl transition-all duration-300 ${deleteSupplierAuthError ? 'animate-shake' : ''}`}>
+              <div className="p-8 text-center space-y-4">
+                <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <Lock size={32} />
+                </div>
+                <h3 className="font-black text-slate-800 uppercase text-sm">Excluir Fornecedor?</h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-normal">
+                  Esta ação é irreversível.<br />Digite a senha de Admin para confirmar.
+                </p>
+                <div className="relative">
+                  <KeyRound size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                  <input 
+                    type="password"
+                    value={deleteSupplierPassword}
+                    onChange={e => setDeleteSupplierPassword(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && confirmDeleteSupplier()}
+                    placeholder="Senha do ADM"
+                    className="w-full pl-10 pr-4 py-3 bg-slate-100 border-2 border-slate-200 rounded-xl font-mono text-sm tracking-widest text-center outline-none focus:ring-2 focus:ring-red-500 hover:border-slate-300 transition-colors"
+                    autoFocus
+                  />
+                </div>
+                {deleteSupplierAuthError && <p className="text-center text-[9px] font-black text-red-500 uppercase">Senha Incorreta!</p>}
+                
+                <div className="flex gap-2 pt-2">
+                  <button 
+                    onClick={() => { setIsDeleteSupplierAuthOpen(false); setSupplierToDelete(null); }} 
+                    className="flex-1 py-4 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-xl font-black text-[9px] uppercase tracking-wider"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    onClick={confirmDeleteSupplier} 
+                    disabled={isVerifyingDeleteSupplier} 
+                    className="flex-1 py-4 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black text-[9px] uppercase tracking-wider shadow-lg shadow-red-500/20 flex items-center justify-center gap-2"
+                  >
+                    {isVerifyingDeleteSupplier ? <Loader2 className="animate-spin" size={14} /> : 'Excluir'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (view === 'users') {
     return (
@@ -1459,6 +1748,9 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
                     </button>
                     <button onClick={() => { setView('catalog'); setShowMenu(false); }} className={`w-full flex items-center gap-3 px-5 py-4 text-[10px] font-black text-slate-600 hover:bg-slate-50 transition-colors uppercase tracking-widest text-left border-l-4 ${(view as any) === 'catalog' ? 'border-blue-500 bg-blue-50' : 'border-transparent'}`}>
                       <Briefcase size={16} /> Catálogo Online
+                    </button>
+                    <button onClick={() => { setView('suppliers'); setShowMenu(false); }} className={`w-full flex items-center gap-3 px-5 py-4 text-[10px] font-black text-slate-600 hover:bg-slate-50 transition-colors uppercase tracking-widest text-left border-l-4 ${(view as any) === 'suppliers' ? 'border-blue-500 bg-blue-50' : 'border-transparent'}`}>
+                      <Package size={16} /> Fornecedores de Peças
                     </button>
                     {enabledFeatures?.xmlExportImport !== false && (
                       <button onClick={() => { setView('backup'); setShowMenu(false); }} className={`w-full flex items-center gap-3 px-5 py-4 text-[10px] font-black text-slate-600 hover:bg-slate-50 transition-colors uppercase tracking-widest text-left border-l-4 ${(view as any) === 'backup' ? 'border-blue-500 bg-blue-50' : 'border-transparent'}`}>
