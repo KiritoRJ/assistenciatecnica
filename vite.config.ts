@@ -69,6 +69,7 @@ export default defineConfig(({ mode }) => {
       ],
 
       build: {
+        outDir: 'dist_prebuilt',
         sourcemap: false,
         minify: 'esbuild',
         cssCodeSplit: false,
