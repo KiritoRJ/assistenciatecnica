@@ -69,11 +69,8 @@ export default defineConfig(({ mode }) => {
       ],
 
       build: {
-        outDir: 'dist_prebuilt',
         sourcemap: false,
         minify: 'esbuild',
-        cssCodeSplit: false,
-        chunkSizeWarningLimit: 2000,
         rollupOptions: {
           maxParallelFileOps: 1,
           cache: false,

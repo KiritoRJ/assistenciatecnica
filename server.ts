@@ -459,11 +459,8 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    // Production: Serve static files from dist_prebuilt or dist
-    let distPath = path.join(__dirname, 'dist_prebuilt');
-    if (!fs.existsSync(distPath)) {
-      distPath = path.join(__dirname, 'dist');
-    }
+    // Production: Serve static files from dist
+    const distPath = path.join(__dirname, 'dist');
     console.log('Production mode: Serving static files from', distPath);
 
     // Serve service worker and manifest explicitly to ensure correct MIME types and no caching issues
