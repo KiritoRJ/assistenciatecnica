@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [
         react(),
-        VitePWA({
+      //VitePWA({
           registerType: 'autoUpdate',
           injectRegister: null, // Disable auto injection, we handle it in index.tsx
           includeAssets: ['icon.svg'],
