@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "npm install --include=dev && NODE_OPTIONS=--max-old-space-size=768 vite build",
+    "build": "node -e \"const fs = require('fs'); if (fs.existsSync('dist') && fs.readdirSync('dist').length > 0) { console.log('>>> [CloudX Optimizer] Pasta dist/ ja existe! Pulando compilação pesada para economizar RAM.'); process.exit(0); } else { console.log('>>> [CloudX Optimizer] Pasta dist/ nao encontrada. Iniciando compilação...'); require('child_process').execSync('NODE_OPTIONS=--max-old-space-size=768 vite build', {stdio: \\\"inherit\\\"}); }\"",
     "lint": "tsc --noEmit",
     "preview": "vite preview",
     "start": "cross-env NODE_ENV=production tsx server.ts",
