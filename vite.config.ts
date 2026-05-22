@@ -68,14 +68,6 @@ export default defineConfig(({ mode }) => {
         })
       ],
 
-      build: {
-        sourcemap: false,
-        minify: 'esbuild',
-        rollupOptions: {
-          maxParallelFileOps: 1,
-          cache: false,
-        },
-      },
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),
