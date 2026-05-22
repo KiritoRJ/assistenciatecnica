@@ -74,7 +74,20 @@ export default defineConfig(({ mode }) => {
         }
       },
       build: {
-        sourcemap: false
+        sourcemap: false,
+        rollupOptions: {
+          external: [
+            'react',
+            'react-dom',
+            'react/jsx-runtime',
+            'react-router-dom',
+            'lucide-react',
+            'recharts',
+            'jspdf',
+            '@supabase/supabase-js',
+            'html5-qrcode'
+          ]
+        }
       }
     };
 });
