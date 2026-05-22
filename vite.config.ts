@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [
         react(),
-      VitePWA({
+        VitePWA({
           registerType: 'autoUpdate',
           injectRegister: null, // Disable auto injection, we handle it in index.tsx
           includeAssets: ['icon.svg'],
@@ -71,22 +71,6 @@ export default defineConfig(({ mode }) => {
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),
-        }
-      },
-      build: {
-        sourcemap: false,
-        rollupOptions: {
-          external: [
-            'react',
-            'react-dom',
-            'react/jsx-runtime',
-            'react-router-dom',
-            'lucide-react',
-            'recharts',
-            'jspdf',
-            '@supabase/supabase-js',
-            'html5-qrcode'
-          ]
         }
       }
     };
