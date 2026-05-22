@@ -1407,6 +1407,19 @@ export class OnlineDB {
   // Busca fornecedores do tenant
   static async fetchSuppliers(tenantId: string) {
     if (!tenantId) return [];
+    
+    // Se estiver no cliente (browser), chama o servidor Express local para evitar bloqueio cors / iframe
+    if (typeof window !== 'undefined') {
+      try {
+        const response = await fetch(`/api/suppliers?tenantId=${encodeURIComponent(tenantId)}`);
+        if (!response.ok) throw new Error('Falha ao buscar fornecedores do servidor');
+        return await response.json();
+      } catch (e) {
+        console.error("Erro ao buscar fornecedores do servidor via API:", e);
+        return [];
+      }
+    }
+
     try {
       const { data, error } = await supabase
         .from('suppliers')
@@ -1431,6 +1444,22 @@ export class OnlineDB {
   // Insere ou atualiza fornecedor
   static async upsertSupplier(tenantId: string, supplier: any) {
     if (!tenantId) return { success: false, message: 'ID da loja inválido' };
+
+    // Se estiver no cliente (browser), chama o servidor Express local para evitar bloqueio cors / iframe
+    if (typeof window !== 'undefined') {
+      try {
+        const response = await fetch('/api/suppliers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tenantId, supplier })
+        });
+        return await response.json();
+      } catch (e: any) {
+        console.error("Erro ao salvar fornecedor no servidor via API:", e);
+        return { success: false, message: e.message };
+      }
+    }
+
     try {
       const payload = {
         id: supplier.id || undefined,
@@ -1451,6 +1480,19 @@ export class OnlineDB {
 
   // Deleta fornecedor
   static async deleteSupplier(id: string) {
+    // Se estiver no cliente (browser), chama o servidor Express local para evitar bloqueio cors / iframe
+    if (typeof window !== 'undefined') {
+      try {
+        const response = await fetch(`/api/suppliers/${encodeURIComponent(id)}`, {
+          method: 'DELETE'
+        });
+        return await response.json();
+      } catch (e: any) {
+        console.error("Erro ao deletar fornecedor no servidor via API:", e);
+        return { success: false, message: e.message };
+      }
+    }
+
     try {
       const { error } = await supabase
         .from('suppliers')

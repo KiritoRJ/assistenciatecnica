@@ -331,6 +331,52 @@ app.post('/api/auth/change-super-password', async (req, res) => {
   }
 });
 
+// Suppliers Proxy Endpoints
+app.get('/api/suppliers', async (req, res) => {
+  const { tenantId } = req.query;
+  if (!tenantId || typeof tenantId !== 'string') {
+    return res.status(400).json({ error: 'tenantId is required' });
+  }
+
+  try {
+    const suppliers = await OnlineDB.fetchSuppliers(tenantId);
+    res.json(suppliers);
+  } catch (err: any) {
+    console.error('Error fetching suppliers:', err);
+    res.status(500).json({ error: err.message || 'Error fetching suppliers' });
+  }
+});
+
+app.post('/api/suppliers', async (req, res) => {
+  const { tenantId, supplier } = req.body;
+  if (!tenantId) {
+    return res.status(400).json({ error: 'tenantId is required' });
+  }
+
+  try {
+    const result = await OnlineDB.upsertSupplier(tenantId, supplier);
+    res.json(result);
+  } catch (err: any) {
+    console.error('Error saving supplier:', err);
+    res.status(500).json({ success: false, message: err.message || 'Error saving supplier' });
+  }
+});
+
+app.delete('/api/suppliers/:id', async (req, res) => {
+  const { id } = req.params;
+  if (!id) {
+    return res.status(400).json({ error: 'id is required' });
+  }
+
+  try {
+    const result = await OnlineDB.deleteSupplier(id);
+    res.json(result);
+  } catch (err: any) {
+    console.error('Error deleting supplier:', err);
+    res.status(500).json({ success: false, message: err.message || 'Error deleting supplier' });
+  }
+});
+
 app.post('/api/create-preference', async (req, res) => {
   try {
     const { title, unit_price, quantity, tenantId, planType } = req.body;
