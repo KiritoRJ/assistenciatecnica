@@ -756,6 +756,21 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
       <div className={`grid gap-3 ${osLayout === 'large' ? 'sm:grid-cols-2' : ''}`}>
         {paginatedOrders.length > 0 ? paginatedOrders.map(order => {
           const expired = isExpired(order.date);
+          let entryDateDisplay = order.entryDate;
+          if (!entryDateDisplay && order.date) {
+            if (order.date.includes('/')) {
+              entryDateDisplay = order.date;
+            } else {
+              try {
+                const d = new Date(order.date);
+                entryDateDisplay = isNaN(d.getTime()) ? order.date : d.toLocaleDateString('pt-BR');
+              } catch {
+                entryDateDisplay = order.date;
+              }
+            }
+          }
+          if (!entryDateDisplay) entryDateDisplay = '-';
+
           return (
             <div 
               key={order.id} 
@@ -792,12 +807,21 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
                   <p className={`text-slate-400 font-bold uppercase truncate leading-tight
                     ${osLayout === 'small' ? 'text-[8px] sm:text-[9px]' : osLayout === 'medium' ? 'text-[9px] sm:text-[10px]' : 'text-[10px] sm:text-xs'}
                   `}>{order.deviceBrand} {order.deviceModel}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                     <span className={`font-black px-1.5 py-0.5 rounded-full ${order.status === 'Entregue' ? 'bg-emerald-50 text-emerald-500' : 'bg-blue-50 text-blue-500'} uppercase
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-1">
+                     <span className={`font-black px-1.5 py-0.5 rounded-full ${order.status === 'Entregue' ? 'bg-emerald-50 text-emerald-500' : 'bg-blue-50 text-blue-500'} uppercase shrink-0
                        ${osLayout === 'small' ? 'text-[6px] sm:text-[7px]' : osLayout === 'medium' ? 'text-[7px] sm:text-[8px]' : 'text-[8px] sm:text-[9px]'}
                      `}>{order.status}</span>
+                     <span className={`font-black text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full shrink-0
+                       ${osLayout === 'small' ? 'text-[6px] sm:text-[7px]' : osLayout === 'medium' ? 'text-[7px] sm:text-[8px]' : 'text-[8px] sm:text-[9px]'}
+                     `}>#{order.id}</span>
+                     <span className={`font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0
+                       ${osLayout === 'small' ? 'text-[6px] sm:text-[7px]' : osLayout === 'medium' ? 'text-[7px] sm:text-[8px]' : 'text-[8px] sm:text-[9px]'}
+                     `}>
+                       <Calendar size={osLayout === 'small' ? 8 : 10} className="shrink-0 text-slate-400" />
+                       Entrada: {entryDateDisplay}
+                     </span>
                      {expired && (
-                       <span className={`font-black px-2 py-0.5 rounded-full bg-red-600 text-white uppercase animate-pulse
+                       <span className={`font-black px-2 py-0.5 rounded-full bg-red-600 text-white uppercase animate-pulse shrink-0
                          ${osLayout === 'small' ? 'text-[6px] sm:text-[7px]' : osLayout === 'medium' ? 'text-[7px] sm:text-[8px]' : 'text-[8px] sm:text-[9px]'}
                        `}>EXPIRADA</span>
                      )}
