@@ -1,7 +1,12 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Search, Trash2, Camera, X, Eye, Loader2, Smartphone, AlertTriangle, Calculator, CheckCircle, Image as ImageIcon, Calendar, KeyRound, Lock, Download, Maximize2, Layout, Check, Printer, Share2 } from 'lucide-react';
+import { 
+  Plus, Search, Trash2, Camera, X, Eye, Loader2, Smartphone, 
+  AlertTriangle, Calculator, CheckCircle, Image as ImageIcon, Calendar, 
+  KeyRound, Lock, Download, Maximize2, Layout, Check, Printer, Share2,
+  SlidersHorizontal, ArrowDownAZ, Clock, ShieldCheck, RotateCcw
+} from 'lucide-react';
 import { ServiceOrder, AppSettings, User } from '../types';
 import { formatCurrency, parseCurrencyString, formatDate, formatDateTime, generateRandomNumericCode } from '../utils';
 import { OnlineDB } from '../utils/api';
@@ -49,6 +54,9 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
     }
   }, [tenantId, isModalOpen]);
   const [osLayout, setOsLayout] = useState<'small' | 'medium' | 'large'>(settings.osLayout || 'medium');
+  const [sortMode, setSortMode] = useState<'recent' | 'alphabetical' | 'oldest'>('recent');
+  const [filterType, setFilterType] = useState<'all' | 'warranty_only' | 'expired_only' | 'pending_only' | 'delivered_only'>('all');
+  const [isSortModalOpen, setIsSortModalOpen] = useState(false);
   const [isSigning, setIsSigning] = useState(false);
   const signatureRef = React.useRef<HTMLCanvasElement>(null);
   const fullScreenSignatureRef = React.useRef<HTMLCanvasElement>(null);
@@ -72,12 +80,38 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
     return orderDate < threeMonthsAgo;
   };
 
-  const handleLayoutChange = async () => {
-    const modes: ('small' | 'medium' | 'large')[] = ['small', 'medium', 'large'];
-    const currentIndex = modes.indexOf(osLayout);
-    const nextMode = modes[(currentIndex + 1) % modes.length];
-    setOsLayout(nextMode);
-    await onUpdateSettings({ ...settings, osLayout: nextMode });
+  // Verifica se a ordem está dentro do prazo de garantia (90 dias padrão a partir da entrega/saída ou criação)
+  const isUnderWarranty = (order: ServiceOrder) => {
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+    // Se possui data de saída informada
+    if (order.exitDate) {
+      if (order.exitDate.includes('/')) {
+        const parts = order.exitDate.split('/');
+        if (parts.length === 3) {
+          const exitD = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+          if (!isNaN(exitD.getTime())) {
+            return exitD >= ninetyDaysAgo;
+          }
+        }
+      } else {
+        const exitD = new Date(order.exitDate);
+        if (!isNaN(exitD.getTime())) {
+          return exitD >= ninetyDaysAgo;
+        }
+      }
+    }
+
+    // Pela data de criação da OS
+    if (order.date) {
+      const orderDate = new Date(order.date);
+      if (!isNaN(orderDate.getTime())) {
+        return orderDate >= ninetyDaysAgo;
+      }
+    }
+
+    return false;
   };
 
   // --- ESTADO DO FORMULÁRIO (DADOS DA O.S.) ---
@@ -696,25 +730,49 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
 
   const filtered = useMemo(() => {
     return visibleOrders
-      .filter(o => 
-        o.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.deviceModel.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.id.includes(searchTerm) ||
-        (o.phoneNumber && o.phoneNumber.includes(searchTerm))
-      )
+      .filter(o => {
+        // Busca textual (Nome, Modelo, ID, Telefone)
+        const matchesSearch = 
+          o.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          o.deviceModel.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          o.id.includes(searchTerm) ||
+          (o.phoneNumber && o.phoneNumber.includes(searchTerm));
+
+        if (!matchesSearch) return false;
+
+        // Filtros Especiais
+        if (filterType === 'expired_only') {
+          return isExpired(o.date);
+        }
+        if (filterType === 'warranty_only') {
+          return isUnderWarranty(o);
+        }
+        if (filterType === 'pending_only') {
+          return o.status === 'Pendente';
+        }
+        if (filterType === 'delivered_only') {
+          return o.status === 'Entregue';
+        }
+
+        return true;
+      })
       .sort((a, b) => {
-        // 1. Status: Pendente sempre primeiro
-        if (a.status === 'Pendente' && b.status !== 'Pendente') return -1;
-        if (a.status !== 'Pendente' && b.status === 'Pendente') return 1;
-        
-        // 2. Nome: Ordem Alfabética (A-Z)
-        const nameCompare = a.customerName.localeCompare(b.customerName, 'pt-BR', { sensitivity: 'base' });
-        if (nameCompare !== 0) return nameCompare;
-        
-        // 3. Data: Mais recentes primeiro (caso nomes sejam iguais)
+        if (sortMode === 'alphabetical') {
+          // Ordem Alfabética (A-Z)
+          const nameCompare = a.customerName.localeCompare(b.customerName, 'pt-BR', { sensitivity: 'base' });
+          if (nameCompare !== 0) return nameCompare;
+          return new Date(b.date).getTime() - new Date(a.date).getTime();
+        }
+
+        if (sortMode === 'oldest') {
+          // Mais antigas primeiro
+          return new Date(a.date).getTime() - new Date(b.date).getTime();
+        }
+
+        // Modo Padrão: Mais recentes primeiro
         return new Date(b.date).getTime() - new Date(a.date).getTime();
       });
-  }, [visibleOrders, searchTerm]);
+  }, [visibleOrders, searchTerm, sortMode, filterType]);
 
   const paginatedOrders = filtered.slice(0, settings.itemsPerPage * currentPage);
 
@@ -744,13 +802,76 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
           <input type="text" placeholder="Pesquisar..." className="w-full pl-11 pr-4 py-3.5 bg-white border-none rounded-2xl shadow-sm text-sm font-medium focus:ring-2 focus:ring-slate-900 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
         <button 
-          onClick={handleLayoutChange}
-          className="bg-white p-3.5 rounded-2xl shadow-sm text-slate-400 hover:text-slate-900 transition-colors flex items-center justify-center active:scale-95"
-          title={`Alternar Layout (Atual: ${osLayout === 'small' ? 'Pequeno' : osLayout === 'medium' ? 'Médio' : 'Grande'})`}
+          id="btn-organize-os"
+          onClick={() => setIsSortModalOpen(true)}
+          className={`p-3.5 rounded-2xl shadow-sm transition-all flex items-center justify-center active:scale-95 relative ${
+            sortMode !== 'recent' || filterType !== 'all' 
+              ? 'bg-blue-600 text-white shadow-blue-200' 
+              : 'bg-white text-slate-400 hover:text-slate-900'
+          }`}
+          title="Organizar e Filtrar Listagem (Ordem Alfabética, Recentes, Expiradas, Garantia)"
         >
-          <Layout size={18} />
+          <SlidersHorizontal size={18} />
+          {(sortMode !== 'recent' || filterType !== 'all') && (
+            <span className="absolute -top-1 -right-1 w-3 h-3 bg-amber-400 rounded-full border-2 border-white animate-pulse" />
+          )}
         </button>
       </div>
+
+      {/* INDICADOR DE FILTROS/ORDENAÇÃO ATIVOS */}
+      {(sortMode !== 'recent' || filterType !== 'all') && (
+        <div className="flex items-center gap-1.5 flex-wrap bg-slate-50 border border-slate-200/80 p-2.5 rounded-2xl animate-in fade-in">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider pl-1">Exibição:</span>
+          {sortMode === 'alphabetical' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-blue-100 text-blue-800 rounded-xl text-xs font-bold">
+              <ArrowDownAZ size={13} />
+              Ordem Alfabética (A-Z)
+              <button onClick={() => setSortMode('recent')} className="hover:text-blue-950 ml-1 p-0.5"><X size={11} /></button>
+            </span>
+          )}
+          {sortMode === 'oldest' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-blue-100 text-blue-800 rounded-xl text-xs font-bold">
+              <Clock size={13} />
+              Mais Antigas Primeiro
+              <button onClick={() => setSortMode('recent')} className="hover:text-blue-950 ml-1 p-0.5"><X size={11} /></button>
+            </span>
+          )}
+          {filterType === 'expired_only' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-red-100 text-red-800 rounded-xl text-xs font-bold">
+              <AlertTriangle size={13} />
+              Apenas Expiradas (+3 meses)
+              <button onClick={() => setFilterType('all')} className="hover:text-red-950 ml-1 p-0.5"><X size={11} /></button>
+            </span>
+          )}
+          {filterType === 'warranty_only' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold">
+              <ShieldCheck size={13} />
+              Apenas Dentro da Garantia
+              <button onClick={() => setFilterType('all')} className="hover:text-emerald-950 ml-1 p-0.5"><X size={11} /></button>
+            </span>
+          )}
+          {filterType === 'pending_only' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-100 text-amber-800 rounded-xl text-xs font-bold">
+              <Clock size={13} />
+              Apenas Pendentes
+              <button onClick={() => setFilterType('all')} className="hover:text-amber-950 ml-1 p-0.5"><X size={11} /></button>
+            </span>
+          )}
+          {filterType === 'delivered_only' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold">
+              <CheckCircle size={13} />
+              Apenas Entregues
+              <button onClick={() => setFilterType('all')} className="hover:text-emerald-950 ml-1 p-0.5"><X size={11} /></button>
+            </span>
+          )}
+          <button 
+            onClick={() => { setSortMode('recent'); setFilterType('all'); }}
+            className="text-[11px] font-bold text-slate-500 hover:text-slate-800 underline ml-auto pr-1"
+          >
+            Limpar filtros
+          </button>
+        </div>
+      )}
 
       {/* LISTA DE ORDENS */}
       <div className={`grid gap-3 ${osLayout === 'large' ? 'sm:grid-cols-2' : ''}`}>
@@ -1331,6 +1452,277 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
               >
                 <span>Entregue</span>
                 {statusChangeOrder.status === 'Entregue' && <CheckCircle size={16} />}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE ORGANIZAR E FILTRAR LISTAGEM */}
+      {isSortModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] overflow-hidden">
+            {/* Header do Modal */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-blue-50 text-blue-600 rounded-2xl">
+                  <SlidersHorizontal size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-slate-800 uppercase tracking-tight">Organizar Listagem</h3>
+                  <p className="text-xs text-slate-400 font-medium">Selecione ordenação e filtros de exibição</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsSortModalOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Conteúdo com Scroll */}
+            <div className="py-4 space-y-5 overflow-y-auto pr-1">
+              {/* Seção 1: Modo de Ordenação */}
+              <div>
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider block mb-2.5">
+                  1. Modo de Ordenação
+                </label>
+                <div className="grid grid-cols-1 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSortMode('recent')}
+                    className={`flex items-center justify-between p-3.5 rounded-2xl border text-left transition-all ${
+                      sortMode === 'recent' 
+                        ? 'border-blue-600 bg-blue-50/70 text-blue-900 font-bold shadow-sm' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${sortMode === 'recent' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                        <Clock size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight">Mais Recentes Primeiro</p>
+                        <p className="text-[11px] text-slate-400 font-normal">Ordens criadas recentemente no topo</p>
+                      </div>
+                    </div>
+                    {sortMode === 'recent' && <Check size={18} className="text-blue-600 shrink-0" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSortMode('alphabetical')}
+                    className={`flex items-center justify-between p-3.5 rounded-2xl border text-left transition-all ${
+                      sortMode === 'alphabetical' 
+                        ? 'border-blue-600 bg-blue-50/70 text-blue-900 font-bold shadow-sm' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${sortMode === 'alphabetical' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                        <ArrowDownAZ size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight">Ordem Alfabética (A - Z)</p>
+                        <p className="text-[11px] text-slate-400 font-normal">Nome do cliente em ordem alfabética</p>
+                      </div>
+                    </div>
+                    {sortMode === 'alphabetical' && <Check size={18} className="text-blue-600 shrink-0" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSortMode('oldest')}
+                    className={`flex items-center justify-between p-3.5 rounded-2xl border text-left transition-all ${
+                      sortMode === 'oldest' 
+                        ? 'border-blue-600 bg-blue-50/70 text-blue-900 font-bold shadow-sm' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${sortMode === 'oldest' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                        <Calendar size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight">Mais Antigas Primeiro</p>
+                        <p className="text-[11px] text-slate-400 font-normal">Ordens mais antigas no topo</p>
+                      </div>
+                    </div>
+                    {sortMode === 'oldest' && <Check size={18} className="text-blue-600 shrink-0" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Seção 2: Filtro de Exibição */}
+              <div>
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider block mb-2.5">
+                  2. Filtro de Exibição
+                </label>
+                <div className="grid grid-cols-1 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFilterType('all')}
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+                      filterType === 'all' 
+                        ? 'border-blue-600 bg-blue-50/70 text-blue-900 font-bold' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${filterType === 'all' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                        <Layout size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight">Todas as Ordens</p>
+                        <p className="text-[11px] text-slate-400 font-normal">Exibe todas as ordens cadastradas</p>
+                      </div>
+                    </div>
+                    {filterType === 'all' && <Check size={18} className="text-blue-600 shrink-0" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFilterType('warranty_only')}
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+                      filterType === 'warranty_only' 
+                        ? 'border-emerald-600 bg-emerald-50/70 text-emerald-900 font-bold' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${filterType === 'warranty_only' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-600'}`}>
+                        <ShieldCheck size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight flex items-center gap-2">
+                          Dentro da Garantia
+                          <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-md text-[10px] font-black">90 DIAS</span>
+                        </p>
+                        <p className="text-[11px] text-slate-400 font-normal">Apenas ordens com garantia ativa</p>
+                      </div>
+                    </div>
+                    {filterType === 'warranty_only' && <Check size={18} className="text-emerald-600 shrink-0" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFilterType('expired_only')}
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+                      filterType === 'expired_only' 
+                        ? 'border-red-600 bg-red-50/70 text-red-900 font-bold' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${filterType === 'expired_only' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-600'}`}>
+                        <AlertTriangle size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight flex items-center gap-2">
+                          Apenas Expiradas
+                          <span className="px-1.5 py-0.5 bg-red-100 text-red-700 rounded-md text-[10px] font-black">+3 MESES</span>
+                        </p>
+                        <p className="text-[11px] text-slate-400 font-normal">Ordens que ultrapassaram 3 meses</p>
+                      </div>
+                    </div>
+                    {filterType === 'expired_only' && <Check size={18} className="text-red-600 shrink-0" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFilterType('pending_only')}
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+                      filterType === 'pending_only' 
+                        ? 'border-amber-500 bg-amber-50/70 text-amber-900 font-bold' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${filterType === 'pending_only' ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-600'}`}>
+                        <Clock size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight">Apenas Pendentes</p>
+                        <p className="text-[11px] text-slate-400 font-normal">Aparelhos em manutenção</p>
+                      </div>
+                    </div>
+                    {filterType === 'pending_only' && <Check size={18} className="text-amber-600 shrink-0" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Seção 3: Tamanho do Card */}
+              <div>
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider block mb-2.5">
+                  3. Tamanho de Exibição dos Cards
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setOsLayout('small');
+                      await onUpdateSettings({ ...settings, osLayout: 'small' });
+                    }}
+                    className={`py-2.5 px-3 rounded-2xl border text-center font-bold text-xs transition-all ${
+                      osLayout === 'small'
+                        ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    Pequeno
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setOsLayout('medium');
+                      await onUpdateSettings({ ...settings, osLayout: 'medium' });
+                    }}
+                    className={`py-2.5 px-3 rounded-2xl border text-center font-bold text-xs transition-all ${
+                      osLayout === 'medium'
+                        ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    Médio
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setOsLayout('large');
+                      await onUpdateSettings({ ...settings, osLayout: 'large' });
+                    }}
+                    className={`py-2.5 px-3 rounded-2xl border text-center font-bold text-xs transition-all ${
+                      osLayout === 'large'
+                        ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    Grande (2 Col)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer do Modal */}
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setSortMode('recent');
+                  setFilterType('all');
+                }}
+                className="px-4 py-3 rounded-2xl text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors flex items-center gap-1.5"
+              >
+                <RotateCcw size={14} />
+                Restaurar Padrão
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsSortModalOpen(false)}
+                className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold shadow-lg active:scale-95 transition-all"
+              >
+                Aplicar e Fechar
               </button>
             </div>
           </div>

@@ -31,16 +31,12 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ success: false, message: 'tenantId e dados do fornecedor são obrigatórios' });
     }
     try {
-      const payload = {
+      const payload: any = {
         id: supplier.id || undefined,
         tenant_id: tenantId,
         name: supplier.name,
-        contact_name: supplier.contactName,
-        phone: supplier.phone,
-        email: supplier.email,
-        cnpj_cpf: supplier.cnpjCpf,
-        address: supplier.address,
-        notes: supplier.notes
+        phone: supplier.phone || '',
+        email: supplier.email || ''
       };
 
       const { data, error } = await supabase

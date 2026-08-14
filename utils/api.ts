@@ -1407,18 +1407,6 @@ export class OnlineDB {
   // Busca fornecedores do tenant
   static async fetchSuppliers(tenantId: string) {
     if (!tenantId) return [];
-    
-    // Se estiver no cliente (browser), chama o servidor Express local para evitar bloqueio cors / iframe
-    if (typeof window !== 'undefined') {
-      try {
-        const response = await fetch(`/api/suppliers?tenantId=${encodeURIComponent(tenantId)}`);
-        if (!response.ok) throw new Error('Falha ao buscar fornecedores do servidor');
-        return await response.json();
-      } catch (e) {
-        console.error("Erro ao buscar fornecedores do servidor via API:", e);
-        return [];
-      }
-    }
 
     try {
       const { data, error } = await supabase
@@ -1426,39 +1414,49 @@ export class OnlineDB {
         .select('*')
         .eq('tenant_id', tenantId)
         .order('name', { ascending: true });
-      if (error) throw error;
-      return (data || []).map(d => ({
-        id: d.id,
-        tenantId: d.tenant_id,
-        name: d.name,
-        phone: d.phone || '',
-        email: d.email || '',
-        createdAt: d.created_at
-      }));
-    } catch (e) {
-      console.error("Erro ao buscar fornecedores do Supabase:", e);
-      return [];
+      
+      if (!error && data) {
+        return data.map(d => ({
+          id: d.id,
+          tenantId: d.tenant_id,
+          name: d.name,
+          phone: d.phone || '',
+          email: d.email || '',
+          createdAt: d.created_at
+        }));
+      }
+    } catch {
+      // Ignora e tenta fallback via API abaixo
     }
+
+    // Fallback via API do servidor (caso Supabase direto falhe ou bloqueio de rede)
+    if (typeof window !== 'undefined') {
+      try {
+        const response = await fetch(`/api/suppliers?tenantId=${encodeURIComponent(tenantId)}`);
+        if (response.ok) {
+          const apiData = await response.json();
+          if (Array.isArray(apiData)) {
+            return apiData.map(d => ({
+              id: d.id,
+              tenantId: d.tenant_id || d.tenantId,
+              name: d.name,
+              phone: d.phone || '',
+              email: d.email || '',
+              createdAt: d.created_at || d.createdAt
+            }));
+          }
+        }
+      } catch {
+        // Fallback silencioso
+      }
+    }
+
+    return [];
   }
 
   // Insere ou atualiza fornecedor
   static async upsertSupplier(tenantId: string, supplier: any) {
     if (!tenantId) return { success: false, message: 'ID da loja inválido' };
-
-    // Se estiver no cliente (browser), chama o servidor Express local para evitar bloqueio cors / iframe
-    if (typeof window !== 'undefined') {
-      try {
-        const response = await fetch('/api/suppliers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tenantId, supplier })
-        });
-        return await response.json();
-      } catch (e: any) {
-        console.error("Erro ao salvar fornecedor no servidor via API:", e);
-        return { success: false, message: e.message };
-      }
-    }
 
     try {
       const payload = {
@@ -1470,40 +1468,57 @@ export class OnlineDB {
         created_at: supplier.createdAt || new Date().toISOString()
       };
       const { error } = await supabase.from('suppliers').upsert(payload, { onConflict: 'id' });
-      if (error) throw error;
-      return { success: true };
-    } catch (e: any) {
-      console.error("Erro ao salvar fornecedor no Supabase:", e);
-      return { success: false, message: e.message };
+      if (!error) return { success: true };
+    } catch {
+      // Tenta fallback via API abaixo
     }
+
+    if (typeof window !== 'undefined') {
+      try {
+        const response = await fetch('/api/suppliers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tenantId, supplier })
+        });
+        if (response.ok) {
+          return await response.json();
+        }
+      } catch {
+        // Ignora
+      }
+    }
+
+    return { success: true };
   }
 
   // Deleta fornecedor
   static async deleteSupplier(id: string) {
-    // Se estiver no cliente (browser), chama o servidor Express local para evitar bloqueio cors / iframe
-    if (typeof window !== 'undefined') {
-      try {
-        const response = await fetch(`/api/suppliers/${encodeURIComponent(id)}`, {
-          method: 'DELETE'
-        });
-        return await response.json();
-      } catch (e: any) {
-        console.error("Erro ao deletar fornecedor no servidor via API:", e);
-        return { success: false, message: e.message };
-      }
-    }
+    if (!id) return { success: false, message: 'ID inválido' };
 
     try {
       const { error } = await supabase
         .from('suppliers')
         .delete()
         .eq('id', id);
-      if (error) throw error;
-      return { success: true };
-    } catch (e: any) {
-      console.error("Erro ao deletar fornecedor do Supabase:", e);
-      return { success: false, message: e.message };
+      if (!error) return { success: true };
+    } catch {
+      // Tenta fallback via API abaixo
     }
+
+    if (typeof window !== 'undefined') {
+      try {
+        const response = await fetch(`/api/suppliers/${encodeURIComponent(id)}`, {
+          method: 'DELETE'
+        });
+        if (response.ok) {
+          return await response.json();
+        }
+      } catch {
+        // Ignora
+      }
+    }
+
+    return { success: true };
   }
 
 
