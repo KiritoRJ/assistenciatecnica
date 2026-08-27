@@ -7,7 +7,7 @@ import {
   KeyRound, Lock, Download, Maximize2, Layout, Check, Printer, Share2,
   SlidersHorizontal, ArrowDownAZ, Clock, ShieldCheck, RotateCcw
 } from 'lucide-react';
-import { ServiceOrder, AppSettings, User } from '../types';
+import { ServiceOrder, AppSettings, User, Customer } from '../types';
 import { formatCurrency, parseCurrencyString, formatDate, formatDateTime, generateRandomNumericCode } from '../utils';
 import { OnlineDB } from '../utils/api';
 
@@ -20,6 +20,11 @@ interface Props {
   tenantId: string;
   maxOS?: number;
   currentUser: User | null;
+  customers?: Customer[];
+  onSaveCustomer?: (customer: Customer) => Promise<void>;
+  onSaveCustomers?: (customers: Customer[]) => Promise<void>;
+  prefilledCustomer?: Customer | null;
+  onClearPrefilledCustomer?: () => void;
 }
 
 const COMMON_DEFECTS = [
@@ -28,7 +33,21 @@ const COMMON_DEFECTS = [
   'Wi-Fi não conecta', 'Software/Travando', 'Oxidação/Molhou', 'Vidro Traseiro'
 ];
 
-const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdateSettings, onDeleteOrder, tenantId, maxOS, currentUser }) => {
+const ServiceOrderTab: React.FC<Props> = ({ 
+  orders, 
+  setOrders, 
+  settings, 
+  onUpdateSettings, 
+  onDeleteOrder, 
+  tenantId, 
+  maxOS, 
+  currentUser,
+  customers = [],
+  onSaveCustomer,
+  onSaveCustomers,
+  prefilledCustomer,
+  onClearPrefilledCustomer
+}) => {
   // --- ESTADOS DE CONTROLE DE INTERFACE ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -119,8 +138,80 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
     customerName: '', phoneNumber: '', address: '', deviceBrand: '', deviceModel: '',
     defect: '', repairDetails: '', partsCost: 0, serviceCost: 0, status: 'Pendente',
     photos: [], finishedPhotos: [], entryDate: '', exitDate: '',
-    checklist: [], signature: '', partSupplierId: '', partSupplierWarranty: ''
+    checklist: [], signature: '', partSupplierId: '', partSupplierWarranty: '',
+    customerId: ''
   });
+
+  // Sugestões e busca automática de clientes existentes
+  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
+
+  // Efeito para preencher cliente vindo da aba Clientes
+  useEffect(() => {
+    if (prefilledCustomer) {
+      resetForm();
+      const today = new Date().toLocaleDateString('pt-BR');
+      setFormData(prev => ({
+        ...prev,
+        customerName: prefilledCustomer.name,
+        phoneNumber: prefilledCustomer.phoneNumber || '',
+        address: prefilledCustomer.address || '',
+        customerId: prefilledCustomer.id,
+        entryDate: today,
+        status: 'Pendente'
+      }));
+      setIsModalOpen(true);
+      if (onClearPrefilledCustomer) onClearPrefilledCustomer();
+    }
+  }, [prefilledCustomer]);
+
+  // Lista de sugestões de clientes baseada no que o usuário digita
+  const matchedCustomerSuggestions = useMemo(() => {
+    if (!customers || customers.length === 0) return [];
+    const nameSearch = (formData.customerName || '').trim().toLowerCase();
+    const phoneSearch = (formData.phoneNumber || '').replace(/\D/g, '');
+
+    if (nameSearch.length < 2 && phoneSearch.length < 3) return [];
+
+    return customers.filter(c => {
+      if (c.isDeleted) return false;
+      const cName = c.name.toLowerCase();
+      const cPhone = (c.phoneNumber || '').replace(/\D/g, '');
+
+      const matchName = nameSearch.length >= 2 && cName.includes(nameSearch);
+      const matchPhone = phoneSearch.length >= 3 && cPhone.includes(phoneSearch);
+
+      return matchName || matchPhone;
+    }).slice(0, 5);
+  }, [customers, formData.customerName, formData.phoneNumber]);
+
+  // Checa se o cliente atual já existe cadastrado
+  const matchedExistingCustomer = useMemo(() => {
+    if (!customers || customers.length === 0) return null;
+    const cleanName = (formData.customerName || '').trim().toLowerCase();
+    const cleanPhone = (formData.phoneNumber || '').replace(/\D/g, '');
+
+    if (!cleanName && cleanPhone.length < 8) return null;
+
+    return customers.find(c => {
+      if (c.isDeleted) return false;
+      if (formData.customerId && c.id === formData.customerId) return true;
+      const cPhone = (c.phoneNumber || '').replace(/\D/g, '');
+      if (cleanPhone.length >= 8 && cPhone.length >= 8 && cleanPhone === cPhone) return true;
+      if (cleanName && c.name.trim().toLowerCase() === cleanName) return true;
+      return false;
+    }) || null;
+  }, [customers, formData.customerName, formData.phoneNumber, formData.customerId]);
+
+  const selectSuggestedCustomer = (customer: Customer) => {
+    setFormData(prev => ({
+      ...prev,
+      customerName: customer.name,
+      phoneNumber: customer.phoneNumber || prev.phoneNumber,
+      address: customer.address || prev.address,
+      customerId: customer.id
+    }));
+    setShowCustomerSuggestions(false);
+  };
 
   // Manipula mudanças nos campos de texto e select
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -212,7 +303,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
 
   // --- PERSISTÊNCIA ---
   // Salva ou atualiza a O.S. na lista e sincroniza com o banco remoto
-  const handleSave = () => {
+  const handleSave = async () => {
     if (limitReached && !editingOrder) {
       alert(`Limite de ${maxOS} Ordens de Serviço atingido. Para cadastrar mais, atualize seu plano.`);
       return;
@@ -220,10 +311,57 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
 
     if (!formData.customerName || !formData.deviceModel) return alert('Campos obrigatórios faltando.');
     setIsSaving(true);
+
+    // --- SINCRONIZAÇÃO AUTOMÁTICA DO CLIENTE ---
+    let assignedCustomerId = formData.customerId;
+    const cleanCustomerName = (formData.customerName || '').trim();
+    const cleanPhone = (formData.phoneNumber || '').trim();
+    const rawPhoneDigits = cleanPhone.replace(/\D/g, '');
+
+    // Busca se o cliente já existe (por ID, telefone com 8+ dígitos, ou nome exato)
+    const existingCustomer = (customers || []).find(c => {
+      if (c.isDeleted) return false;
+      if (assignedCustomerId && c.id === assignedCustomerId) return true;
+      const cPhoneDigits = (c.phoneNumber || '').replace(/\D/g, '');
+      if (rawPhoneDigits.length >= 8 && cPhoneDigits.length >= 8 && rawPhoneDigits === cPhoneDigits) {
+        return true;
+      }
+      return c.name.trim().toLowerCase() === cleanCustomerName.toLowerCase();
+    });
+
+    if (existingCustomer) {
+      assignedCustomerId = existingCustomer.id;
+      // Atualiza telefone ou endereço se o cliente não tinha ou se foi informado algo novo
+      const updatedCustomer: Customer = {
+        ...existingCustomer,
+        address: formData.address?.trim() || existingCustomer.address || '',
+        phoneNumber: cleanPhone || existingCustomer.phoneNumber || '',
+        updatedAt: new Date().toISOString()
+      };
+      if (onSaveCustomer) {
+        await onSaveCustomer(updatedCustomer);
+      }
+    } else if (cleanCustomerName) {
+      // Cliente NÃO existe: o sistema cria automaticamente!
+      const newCustomer: Customer = {
+        id: 'C_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5).toUpperCase(),
+        tenantId: tenantId,
+        name: cleanCustomerName,
+        phoneNumber: cleanPhone,
+        address: formData.address?.trim() || '',
+        notes: '',
+        notesHistory: [],
+        createdAt: new Date().toISOString()
+      };
+      assignedCustomerId = newCustomer.id;
+      if (onSaveCustomer) {
+        await onSaveCustomer(newCustomer);
+      }
+    }
     
     let newOrdersList: ServiceOrder[];
     if (editingOrder) {
-      const updatedOrder = { ...editingOrder, ...formData } as ServiceOrder;
+      const updatedOrder = { ...editingOrder, ...formData, customerId: assignedCustomerId } as ServiceOrder;
       
       // Se o status mudou para Concluído ou Entregue, calcula comissão
       if ((updatedOrder.status === 'Concluído' || updatedOrder.status === 'Entregue') && 
@@ -248,6 +386,7 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
       const newOrder: ServiceOrder = {
         ...formData, 
         id: formattedId,
+        customerId: assignedCustomerId,
         date: new Date().toISOString(), 
         total: formData.total || (formData.partsCost || 0) + (formData.serviceCost || 0),
         sellerId: currentUser?.id, // Quem abriu a OS
@@ -289,8 +428,10 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
       paymentMethod: undefined,
       paymentInstallments: 1,
       partSupplierId: '',
-      partSupplierWarranty: ''
+      partSupplierWarranty: '',
+      customerId: ''
     });
+    setShowCustomerSuggestions(false);
   };
 
   // --- LÓGICA DE ASSINATURA ---
@@ -731,14 +872,24 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
   const filtered = useMemo(() => {
     return visibleOrders
       .filter(o => {
-        // Busca textual (Nome, Modelo, ID, Telefone)
-        const matchesSearch = 
-          o.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          o.deviceModel.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          o.id.includes(searchTerm) ||
-          (o.phoneNumber && o.phoneNumber.includes(searchTerm));
+        // Busca textual inteligente (Nome, Modelo, Marca, Defeito, Reparo, ID, Telefone com e sem formatação, e sem acentos)
+        if (searchTerm.trim()) {
+          const normTerm = searchTerm.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+          const termDigits = searchTerm.replace(/\D/g, '');
 
-        if (!matchesSearch) return false;
+          const nameMatch = (o.customerName || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(normTerm);
+          const modelMatch = (o.deviceModel || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(normTerm);
+          const brandMatch = (o.deviceBrand || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(normTerm);
+          const defectMatch = (o.defect || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(normTerm);
+          const idMatch = (o.id || '').toLowerCase().includes(normTerm) || (termDigits.length > 0 && (o.id || '').replace(/\D/g, '').includes(termDigits));
+          const phoneDigits = (o.phoneNumber || '').replace(/\D/g, '');
+          const phoneMatch = (termDigits.length > 0 && phoneDigits.includes(termDigits)) ||
+                             (o.phoneNumber || '').toLowerCase().includes(normTerm);
+
+          const matchesSearch = nameMatch || modelMatch || brandMatch || defectMatch || idMatch || phoneMatch;
+
+          if (!matchesSearch) return false;
+        }
 
         // Filtros Especiais
         if (filterType === 'expired_only') {
@@ -1004,20 +1155,90 @@ const ServiceOrderTab: React.FC<Props> = ({ orders, setOrders, settings, onUpdat
             <div className="p-4 space-y-4 overflow-y-auto pb-10 flex-1">
               <div className="grid grid-cols-1 gap-3">
                 {/* DADOS DO CLIENTE */}
-                <div className="bg-slate-50 p-4 rounded-3xl space-y-3">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200 pb-2">Dados do Cliente</h4>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Completo</label>
-                    <input name="customerName" value={formData.customerName} onChange={handleInputChange} placeholder="Nome do cliente" className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100" />
+                <div className="bg-slate-50 p-4 rounded-3xl space-y-3 relative">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dados do Cliente</h4>
+                    {matchedExistingCustomer ? (
+                      <span className="text-[9px] font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md flex items-center gap-1">
+                        ✓ Cliente Cadastrado
+                      </span>
+                    ) : formData.customerName?.trim() ? (
+                      <span className="text-[9px] font-black text-blue-700 bg-blue-100 px-2 py-0.5 rounded-md flex items-center gap-1">
+                        ✨ Novo Cliente (Automático)
+                      </span>
+                    ) : null}
                   </div>
+
+                  <div className="space-y-1 relative">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Completo</label>
+                    <input 
+                      name="customerName" 
+                      value={formData.customerName || ''} 
+                      onChange={(e) => {
+                        handleInputChange(e);
+                        setShowCustomerSuggestions(true);
+                      }} 
+                      onFocus={() => setShowCustomerSuggestions(true)}
+                      placeholder="Nome do cliente" 
+                      className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100 focus:border-blue-500 transition-all" 
+                    />
+
+                    {/* Sugestões de clientes cadastrados */}
+                    {showCustomerSuggestions && matchedCustomerSuggestions.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 z-30 mt-1 bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 space-y-1">
+                        <div className="px-2 py-1 flex items-center justify-between text-[9px] font-black text-slate-400 uppercase tracking-wider">
+                          <span>Clientes Existentes ({matchedCustomerSuggestions.length})</span>
+                          <button 
+                            type="button" 
+                            onClick={() => setShowCustomerSuggestions(false)}
+                            className="text-slate-400 hover:text-slate-600 font-bold"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        {matchedCustomerSuggestions.map(sug => (
+                          <button
+                            key={sug.id}
+                            type="button"
+                            onClick={() => selectSuggestedCustomer(sug)}
+                            className="w-full text-left p-2 hover:bg-blue-50 rounded-xl transition-colors flex items-center justify-between gap-2"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-xs font-black text-slate-800 truncate uppercase">{sug.name}</p>
+                              <p className="text-[10px] text-slate-400 truncate">{sug.phoneNumber || 'Sem telefone'}</p>
+                            </div>
+                            <span className="text-[9px] font-black uppercase text-blue-600 bg-blue-100/60 px-2 py-0.5 rounded-md shrink-0">
+                              Selecionar
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Telefone</label>
-                      <input name="phoneNumber" value={formData.phoneNumber} onChange={handleInputChange} placeholder="(00) 00000-0000" className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100" />
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
+                      <input 
+                        name="phoneNumber" 
+                        value={formData.phoneNumber || ''} 
+                        onChange={(e) => {
+                          handleInputChange(e);
+                          setShowCustomerSuggestions(true);
+                        }} 
+                        placeholder="(00) 00000-0000" 
+                        className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100 focus:border-blue-500 transition-all" 
+                      />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Endereço</label>
-                      <input name="address" value={formData.address} onChange={handleInputChange} placeholder="Endereço" className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100" />
+                      <input 
+                        name="address" 
+                        value={formData.address || ''} 
+                        onChange={handleInputChange} 
+                        placeholder="Endereço" 
+                        className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100 focus:border-blue-500 transition-all" 
+                      />
                     </div>
                   </div>
                 </div>

@@ -1,7 +1,7 @@
 
 import { db, SyncItem } from './localDb';
 import { OnlineDB } from './api';
-import { ServiceOrder, Product, Sale, Transaction, AppSettings, User } from '../types';
+import { ServiceOrder, Product, Sale, Transaction, AppSettings, User, Customer } from '../types';
 
 export class OfflineSync {
   private static isSyncing = false;
@@ -74,6 +74,15 @@ export class OfflineSync {
             case 'settings':
               const res = await OnlineDB.syncPush(item.tenantId, 'settings', item.data);
               success = res.success;
+              break;
+            case 'customers':
+              if (item.action === 'upsert') {
+                const res = await OnlineDB.upsertCustomers(item.tenantId, Array.isArray(item.data) ? item.data : [item.data]);
+                success = res.success;
+              } else if (item.action === 'delete') {
+                const res = await OnlineDB.deleteCustomer(item.tenantId, item.data.id);
+                success = res.success;
+              }
               break;
           }
         } catch (err) {
@@ -247,17 +256,66 @@ export class OfflineSync {
     });
   }
 
+  static async saveCustomer(tenantId: string, customer: Customer) {
+    await db.customers.put({ ...customer, tenantId });
+    if (navigator.onLine) {
+      const res = await OnlineDB.upsertCustomers(tenantId, [customer]);
+      if (res.success) return;
+    }
+    await db.syncQueue.add({
+      tenantId,
+      type: 'customers',
+      action: 'upsert',
+      data: customer,
+      timestamp: Date.now()
+    });
+  }
+
+  static async saveCustomers(tenantId: string, customers: Customer[]) {
+    await db.customers.bulkPut(customers.map(c => ({ ...c, tenantId })));
+    if (navigator.onLine) {
+      const res = await OnlineDB.upsertCustomers(tenantId, customers);
+      if (res.success) return;
+    }
+    await db.syncQueue.add({
+      tenantId,
+      type: 'customers',
+      action: 'upsert',
+      data: customers,
+      timestamp: Date.now()
+    });
+  }
+
+  static async deleteCustomer(tenantId: string, customerId: string) {
+    const customer = await db.customers.get(customerId);
+    if (customer) {
+      await db.customers.update(customerId, { isDeleted: true });
+    }
+    if (navigator.onLine) {
+      const res = await OnlineDB.deleteCustomer(tenantId, customerId);
+      if (res.success) return;
+    }
+    await db.syncQueue.add({
+      tenantId,
+      type: 'customers',
+      action: 'delete',
+      data: { id: customerId },
+      timestamp: Date.now()
+    });
+  }
+
   static async pullAllData(tenantId: string) {
     if (!navigator.onLine) return;
 
     try {
-      const [cloudSettings, cloudOrders, cloudProducts, cloudSales, cloudTransactions, cloudUsers] = await Promise.all([
+      const [cloudSettings, cloudOrders, cloudProducts, cloudSales, cloudTransactions, cloudUsers, cloudCustomers] = await Promise.all([
         OnlineDB.syncPull(tenantId, 'settings'),
         OnlineDB.fetchOrders(tenantId),
         OnlineDB.fetchProducts(tenantId),
         OnlineDB.fetchSales(tenantId),
         OnlineDB.fetchTransactions(tenantId),
-        OnlineDB.fetchUsers(tenantId)
+        OnlineDB.fetchUsers(tenantId),
+        OnlineDB.fetchCustomers(tenantId)
       ]);
 
       if (cloudSettings) await db.settings.put({ ...cloudSettings, tenantId });
@@ -281,6 +339,10 @@ export class OfflineSync {
         await db.transactions.where('tenantId').equals(tenantId).delete();
         await db.transactions.bulkPut(cloudTransactions.map((t: any) => ({ ...t, tenantId })));
       }
+      if (cloudCustomers) {
+        await db.customers.where('tenantId').equals(tenantId).delete();
+        await db.customers.bulkPut(cloudCustomers.map((c: any) => ({ ...c, tenantId })));
+      }
 
       return {
         settings: cloudSettings,
@@ -288,7 +350,8 @@ export class OfflineSync {
         products: cloudProducts,
         sales: cloudSales,
         transactions: cloudTransactions,
-        users: cloudUsers
+        users: cloudUsers,
+        customers: cloudCustomers || []
       };
     } catch (e) {
       console.error('Error pulling data from cloud:', e);
@@ -297,15 +360,16 @@ export class OfflineSync {
   }
 
   static async getLocalData(tenantId: string) {
-    const [settings, orders, products, sales, transactions, users] = await Promise.all([
+    const [settings, orders, products, sales, transactions, users, customers] = await Promise.all([
       db.settings.get(tenantId),
       db.orders.where('tenantId').equals(tenantId).toArray(),
       db.products.where('tenantId').equals(tenantId).toArray(),
       db.sales.where('tenantId').equals(tenantId).toArray(),
       db.transactions.where('tenantId').equals(tenantId).toArray(),
-      db.users.where('tenantId').equals(tenantId).toArray()
+      db.users.where('tenantId').equals(tenantId).toArray(),
+      db.customers.where('tenantId').equals(tenantId).toArray()
     ]);
 
-    return { settings, orders, products, sales, transactions, users };
+    return { settings, orders, products, sales, transactions, users, customers: customers || [] };
   }
 }

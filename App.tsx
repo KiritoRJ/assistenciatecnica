@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Smartphone, Package, ShoppingCart, BarChart3, Settings, LogOut, Menu, X, Loader2, ShieldCheck, KeyRound, ChevronRight, Store, TrendingUp, Users, CheckCircle2, ArrowRight } from 'lucide-react';
-import { ServiceOrder, Product, Sale, Transaction, AppSettings, User } from './types';
+import { ServiceOrder, Product, Sale, Transaction, AppSettings, User, Customer } from './types';
 import ServiceOrderTab from './components/ServiceOrderTab';
+import CustomersTab from './components/CustomersTab';
 import StockTab from './components/StockTab';
 import SalesTab from './components/SalesTab';
 import FinanceTab from './components/FinanceTab';
@@ -16,7 +17,7 @@ import { OfflineSync } from './utils/offlineSync';
 import { db } from './utils/localDb';
 import { useAppNotifications } from './utils/useAppNotifications';
 
-type Tab = 'os' | 'estoque' | 'vendas' | 'financeiro' | 'config' | 'team';
+type Tab = 'os' | 'clientes' | 'estoque' | 'vendas' | 'financeiro' | 'config' | 'team';
 
 const DEFAULT_SETTINGS: AppSettings = {
   storeName: 'Minha Assistência',
@@ -69,6 +70,8 @@ const App: React.FC = () => {
   } | null>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [prefilledCustomerForOS, setPrefilledCustomerForOS] = useState<Customer | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -260,6 +263,7 @@ const App: React.FC = () => {
           finalSettings.users = cloudData.users || [];
           setSettings(finalSettings);
           setOrders(cloudData.orders || []);
+          setCustomers(cloudData.customers || []);
           setProducts(cloudData.products || []);
           setSales(cloudData.sales || []);
           setTransactions(cloudData.transactions || []);
@@ -273,6 +277,7 @@ const App: React.FC = () => {
       finalSettings.users = localData.users || [];
       setSettings(finalSettings);
       setOrders(localData.orders || []);
+      setCustomers(localData.customers || []);
       setProducts(localData.products || []);
       setSales(localData.sales || []);
       setTransactions(localData.transactions || []);
@@ -284,6 +289,7 @@ const App: React.FC = () => {
       finalSettings.users = localData.users || [];
       setSettings(finalSettings);
       setOrders(localData.orders || []);
+      setCustomers(localData.customers || []);
       setProducts(localData.products || []);
       setSales(localData.sales || []);
       setTransactions(localData.transactions || []);
@@ -313,6 +319,11 @@ const App: React.FC = () => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'service_orders', filter: `tenant_id=eq.${tenantId}` },
+        debouncedLoad
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'customers', filter: `tenant_id=eq.${tenantId}` },
         debouncedLoad
       )
       .on(
@@ -465,6 +476,8 @@ const App: React.FC = () => {
     setSession(null);
     setSettings(null);
     setOrders([]);
+    setCustomers([]);
+    setPrefilledCustomerForOS(null);
     setProducts([]);
     setSales([]);
     setActiveTab('vendas');
@@ -507,6 +520,31 @@ const App: React.FC = () => {
         await OfflineSync.saveOrder(session.tenantId, order);
       }
     }
+  };
+
+  const saveCustomer = async (customer: Customer) => {
+    const exists = customers.some(c => c.id === customer.id);
+    const updated = exists 
+      ? customers.map(c => c.id === customer.id ? customer : c)
+      : [customer, ...customers];
+    setCustomers(updated);
+    if (session?.tenantId) {
+      await OfflineSync.saveCustomer(session.tenantId, customer);
+    }
+  };
+
+  const saveCustomers = async (newCustomers: Customer[]) => {
+    setCustomers(newCustomers);
+    if (session?.tenantId) {
+      await OfflineSync.saveCustomers(session.tenantId, newCustomers);
+    }
+  };
+
+  const removeCustomer = async (id: string) => {
+    if (!session?.tenantId) return;
+    const updated = customers.filter(c => c.id !== id);
+    setCustomers(updated);
+    await OfflineSync.deleteCustomer(session.tenantId, id);
   };
 
   const removeOrder = async (id: string) => {
@@ -969,10 +1007,11 @@ const App: React.FC = () => {
 
   const navItems = [
     { id: 'os', label: 'Ordens', icon: Smartphone, roles: ['admin', 'colaborador'], feature: 'osTab' },
+    { id: 'clientes', label: 'Clientes', icon: Users, roles: ['admin', 'colaborador'] },
     { id: 'estoque', label: 'Estoque', icon: Package, roles: ['admin'], feature: 'stockTab' },
     { id: 'vendas', label: 'Vendas', icon: ShoppingCart, roles: ['admin', 'colaborador'], feature: 'salesTab' },
     { id: 'financeiro', label: 'Finanças', icon: BarChart3, roles: ['admin'], feature: 'financeTab' },
-    { id: 'team', label: 'Equipe', icon: Users, roles: ['admin'], feature: 'financeTab' },
+    { id: 'team', label: 'Equipe', icon: ShieldCheck, roles: ['admin'], feature: 'financeTab' },
     { id: 'config', label: 'Ajustes', icon: Settings, roles: ['admin', 'colaborador'] },
   ];
   
@@ -1042,7 +1081,42 @@ const App: React.FC = () => {
         </div>
 
         <div className={`flex-1 overflow-y-auto p-4 pt-4 pb-24 md:pt-10 md:pb-4 max-w-none mx-auto w-full animate-in fade-in duration-700 hide-scrollbar [&::-webkit-scrollbar]:hidden ${isSidebarCollapsed ? 'md:pl-20' : 'md:pl-4'}`}>
-          {activeTab === 'os' && <ServiceOrderTab orders={orders} setOrders={saveOrders} settings={settings} onUpdateSettings={saveSettings} onDeleteOrder={removeOrder} tenantId={session.tenantId || ''} maxOS={session.maxOS} currentUser={currentUser} />}
+          {activeTab === 'os' && (
+            <ServiceOrderTab 
+              orders={orders} 
+              setOrders={saveOrders} 
+              settings={settings} 
+              onUpdateSettings={saveSettings} 
+              onDeleteOrder={removeOrder} 
+              tenantId={session.tenantId || ''} 
+              maxOS={session.maxOS} 
+              currentUser={currentUser}
+              customers={customers}
+              onSaveCustomer={saveCustomer}
+              onSaveCustomers={saveCustomers}
+              prefilledCustomer={prefilledCustomerForOS}
+              onClearPrefilledCustomer={() => setPrefilledCustomerForOS(null)}
+            />
+          )}
+          {activeTab === 'clientes' && (
+            <CustomersTab 
+              customers={customers}
+              orders={orders}
+              settings={settings}
+              currentUser={currentUser}
+              tenantId={session.tenantId || ''}
+              onSaveCustomer={saveCustomer}
+              onSaveCustomers={saveCustomers}
+              onDeleteCustomer={removeCustomer}
+              onNavigateToNewOS={(customer) => {
+                setPrefilledCustomerForOS(customer);
+                setActiveTab('os');
+              }}
+              onViewOrder={() => {
+                setActiveTab('os');
+              }}
+            />
+          )}
           {activeTab === 'estoque' && <StockTab products={products} setProducts={saveProducts} onDeleteProduct={removeProduct} settings={settings} onUpdateSettings={saveSettings} maxProducts={session.maxProducts} />}
           {activeTab === 'vendas' && <SalesTab products={products} setProducts={saveProducts} sales={sales.filter(s => !s.isDeleted)} setSales={saveSales} settings={settings} onUpdateSettings={saveSettings} currentUser={currentUser} onDeleteSale={removeSale} tenantId={session.tenantId || ''} />}
           {activeTab === 'financeiro' && <FinanceTab orders={orders} sales={sales} products={products} transactions={transactions} setTransactions={saveTransactions} setOrders={saveOrders} onDeleteTransaction={removeTransaction} onDeleteSale={removeSale} tenantId={session.tenantId || ''} settings={settings} enabledFeatures={session.enabledFeatures} />}

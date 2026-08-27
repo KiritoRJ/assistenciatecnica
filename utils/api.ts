@@ -1,5 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
+import { Customer } from '../types';
 
 const SUPABASE_URL = (typeof process !== 'undefined' && process.env?.VITE_SUPABASE_URL) || (import.meta as any).env?.VITE_SUPABASE_URL || 'https://lawcmqsjhwuhogsukhbf.supabase.co';
 const SUPABASE_KEY = (typeof process !== 'undefined' && process.env?.VITE_SUPABASE_ANON_KEY) || (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'sb_publishable_c2wQfanSj96FRWqoCq9KIw_2FhxuRBv';
@@ -525,7 +526,8 @@ export class OnlineDB {
         signature: d.signature || '',
         checklist: d.checklist || [],
         partSupplierId: d.part_supplier_id || '',
-        partSupplierWarranty: d.part_supplier_warranty || ''
+        partSupplierWarranty: d.part_supplier_warranty || '',
+        customerId: d.customer_id || ''
       }));
     } catch (e) { 
       console.error("Erro ao buscar ordens do Supabase:", e);
@@ -738,7 +740,8 @@ export class OnlineDB {
         signature: os.signature || '',
         checklist: os.checklist || [],
         part_supplier_id: os.partSupplierId || '',
-        part_supplier_warranty: os.partSupplierWarranty || ''
+        part_supplier_warranty: os.partSupplierWarranty || '',
+        customer_id: os.customerId || null
       }));
       const { error } = await supabase.from('service_orders').upsert(payload, { onConflict: 'id' });
       if (error) throw error;
@@ -1521,5 +1524,107 @@ export class OnlineDB {
     return { success: true };
   }
 
+  // Busca clientes do tenant
+  static async fetchCustomers(tenantId: string): Promise<Customer[]> {
+    if (!tenantId) return [];
+    try {
+      // 1. Tenta buscar de cloud_data (preserva todos os dados, observações e histórico de notas)
+      const cloudData = await this.syncPull(tenantId, 'customers');
+      if (Array.isArray(cloudData) && cloudData.length > 0) {
+        return cloudData.map(c => ({
+          ...c,
+          notesHistory: c.notesHistory || []
+        }));
+      }
 
+      // 2. Tenta buscar da tabela customers caso exista
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('name', { ascending: true });
+      
+      if (!error && Array.isArray(data) && data.length > 0) {
+        return data.map(d => ({
+          id: d.id,
+          tenantId: d.tenant_id,
+          name: d.name,
+          phoneNumber: d.phone_number || d.phone || '',
+          address: d.address || '',
+          document: d.document || d.cpf || '',
+          email: d.email || '',
+          notes: d.notes || '',
+          notesHistory: d.notes_history || [],
+          createdAt: d.created_at || new Date().toISOString(),
+          updatedAt: d.updated_at,
+          isDeleted: d.is_deleted || false
+        }));
+      }
+
+      if (Array.isArray(cloudData)) {
+        return cloudData;
+      }
+    } catch (e) {
+      console.warn("fetchCustomers error:", e);
+    }
+    return [];
+  }
+
+  // Salva clientes do tenant
+  static async upsertCustomers(tenantId: string, customers: Customer[]) {
+    if (!tenantId || !customers.length) return { success: true };
+    try {
+      // Salva de forma universal em cloud_data para total confiabilidade
+      await this.syncPush(tenantId, 'customers', customers);
+
+      // Tenta também sincronizar na tabela relacional customers se ela existir
+      try {
+        const payload = customers.map(c => ({
+          id: c.id,
+          tenant_id: tenantId,
+          name: c.name,
+          phone_number: c.phoneNumber,
+          address: c.address || '',
+          document: c.document || '',
+          email: c.email || '',
+          notes: c.notes || '',
+          notes_history: c.notesHistory || [],
+          created_at: c.createdAt || new Date().toISOString(),
+          updated_at: c.updatedAt || new Date().toISOString(),
+          is_deleted: c.isDeleted || false
+        }));
+        await supabase.from('customers').upsert(payload, { onConflict: 'id' });
+      } catch {
+        // Fallback garantido pelo cloud_data
+      }
+
+      return { success: true };
+    } catch (e: any) {
+      console.error("Erro ao salvar clientes:", e);
+      return { success: false, message: e.message };
+    }
+  }
+
+  // Deleta cliente (soft delete)
+  static async deleteCustomer(tenantId: string, customerId: string) {
+    if (!tenantId || !customerId) return { success: false };
+    try {
+      // Atualiza também na tabela relacional se existir
+      try {
+        await supabase
+          .from('customers')
+          .update({ is_deleted: true, updated_at: new Date().toISOString() })
+          .eq('id', customerId);
+      } catch {
+        // Fallback
+      }
+
+      const customers = await this.fetchCustomers(tenantId);
+      const updated = customers.filter(c => c.id !== customerId);
+      await this.upsertCustomers(tenantId, updated);
+      return { success: true };
+    } catch (e) {
+      return { success: false };
+    }
+  }
 }

@@ -66,8 +66,31 @@ export interface ServiceOrder {
   sellerId?: string;
   paymentMethod?: 'Dinheiro' | 'Cartão' | 'PIX';
   paymentInstallments?: number;
+  customerId?: string;
   partSupplierId?: string;
   partSupplierWarranty?: string;
+}
+
+export interface CustomerNote {
+  id: string;
+  text: string;
+  createdAt: string;
+  authorName?: string;
+}
+
+export interface Customer {
+  id: string;
+  tenantId?: string;
+  name: string;
+  phoneNumber: string;
+  address?: string;
+  document?: string;
+  email?: string;
+  notes?: string;
+  notesHistory?: CustomerNote[];
+  createdAt: string;
+  updatedAt?: string;
+  isDeleted?: boolean;
 }
 
 export interface Supplier {
