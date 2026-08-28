@@ -3,7 +3,8 @@ import {
   Users, UserPlus, Search, Phone, MessageSquare, Calendar, DollarSign, 
   Wrench, Clock, CheckCircle2, AlertCircle, Edit, Trash2, Plus, 
   FileText, X, ChevronRight, Save, Filter, Sparkles, Smartphone, 
-  ArrowUpRight, Receipt, Eye, Check, RefreshCw
+  ArrowUpRight, Receipt, Eye, EyeOff, Check, RefreshCw, SlidersHorizontal,
+  ArrowDownAZ, RotateCcw, LayoutGrid, List, Columns, AlertTriangle
 } from 'lucide-react';
 import { Customer, CustomerNote, ServiceOrder, AppSettings, User } from '../types';
 import { formatCurrency, formatDate, formatDateTime } from '../utils';
@@ -13,6 +14,7 @@ interface Props {
   onSaveCustomer: (customer: Customer) => Promise<void>;
   onSaveCustomers: (customers: Customer[]) => Promise<void>;
   onDeleteCustomer: (id: string) => Promise<void>;
+  onUpdateSettings?: (settings: AppSettings) => Promise<void>;
   orders: ServiceOrder[];
   settings: AppSettings;
   currentUser: User | null;
@@ -26,6 +28,7 @@ export const CustomersTab: React.FC<Props> = ({
   onSaveCustomer,
   onSaveCustomers,
   onDeleteCustomer,
+  onUpdateSettings,
   orders,
   settings,
   currentUser,
@@ -33,9 +36,54 @@ export const CustomersTab: React.FC<Props> = ({
   onNavigateToNewOS,
   onViewOrder
 }) => {
-  // Estados de filtro e busca
+  // Estados de filtro, busca e ordenação
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterMode, setFilterMode] = useState<'all' | 'pending_os' | 'paying' | 'recurring'>('all');
+  const [filterMode, setFilterMode] = useState<'all' | 'pending_os' | 'paying' | 'recurring' | 'no_os'>('all');
+  const [sortMode, setSortMode] = useState<'recent' | 'alphabetical' | 'oldest' | 'revenue' | 'orders_count'>('recent');
+  const [isSortModalOpen, setIsSortModalOpen] = useState(false);
+
+  // Layout dos cards (small | medium | large | list)
+  const [customersLayout, setCustomersLayout] = useState<'small' | 'medium' | 'large' | 'list'>(
+    () => (settings.customersLayout || (localStorage.getItem('customers_layout') as any) || 'medium')
+  );
+
+  // Ocultar ou mostrar valores financeiros recebidos
+  const [hideValues, setHideValues] = useState<boolean>(
+    () => (settings.hideCustomerValues ?? (localStorage.getItem('hide_customer_values') === 'true'))
+  );
+
+  // Handler para alternar ocultação de valores
+  const handleToggleHideValues = async () => {
+    const next = !hideValues;
+    setHideValues(next);
+    localStorage.setItem('hide_customer_values', String(next));
+    if (onUpdateSettings) {
+      try {
+        await onUpdateSettings({ ...settings, hideCustomerValues: next });
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  // Handler para atualizar layout
+  const handleUpdateLayout = async (layout: 'small' | 'medium' | 'large' | 'list') => {
+    setCustomersLayout(layout);
+    localStorage.setItem('customers_layout', layout);
+    if (onUpdateSettings) {
+      try {
+        await onUpdateSettings({ ...settings, customersLayout: layout });
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  // Helper para exibir ou mascarar valores financeiros
+  const renderMoney = (amount: number) => {
+    if (hideValues) return 'R$ •••••';
+    return formatCurrency(amount);
+  };
 
   // Modais
   const [isNewCustomerModalOpen, setIsNewCustomerModalOpen] = useState(false);
@@ -257,10 +305,38 @@ export const CustomersTab: React.FC<Props> = ({
       if (filterMode === 'pending_os' && !metrics.hasActiveOS) return false;
       if (filterMode === 'paying' && metrics.totalPaid <= 0) return false;
       if (filterMode === 'recurring' && metrics.totalOrders <= 1) return false;
+      if (filterMode === 'no_os' && metrics.totalOrders > 0) return false;
 
       return true;
+    }).sort((a, b) => {
+      if (sortMode === 'alphabetical') {
+        const nameCompare = a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
+        if (nameCompare !== 0) return nameCompare;
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      }
+
+      if (sortMode === 'oldest') {
+        return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+      }
+
+      if (sortMode === 'revenue') {
+        const revA = getCustomerMetrics(a).totalPaid;
+        const revB = getCustomerMetrics(b).totalPaid;
+        if (revB !== revA) return revB - revA;
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      }
+
+      if (sortMode === 'orders_count') {
+        const countA = getCustomerMetrics(a).totalOrders;
+        const countB = getCustomerMetrics(b).totalOrders;
+        if (countB !== countA) return countB - countA;
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      }
+
+      // Modo padrão: Mais Recentes primeiro
+      return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
     });
-  }, [customers, searchTerm, filterMode, orders]);
+  }, [customers, searchTerm, filterMode, sortMode, orders]);
 
   // Métricas globais de clientes
   const globalMetrics = useMemo(() => {
@@ -446,28 +522,28 @@ export const CustomersTab: React.FC<Props> = ({
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-500">
       {/* HEADER DA ABA */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-3xl border border-slate-100 shadow-sm">
         <div>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shadow-inner">
-              <Users size={24} />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shadow-inner shrink-0">
+              <Users size={22} className="sm:w-6 sm:h-6" />
             </div>
             <div>
-              <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">
+              <h2 className="text-lg sm:text-xl font-black text-slate-900 uppercase tracking-tight">
                 Cadastro de Clientes
               </h2>
-              <p className="text-xs font-bold text-slate-400">
+              <p className="text-[11px] sm:text-xs font-bold text-slate-400">
                 Histórico completo de serviços, pagamentos e notas por cliente
               </p>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           {unimportedCustomersFromOrders.length > 0 && (
             <button
               onClick={handleAutoImportCustomers}
-              className="px-4 py-3 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center gap-2 border border-amber-200 transition-all active:scale-95 shadow-sm"
+              className="px-3.5 sm:px-4 py-2.5 sm:py-3 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center gap-2 border border-amber-200 transition-all active:scale-95 shadow-sm"
               title="Importar clientes identificados em Ordens de Serviço antigas"
             >
               <RefreshCw size={16} />
@@ -477,7 +553,7 @@ export const CustomersTab: React.FC<Props> = ({
 
           <button
             onClick={handleOpenNewCustomer}
-            className="px-5 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
+            className="flex-1 sm:flex-none px-4 sm:px-5 py-3 sm:py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 active:scale-95 transition-all min-h-[44px]"
           >
             <UserPlus size={18} />
             <span>Novo Cliente</span>
@@ -486,68 +562,118 @@ export const CustomersTab: React.FC<Props> = ({
       </div>
 
       {/* CARDS DE RESUMO / MÉTRICAS */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-4">
+        <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-100 shadow-sm">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total de Clientes</p>
           <div className="flex items-baseline gap-2">
-            <h3 className="text-2xl font-black text-slate-900 tracking-tight">{globalMetrics.totalCount}</h3>
+            <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">{globalMetrics.totalCount}</h3>
             <span className="text-[10px] font-bold text-slate-400">cadastrados</span>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+        <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-100 shadow-sm">
           <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1">Com O.S. em Aberto</p>
           <div className="flex items-baseline gap-2">
-            <h3 className="text-2xl font-black text-amber-600 tracking-tight">{globalMetrics.customersWithActiveOS}</h3>
+            <h3 className="text-xl sm:text-2xl font-black text-amber-600 tracking-tight">{globalMetrics.customersWithActiveOS}</h3>
             <span className="text-[10px] font-bold text-amber-500">na bancada</span>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
-          <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Total em Serviços</p>
-          <h3 className="text-2xl font-black text-emerald-600 tracking-tight">{formatCurrency(globalMetrics.totalRevenueFromCustomers)}</h3>
+        <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-100 shadow-sm">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Total em Serviços</p>
+            <button
+              type="button"
+              onClick={handleToggleHideValues}
+              className="p-1 -mr-1 text-emerald-600/70 hover:text-emerald-800 rounded-lg hover:bg-emerald-50 transition-colors"
+              title={hideValues ? "Mostrar valores financeiros" : "Ocultar valores financeiros"}
+            >
+              {hideValues ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+          </div>
+          <h3 className="text-xl sm:text-2xl font-black text-emerald-600 tracking-tight">
+            {renderMoney(globalMetrics.totalRevenueFromCustomers)}
+          </h3>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+        <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-100 shadow-sm">
           <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Média por Cliente</p>
-          <h3 className="text-2xl font-black text-blue-600 tracking-tight">{formatCurrency(globalMetrics.averageTicket)}</h3>
+          <h3 className="text-xl sm:text-2xl font-black text-blue-600 tracking-tight">
+            {renderMoney(globalMetrics.averageTicket)}
+          </h3>
         </div>
       </div>
 
       {/* BARRA DE BUSCA E FILTROS */}
-      <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-3">
-        <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
-          <div className="relative w-full md:w-96">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input
-              id="customer-search-input"
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar por nome, telefone, CPF, notas, aparelho..."
-              className="w-full pl-11 pr-24 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-800 outline-none focus:border-blue-500 focus:bg-white transition-all placeholder:text-slate-400 placeholder:font-medium"
-            />
-            {searchTerm && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-                <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg">
-                  {filteredCustomers.length}
-                </span>
-                <button
-                  id="customer-search-clear-btn"
-                  onClick={() => setSearchTerm('')}
-                  className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/50 transition-colors"
-                  title="Limpar busca"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            )}
+      <div className="bg-white p-3 sm:p-4 rounded-3xl border border-slate-100 shadow-sm space-y-3">
+        <div className="flex flex-col md:flex-row gap-2.5 sm:gap-3 items-stretch md:items-center justify-between">
+          <div className="flex items-center gap-2 w-full md:w-auto flex-1 max-w-xl">
+            <div className="relative flex-1">
+              <Search className="absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input
+                id="customer-search-input"
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar por nome, telefone, CPF, aparelho..."
+                className="w-full pl-10 sm:pl-11 pr-20 sm:pr-24 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-800 outline-none focus:border-blue-500 focus:bg-white transition-all placeholder:text-slate-400 placeholder:font-medium min-h-[44px]"
+              />
+              {searchTerm && (
+                <div className="absolute right-2.5 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                  <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg">
+                    {filteredCustomers.length}
+                  </span>
+                  <button
+                    id="customer-search-clear-btn"
+                    onClick={() => setSearchTerm('')}
+                    className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/50 transition-colors"
+                    title="Limpar busca"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* BOTÃO DO OLHO: OCULTAR / MOSTRAR VALORES */}
+            <button
+              id="btn-toggle-customer-values"
+              type="button"
+              onClick={handleToggleHideValues}
+              className={`p-3 sm:p-3.5 rounded-2xl transition-all flex items-center justify-center active:scale-95 shrink-0 min-h-[44px] min-w-[44px] ${
+                hideValues
+                  ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-900 border border-slate-200/80'
+              }`}
+              title={hideValues ? "Mostrar valores de faturamento" : "Ocultar valores de faturamento"}
+            >
+              {hideValues ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+
+            {/* BOTÃO ORGANIZAR LAYOUT / ORDENAÇÃO */}
+            <button 
+              id="btn-organize-customers"
+              type="button"
+              onClick={() => setIsSortModalOpen(true)}
+              className={`p-3 sm:p-3.5 rounded-2xl transition-all flex items-center justify-center active:scale-95 relative shrink-0 min-h-[44px] min-w-[44px] ${
+                sortMode !== 'recent' || filterMode !== 'all' || customersLayout !== 'medium'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' 
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-900 border border-slate-200/80'
+              }`}
+              title="Organizar layout, ordenação e filtros"
+            >
+              <SlidersHorizontal size={18} />
+              {(sortMode !== 'recent' || filterMode !== 'all' || customersLayout !== 'medium') && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-amber-400 rounded-full border-2 border-white animate-pulse" />
+              )}
+            </button>
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
+          {/* CHIPS DE FILTRO RÁPIDO COM ROLAGEM HORIZONTAL SUAVE NO MOBILE */}
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pb-1 md:pb-0 -mx-1 px-1">
             <button
               onClick={() => setFilterMode('all')}
-              className={`px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${
+              className={`px-3 sm:px-3.5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap shrink-0 min-h-[38px] ${
                 filterMode === 'all'
                   ? 'bg-slate-900 text-white shadow'
                   : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
@@ -557,7 +683,7 @@ export const CustomersTab: React.FC<Props> = ({
             </button>
             <button
               onClick={() => setFilterMode('pending_os')}
-              className={`px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-1.5 ${
+              className={`px-3 sm:px-3.5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-1.5 shrink-0 min-h-[38px] ${
                 filterMode === 'pending_os'
                   ? 'bg-amber-500 text-white shadow'
                   : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
@@ -568,7 +694,7 @@ export const CustomersTab: React.FC<Props> = ({
             </button>
             <button
               onClick={() => setFilterMode('recurring')}
-              className={`px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-1.5 ${
+              className={`px-3 sm:px-3.5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-1.5 shrink-0 min-h-[38px] ${
                 filterMode === 'recurring'
                   ? 'bg-blue-600 text-white shadow'
                   : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
@@ -579,7 +705,7 @@ export const CustomersTab: React.FC<Props> = ({
             </button>
             <button
               onClick={() => setFilterMode('paying')}
-              className={`px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-1.5 ${
+              className={`px-3 sm:px-3.5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-1.5 shrink-0 min-h-[38px] ${
                 filterMode === 'paying'
                   ? 'bg-emerald-600 text-white shadow'
                   : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
@@ -588,8 +714,97 @@ export const CustomersTab: React.FC<Props> = ({
               <DollarSign size={12} />
               Com Pagamentos
             </button>
+            <button
+              onClick={() => setFilterMode('no_os')}
+              className={`px-3 sm:px-3.5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-1.5 shrink-0 min-h-[38px] ${
+                filterMode === 'no_os'
+                  ? 'bg-slate-700 text-white shadow'
+                  : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+              }`}
+            >
+              <AlertCircle size={12} />
+              Sem O.S.
+            </button>
           </div>
         </div>
+
+        {/* INDICADOR DE FILTROS/ORDENAÇÃO ATIVOS */}
+        {(sortMode !== 'recent' || filterMode !== 'all' || customersLayout !== 'medium') && (
+          <div className="flex items-center gap-1.5 flex-wrap bg-slate-50 border border-slate-200/80 p-2.5 rounded-2xl animate-in fade-in">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider pl-1">Exibição:</span>
+            
+            {sortMode !== 'recent' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-xl text-[11px] font-bold text-slate-700 shadow-2xs">
+                {sortMode === 'alphabetical' && <ArrowDownAZ size={12} className="text-blue-600" />}
+                {sortMode === 'oldest' && <Calendar size={12} className="text-blue-600" />}
+                {sortMode === 'revenue' && <DollarSign size={12} className="text-emerald-600" />}
+                {sortMode === 'orders_count' && <Wrench size={12} className="text-indigo-600" />}
+                
+                {sortMode === 'alphabetical' && 'Ordem Alfabética (A-Z)'}
+                {sortMode === 'oldest' && 'Mais Antigos Primeiro'}
+                {sortMode === 'revenue' && 'Maior Faturamento'}
+                {sortMode === 'orders_count' && 'Mais O.S.'}
+
+                <button 
+                  onClick={() => setSortMode('recent')}
+                  className="hover:text-red-600 p-0.5 rounded transition-colors"
+                  title="Voltar para mais recentes"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+
+            {filterMode !== 'all' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-xl text-[11px] font-bold text-slate-700 shadow-2xs">
+                <Filter size={12} className="text-blue-600" />
+                {filterMode === 'pending_os' && 'Com O.S. Pendente'}
+                {filterMode === 'recurring' && 'Recorrentes (+1 O.S.)'}
+                {filterMode === 'paying' && 'Com Pagamentos'}
+                {filterMode === 'no_os' && 'Sem Nenhuma O.S.'}
+
+                <button 
+                  onClick={() => setFilterMode('all')}
+                  className="hover:text-red-600 p-0.5 rounded transition-colors"
+                  title="Remover filtro"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+
+            {customersLayout !== 'medium' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-xl text-[11px] font-bold text-slate-700 shadow-2xs">
+                {customersLayout === 'small' && <LayoutGrid size={12} className="text-blue-600" />}
+                {customersLayout === 'large' && <LayoutGrid size={12} className="text-blue-600" />}
+                {customersLayout === 'list' && <List size={12} className="text-blue-600" />}
+                
+                {customersLayout === 'small' && 'Layout Compacto'}
+                {customersLayout === 'large' && 'Layout Grande'}
+                {customersLayout === 'list' && 'Layout Lista'}
+
+                <button 
+                  onClick={() => handleUpdateLayout('medium')}
+                  className="hover:text-red-600 p-0.5 rounded transition-colors"
+                  title="Restaurar layout médio"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+
+            <button 
+              onClick={() => {
+                setSortMode('recent');
+                setFilterMode('all');
+                handleUpdateLayout('medium');
+              }}
+              className="text-[10px] font-black text-blue-600 hover:text-blue-800 hover:underline uppercase tracking-wider ml-auto pr-1"
+            >
+              Limpar filtros
+            </button>
+          </div>
+        )}
       </div>
 
       {/* LISTAGEM DE CLIENTES */}
@@ -627,8 +842,9 @@ export const CustomersTab: React.FC<Props> = ({
             )}
           </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      ) : customersLayout === 'list' ? (
+        /* MODO LISTA */
+        <div className="space-y-2 sm:space-y-2.5">
           {filteredCustomers.map(customer => {
             const metrics = getCustomerMetrics(customer);
             const waLink = getWhatsAppLink(customer.phoneNumber);
@@ -636,13 +852,362 @@ export const CustomersTab: React.FC<Props> = ({
             return (
               <div
                 key={customer.id}
-                className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group"
+                className="bg-white rounded-2xl sm:rounded-3xl border border-slate-100 p-3 sm:p-4 shadow-2xs hover:shadow-md transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+              >
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center font-black text-xs shrink-0 shadow-2xs ${getAvatarColor(customer.name)}`}>
+                    {getInitials(customer.name)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 
+                        onClick={() => setSelectedCustomerForProfile(customer)}
+                        className="font-black text-xs sm:text-sm text-slate-900 truncate uppercase tracking-tight group-hover:text-blue-600 cursor-pointer transition-colors"
+                      >
+                        {customer.name}
+                      </h4>
+                      {metrics.hasActiveOS && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-700 text-[9px] font-black uppercase rounded-lg shrink-0">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                          O.S. #{metrics.activeOS?.id}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 text-[11px] font-bold text-slate-400 truncate mt-0.5">
+                      <span>{customer.phoneNumber || 'Sem telefone'}</span>
+                      {customer.address && <span className="hidden md:inline truncate">📍 {customer.address}</span>}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                  <div className="text-left sm:text-right">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">
+                      {metrics.totalOrders} {metrics.totalOrders === 1 ? 'O.S.' : 'O.S.'}
+                    </p>
+                    <p className="text-xs sm:text-sm font-black text-emerald-600">
+                      {renderMoney(metrics.totalPaid)}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    {waLink && (
+                      <a
+                        href={waLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center transition-colors active:scale-95"
+                        title="Conversar no WhatsApp"
+                      >
+                        <MessageSquare size={14} />
+                      </a>
+                    )}
+                    {customer.phoneNumber && (
+                      <a
+                        href={`tel:${digitsOnly(customer.phoneNumber)}`}
+                        className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 flex items-center justify-center transition-colors active:scale-95"
+                        title="Ligar para o cliente"
+                      >
+                        <Phone size={14} />
+                      </a>
+                    )}
+                    <button
+                      onClick={() => setSelectedCustomerForProfile(customer)}
+                      className="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-black text-[10px] uppercase tracking-wider flex items-center gap-1 active:scale-95 transition-all shadow-2xs min-h-[36px]"
+                    >
+                      <Eye size={12} />
+                      <span className="hidden sm:inline">Ficha</span>
+                    </button>
+                    <button
+                      onClick={() => onNavigateToNewOS(customer)}
+                      className="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl font-black text-[10px] uppercase tracking-wider flex items-center gap-1 active:scale-95 transition-all min-h-[36px]"
+                      title="Abrir Nova O.S."
+                    >
+                      <Plus size={12} />
+                      <span className="hidden sm:inline">Nova O.S.</span>
+                    </button>
+                    <button
+                      onClick={() => handleOpenEditCustomer(customer)}
+                      className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+                      title="Editar cliente"
+                    >
+                      <Edit size={14} />
+                    </button>
+                    <button
+                      onClick={() => setCustomerToDelete(customer)}
+                      className="p-2 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                      title="Excluir cliente"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : customersLayout === 'small' ? (
+        /* MODO PEQUENO / COMPACTO */
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
+          {filteredCustomers.map(customer => {
+            const metrics = getCustomerMetrics(customer);
+            const waLink = getWhatsAppLink(customer.phoneNumber);
+
+            return (
+              <div
+                key={customer.id}
+                className="bg-white rounded-2xl sm:rounded-3xl border border-slate-100 p-3.5 sm:p-4 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center font-black text-xs shrink-0 shadow-2xs ${getAvatarColor(customer.name)}`}>
+                        {getInitials(customer.name)}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-black text-xs text-slate-900 truncate uppercase tracking-tight group-hover:text-blue-600 transition-colors">
+                          {customer.name}
+                        </h4>
+                        <p className="text-[10px] font-bold text-slate-400 truncate">
+                          {customer.phoneNumber || 'Sem telefone'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      {waLink && (
+                        <a
+                          href={waLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-7 h-7 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center transition-colors"
+                          title="WhatsApp"
+                        >
+                          <MessageSquare size={13} />
+                        </a>
+                      )}
+                      {customer.phoneNumber && (
+                        <a
+                          href={`tel:${digitsOnly(customer.phoneNumber)}`}
+                          className="w-7 h-7 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 flex items-center justify-center transition-colors"
+                          title="Ligar"
+                        >
+                          <Phone size={13} />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
+                  {metrics.hasActiveOS && (
+                    <div className="mb-2.5 p-2 bg-amber-50 border border-amber-100 rounded-xl flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
+                      <p className="text-[9px] font-black text-amber-700 uppercase tracking-tight truncate">
+                        O.S. #{metrics.activeOS?.id} na bancada
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-1.5 mb-3 bg-slate-50 p-2.5 rounded-xl text-center">
+                    <div>
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">O.S.</p>
+                      <p className="text-[11px] font-black text-slate-800">{metrics.totalOrders}</p>
+                    </div>
+                    <div>
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Pago</p>
+                      <p className="text-[11px] font-black text-emerald-600 truncate">{renderMoney(metrics.totalPaid)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+                  <button
+                    onClick={() => setSelectedCustomerForProfile(customer)}
+                    className="flex-1 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-black text-[9px] uppercase tracking-wider flex items-center justify-center gap-1 active:scale-95 transition-all shadow-2xs"
+                  >
+                    <Eye size={11} />
+                    <span>Ficha</span>
+                  </button>
+                  <button
+                    onClick={() => onNavigateToNewOS(customer)}
+                    className="py-1.5 px-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg font-black text-[9px] uppercase tracking-wider flex items-center justify-center gap-1 active:scale-95 transition-all"
+                    title="Nova O.S."
+                  >
+                    <Plus size={11} />
+                    <span>O.S.</span>
+                  </button>
+                  <button
+                    onClick={() => handleOpenEditCustomer(customer)}
+                    className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                    title="Editar"
+                  >
+                    <Edit size={12} />
+                  </button>
+                  <button
+                    onClick={() => setCustomerToDelete(customer)}
+                    className="p-1.5 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Excluir"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : customersLayout === 'large' ? (
+        /* MODO GRANDE (2 COLUNAS) */
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredCustomers.map(customer => {
+            const metrics = getCustomerMetrics(customer);
+            const waLink = getWhatsAppLink(customer.phoneNumber);
+
+            return (
+              <div
+                key={customer.id}
+                className="bg-white rounded-3xl border border-slate-100 p-5 sm:p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center font-black text-base shrink-0 shadow-sm ${getAvatarColor(customer.name)}`}>
+                        {getInitials(customer.name)}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-black text-base text-slate-900 truncate uppercase tracking-tight group-hover:text-blue-600 transition-colors">
+                          {customer.name}
+                        </h4>
+                        <div className="flex items-center gap-2 text-xs font-bold text-slate-400 truncate mt-0.5">
+                          <span>{customer.phoneNumber || 'Sem telefone'}</span>
+                          {customer.document && <span>• {customer.document}</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {waLink && (
+                        <a
+                          href={waLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-9 h-9 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center transition-colors active:scale-95"
+                          title="Conversar no WhatsApp"
+                        >
+                          <MessageSquare size={16} />
+                        </a>
+                      )}
+                      {customer.phoneNumber && (
+                        <a
+                          href={`tel:${digitsOnly(customer.phoneNumber)}`}
+                          className="w-9 h-9 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 flex items-center justify-center transition-colors active:scale-95"
+                          title="Ligar para o cliente"
+                        >
+                          <Phone size={16} />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
+                  {customer.address && (
+                    <p className="text-[11px] text-slate-500 font-medium mb-3 truncate flex items-center gap-1.5">
+                      <span className="text-slate-400">📍</span> {customer.address}
+                    </p>
+                  )}
+
+                  {/* Resumo Financeiro e Quantidade de Ordens */}
+                  <div className="grid grid-cols-3 gap-2 mb-4 bg-slate-50 p-3.5 rounded-2xl">
+                    <div>
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total O.S.</p>
+                      <p className="text-sm font-black text-slate-800">{metrics.totalOrders} {metrics.totalOrders === 1 ? 'ordem' : 'ordens'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Concluídas</p>
+                      <p className="text-sm font-black text-blue-600">{metrics.completedOrdersCount}</p>
+                    </div>
+                    <div>
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Pago</p>
+                      <p className="text-sm font-black text-emerald-600">{renderMoney(metrics.totalPaid)}</p>
+                    </div>
+                  </div>
+
+                  {/* Alerta de O.S. ativa / pendente */}
+                  {metrics.hasActiveOS && (
+                    <div className="mb-3.5 p-3 bg-amber-50 border border-amber-100 rounded-2xl flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse shrink-0"></div>
+                        <p className="text-xs font-black text-amber-800 uppercase tracking-tight truncate">
+                          O.S. #{metrics.activeOS?.id} ({metrics.activeOS?.deviceModel})
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-bold text-amber-700 bg-white/80 px-2 py-0.5 rounded-lg border border-amber-200 shrink-0">
+                        {metrics.activeOS?.status}
+                      </span>
+                    </div>
+                  )}
+
+                  {customer.notes && (
+                    <div className="mb-4 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                      <p className="text-[10px] font-medium text-slate-600 italic line-clamp-2">
+                        "{customer.notes}"
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 mt-2">
+                  <button
+                    onClick={() => setSelectedCustomerForProfile(customer)}
+                    className="flex-1 py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-sm min-h-[44px]"
+                  >
+                    <Eye size={14} />
+                    <span>Ver Ficha Completa</span>
+                  </button>
+
+                  <button
+                    onClick={() => onNavigateToNewOS(customer)}
+                    className="py-3 px-4 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95 transition-all min-h-[44px]"
+                    title="Abrir Nova O.S. para este cliente"
+                  >
+                    <Plus size={14} />
+                    <span>Nova O.S.</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleOpenEditCustomer(customer)}
+                    className="p-3 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    title="Editar dados cadastrais"
+                  >
+                    <Edit size={16} />
+                  </button>
+
+                  <button
+                    onClick={() => setCustomerToDelete(customer)}
+                    className="p-3 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    title="Excluir cliente"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* MODO MÉDIO (PADRÃO - 3 COLUNAS) */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          {filteredCustomers.map(customer => {
+            const metrics = getCustomerMetrics(customer);
+            const waLink = getWhatsAppLink(customer.phoneNumber);
+
+            return (
+              <div
+                key={customer.id}
+                className="bg-white rounded-3xl border border-slate-100 p-4 sm:p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group"
               >
                 <div>
                   {/* Topo do Card */}
-                  <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="flex items-start justify-between gap-3 mb-3.5">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm shrink-0 shadow-sm ${getAvatarColor(customer.name)}`}>
+                      <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center font-black text-sm shrink-0 shadow-sm ${getAvatarColor(customer.name)}`}>
                         {getInitials(customer.name)}
                       </div>
                       <div className="min-w-0">
@@ -661,7 +1226,7 @@ export const CustomersTab: React.FC<Props> = ({
                           href={waLink}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="w-8 h-8 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center transition-colors active:scale-95"
+                          className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center transition-colors active:scale-95"
                           title="Conversar no WhatsApp"
                         >
                           <MessageSquare size={14} />
@@ -670,7 +1235,7 @@ export const CustomersTab: React.FC<Props> = ({
                       {customer.phoneNumber && (
                         <a
                           href={`tel:${digitsOnly(customer.phoneNumber)}`}
-                          className="w-8 h-8 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 flex items-center justify-center transition-colors active:scale-95"
+                          className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 flex items-center justify-center transition-colors active:scale-95"
                           title="Ligar para o cliente"
                         >
                           <Phone size={14} />
@@ -687,7 +1252,7 @@ export const CustomersTab: React.FC<Props> = ({
                   )}
 
                   {/* Badges de Status e Métricas */}
-                  <div className="grid grid-cols-2 gap-2 mb-4 bg-slate-50 p-3 rounded-2xl">
+                  <div className="grid grid-cols-2 gap-2 mb-3.5 bg-slate-50 p-3 rounded-2xl">
                     <div>
                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Serviços</p>
                       <p className="text-xs font-black text-slate-800">
@@ -697,7 +1262,7 @@ export const CustomersTab: React.FC<Props> = ({
                     <div>
                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Pago</p>
                       <p className="text-xs font-black text-emerald-600">
-                        {formatCurrency(metrics.totalPaid)}
+                        {renderMoney(metrics.totalPaid)}
                       </p>
                     </div>
                   </div>
@@ -723,10 +1288,10 @@ export const CustomersTab: React.FC<Props> = ({
                 </div>
 
                 {/* Rodapé do Card com Ações */}
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 mt-2">
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-1.5 sm:gap-2 mt-2">
                   <button
                     onClick={() => setSelectedCustomerForProfile(customer)}
-                    className="flex-1 py-2.5 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-black text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-sm"
+                    className="flex-1 py-2.5 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-black text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-sm min-h-[40px]"
                   >
                     <Eye size={12} />
                     <span>Ver Ficha</span>
@@ -734,7 +1299,7 @@ export const CustomersTab: React.FC<Props> = ({
 
                   <button
                     onClick={() => onNavigateToNewOS(customer)}
-                    className="py-2.5 px-3 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl font-black text-[10px] uppercase tracking-wider flex items-center justify-center gap-1 active:scale-95 transition-all"
+                    className="py-2.5 px-3 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl font-black text-[10px] uppercase tracking-wider flex items-center justify-center gap-1 active:scale-95 transition-all min-h-[40px]"
                     title="Abrir Nova O.S. para este cliente"
                   >
                     <Plus size={12} />
@@ -743,7 +1308,7 @@ export const CustomersTab: React.FC<Props> = ({
 
                   <button
                     onClick={() => handleOpenEditCustomer(customer)}
-                    className="p-2.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+                    className="p-2.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center"
                     title="Editar dados cadastrais"
                   >
                     <Edit size={14} />
@@ -751,7 +1316,7 @@ export const CustomersTab: React.FC<Props> = ({
 
                   <button
                     onClick={() => setCustomerToDelete(customer)}
-                    className="p-2.5 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                    className="p-2.5 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center"
                     title="Excluir cliente"
                   >
                     <Trash2 size={14} />
@@ -843,11 +1408,11 @@ export const CustomersTab: React.FC<Props> = ({
                   </div>
                   <div>
                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Pago</p>
-                    <p className="text-lg font-black text-emerald-400">{formatCurrency(metrics.totalPaid)}</p>
+                    <p className="text-lg font-black text-emerald-400">{renderMoney(metrics.totalPaid)}</p>
                   </div>
                   <div>
                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Em Aberto</p>
-                    <p className="text-lg font-black text-amber-400">{formatCurrency(metrics.totalPending)}</p>
+                    <p className="text-lg font-black text-amber-400">{renderMoney(metrics.totalPending)}</p>
                   </div>
                 </div>
               </div>
@@ -875,7 +1440,7 @@ export const CustomersTab: React.FC<Props> = ({
                   }`}
                 >
                   <DollarSign size={16} />
-                  <span>Histórico Financeiro ({formatCurrency(metrics.totalHistorical)})</span>
+                  <span>Histórico Financeiro ({renderMoney(metrics.totalHistorical)})</span>
                 </button>
 
                 <button
@@ -987,7 +1552,7 @@ export const CustomersTab: React.FC<Props> = ({
                               <div className="text-right">
                                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Valor</p>
                                 <p className="text-base font-black text-slate-900">
-                                  {formatCurrency(order.total || 0)}
+                                  {renderMoney(order.total || 0)}
                                 </p>
                               </div>
 
@@ -1017,19 +1582,19 @@ export const CustomersTab: React.FC<Props> = ({
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl">
                         <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Total Pago</p>
-                        <p className="text-xl font-black text-emerald-700">{formatCurrency(metrics.totalPaid)}</p>
+                        <p className="text-xl font-black text-emerald-700">{renderMoney(metrics.totalPaid)}</p>
                         <p className="text-[10px] text-emerald-600 mt-0.5">Serviços entregues e concluídos</p>
                       </div>
 
                       <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl">
                         <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">A Receber</p>
-                        <p className="text-xl font-black text-amber-700">{formatCurrency(metrics.totalPending)}</p>
+                        <p className="text-xl font-black text-amber-700">{renderMoney(metrics.totalPending)}</p>
                         <p className="text-[10px] text-amber-600 mt-0.5">Serviços pendentes na bancada</p>
                       </div>
 
                       <div className="bg-slate-50 border border-slate-100 p-4 rounded-2xl col-span-2 sm:col-span-1">
                         <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Total Geral</p>
-                        <p className="text-xl font-black text-slate-900">{formatCurrency(metrics.totalHistorical)}</p>
+                        <p className="text-xl font-black text-slate-900">{renderMoney(metrics.totalHistorical)}</p>
                         <p className="text-[10px] text-slate-400 mt-0.5">Histórico completo</p>
                       </div>
                     </div>
@@ -1074,7 +1639,7 @@ export const CustomersTab: React.FC<Props> = ({
                                     {isPaid ? 'Pago' : 'Pendente'}
                                   </span>
                                   <p className={`text-sm font-black mt-1 ${isPaid ? 'text-emerald-600' : 'text-slate-800'}`}>
-                                    {formatCurrency(order.total || 0)}
+                                    {renderMoney(order.total || 0)}
                                   </p>
                                 </div>
                               </div>
@@ -1460,6 +2025,405 @@ export const CustomersTab: React.FC<Props> = ({
                 className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-red-500/20"
               >
                 Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL DE ORGANIZAR E PERSONALIZAR LAYOUT DOS CLIENTES */}
+      {/* ========================================================================= */}
+      {isSortModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white rounded-t-[2.5rem] sm:rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-slate-100 animate-in slide-in-from-bottom-6 sm:zoom-in-95 duration-200 flex flex-col max-h-[92vh] sm:max-h-[90vh] overflow-hidden">
+            {/* Header do Modal */}
+            <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-blue-50 text-blue-600 rounded-2xl">
+                  <SlidersHorizontal size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-slate-800 uppercase tracking-tight">Organizar Clientes</h3>
+                  <p className="text-xs text-slate-400 font-medium">Layout, ordenação e privacidade</p>
+                </div>
+              </div>
+              <button 
+                id="customers-modal-close-btn"
+                onClick={() => setIsSortModalOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Conteúdo com Scroll */}
+            <div className="py-4 space-y-5 overflow-y-auto pr-1">
+              {/* Seção 1: Formato & Tamanho dos Cards */}
+              <div>
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider block mb-2.5">
+                  1. Formato de Exibição dos Cards
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateLayout('list')}
+                    className={`flex items-center gap-2.5 p-3 rounded-2xl border text-left transition-all ${
+                      customersLayout === 'list'
+                        ? 'border-blue-600 bg-blue-50/70 text-blue-900 font-bold shadow-xs'
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className={`p-1.5 rounded-xl ${customersLayout === 'list' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                      <List size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold leading-tight">Lista</p>
+                      <p className="text-[10px] text-slate-400 font-normal truncate">Visualização compacta</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateLayout('small')}
+                    className={`flex items-center gap-2.5 p-3 rounded-2xl border text-left transition-all ${
+                      customersLayout === 'small'
+                        ? 'border-blue-600 bg-blue-50/70 text-blue-900 font-bold shadow-xs'
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className={`p-1.5 rounded-xl ${customersLayout === 'small' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                      <LayoutGrid size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold leading-tight">Pequeno</p>
+                      <p className="text-[10px] text-slate-400 font-normal truncate">Grade compacta</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateLayout('medium')}
+                    className={`flex items-center gap-2.5 p-3 rounded-2xl border text-left transition-all ${
+                      customersLayout === 'medium'
+                        ? 'border-blue-600 bg-blue-50/70 text-blue-900 font-bold shadow-xs'
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className={`p-1.5 rounded-xl ${customersLayout === 'medium' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                      <LayoutGrid size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold leading-tight">Médio (Padrão)</p>
+                      <p className="text-[10px] text-slate-400 font-normal truncate">Grade equilibrada</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateLayout('large')}
+                    className={`flex items-center gap-2.5 p-3 rounded-2xl border text-left transition-all ${
+                      customersLayout === 'large'
+                        ? 'border-blue-600 bg-blue-50/70 text-blue-900 font-bold shadow-xs'
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className={`p-1.5 rounded-xl ${customersLayout === 'large' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                      <Columns size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold leading-tight">Grande</p>
+                      <p className="text-[10px] text-slate-400 font-normal truncate">2 Colunas detalhado</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Seção 2: Privacidade de Dinheiro / Valores */}
+              <div>
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider block mb-2.5">
+                  2. Visualização de Valores Financeiros
+                </label>
+                <button
+                  type="button"
+                  onClick={handleToggleHideValues}
+                  className={`w-full flex items-center justify-between p-3.5 rounded-2xl border text-left transition-all ${
+                    hideValues
+                      ? 'border-amber-500 bg-amber-50/70 text-amber-950 font-bold'
+                      : 'border-emerald-500 bg-emerald-50/70 text-emerald-950 font-bold'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-xl ${hideValues ? 'bg-amber-500 text-white' : 'bg-emerald-600 text-white'}`}>
+                      {hideValues ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold leading-tight">
+                        {hideValues ? 'Valores Ocultos (Modo Privacidade)' : 'Valores Visíveis'}
+                      </p>
+                      <p className="text-[11px] text-slate-500 font-normal">
+                        {hideValues
+                          ? 'Total recebido fica mascarado como R$ •••••'
+                          : 'Valores reais são exibidos nos cards'}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-lg ${
+                    hideValues ? 'bg-amber-200/80 text-amber-900' : 'bg-emerald-200/80 text-emerald-900'
+                  }`}>
+                    {hideValues ? 'Ativado' : 'Visível'}
+                  </span>
+                </button>
+              </div>
+
+              {/* Seção 3: Modo de Ordenação */}
+              <div>
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider block mb-2.5">
+                  3. Modo de Ordenação
+                </label>
+                <div className="grid grid-cols-1 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSortMode('recent')}
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+                      sortMode === 'recent' 
+                        ? 'border-blue-600 bg-blue-50/70 text-blue-900 font-bold shadow-xs' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${sortMode === 'recent' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                        <Clock size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight">Mais Recentes Primeiro</p>
+                        <p className="text-[11px] text-slate-400 font-normal">Clientes cadastrados recentemente no topo</p>
+                      </div>
+                    </div>
+                    {sortMode === 'recent' && <Check size={18} className="text-blue-600 shrink-0" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSortMode('alphabetical')}
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+                      sortMode === 'alphabetical' 
+                        ? 'border-blue-600 bg-blue-50/70 text-blue-900 font-bold shadow-xs' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${sortMode === 'alphabetical' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                        <ArrowDownAZ size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight">Ordem Alfabética (A - Z)</p>
+                        <p className="text-[11px] text-slate-400 font-normal">Organizado pelo nome do cliente</p>
+                      </div>
+                    </div>
+                    {sortMode === 'alphabetical' && <Check size={18} className="text-blue-600 shrink-0" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSortMode('revenue')}
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+                      sortMode === 'revenue' 
+                        ? 'border-emerald-600 bg-emerald-50/70 text-emerald-900 font-bold shadow-xs' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${sortMode === 'revenue' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                        <DollarSign size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight">Maior Faturamento</p>
+                        <p className="text-[11px] text-slate-400 font-normal">Clientes que mais geraram receita</p>
+                      </div>
+                    </div>
+                    {sortMode === 'revenue' && <Check size={18} className="text-emerald-600 shrink-0" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSortMode('orders_count')}
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+                      sortMode === 'orders_count' 
+                        ? 'border-blue-600 bg-blue-50/70 text-blue-900 font-bold shadow-xs' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${sortMode === 'orders_count' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                        <Wrench size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight">Mais O.S. Realizadas</p>
+                        <p className="text-[11px] text-slate-400 font-normal">Clientes com maior volume de serviços</p>
+                      </div>
+                    </div>
+                    {sortMode === 'orders_count' && <Check size={18} className="text-blue-600 shrink-0" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSortMode('oldest')}
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+                      sortMode === 'oldest' 
+                        ? 'border-blue-600 bg-blue-50/70 text-blue-900 font-bold shadow-xs' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${sortMode === 'oldest' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                        <Calendar size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight">Mais Antigos Primeiro</p>
+                        <p className="text-[11px] text-slate-400 font-normal">Primeiros clientes cadastrados</p>
+                      </div>
+                    </div>
+                    {sortMode === 'oldest' && <Check size={18} className="text-blue-600 shrink-0" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Seção 4: Filtros Especiais */}
+              <div>
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider block mb-2.5">
+                  4. Filtro de Clientes
+                </label>
+                <div className="grid grid-cols-1 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFilterMode('all')}
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+                      filterMode === 'all' 
+                        ? 'border-blue-600 bg-blue-50/70 text-blue-900 font-bold shadow-xs' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${filterMode === 'all' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                        <Users size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight">Todos os Clientes</p>
+                        <p className="text-[11px] text-slate-400 font-normal">Exibir todos sem restrições ({customers.length})</p>
+                      </div>
+                    </div>
+                    {filterMode === 'all' && <Check size={18} className="text-blue-600 shrink-0" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFilterMode('pending_os')}
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+                      filterMode === 'pending_os' 
+                        ? 'border-amber-500 bg-amber-50/70 text-amber-900 font-bold shadow-xs' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${filterMode === 'pending_os' ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-600'}`}>
+                        <Clock size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight">Com O.S. Pendente</p>
+                        <p className="text-[11px] text-slate-400 font-normal">Aparelhos atualmente em manutenção</p>
+                      </div>
+                    </div>
+                    {filterMode === 'pending_os' && <Check size={18} className="text-amber-600 shrink-0" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFilterMode('recurring')}
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+                      filterMode === 'recurring' 
+                        ? 'border-blue-600 bg-blue-50/70 text-blue-900 font-bold shadow-xs' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${filterMode === 'recurring' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'}`}>
+                        <Sparkles size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight">Clientes Recorrentes</p>
+                        <p className="text-[11px] text-slate-400 font-normal">Clientes que já realizaram mais de 1 serviço</p>
+                      </div>
+                    </div>
+                    {filterMode === 'recurring' && <Check size={18} className="text-blue-600 shrink-0" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFilterMode('paying')}
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+                      filterMode === 'paying' 
+                        ? 'border-emerald-600 bg-emerald-50/70 text-emerald-900 font-bold shadow-xs' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${filterMode === 'paying' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-600'}`}>
+                        <Receipt size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight">Com Pagamentos Realizados</p>
+                        <p className="text-[11px] text-slate-400 font-normal">Clientes com serviços concluídos/pagos</p>
+                      </div>
+                    </div>
+                    {filterMode === 'paying' && <Check size={18} className="text-emerald-600 shrink-0" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFilterMode('no_os')}
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+                      filterMode === 'no_os' 
+                        ? 'border-slate-600 bg-slate-100 text-slate-900 font-bold shadow-xs' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${filterMode === 'no_os' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                        <AlertCircle size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight">Sem Ordens de Serviço</p>
+                        <p className="text-[11px] text-slate-400 font-normal">Cadastros sem serviços registrados</p>
+                      </div>
+                    </div>
+                    {filterMode === 'no_os' && <Check size={18} className="text-slate-700 shrink-0" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer do Modal */}
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setSortMode('recent');
+                  setFilterMode('all');
+                  handleUpdateLayout('medium');
+                }}
+                className="px-3 sm:px-4 py-2.5 rounded-2xl text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors flex items-center gap-1.5 min-h-[44px]"
+              >
+                <RotateCcw size={14} />
+                <span>Restaurar Padrão</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsSortModalOpen(false)}
+                className="px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider bg-slate-900 text-white hover:bg-slate-800 shadow-md active:scale-95 transition-all min-h-[44px]"
+              >
+                Concluído
               </button>
             </div>
           </div>

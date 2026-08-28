@@ -1108,6 +1108,7 @@ const App: React.FC = () => {
               onSaveCustomer={saveCustomer}
               onSaveCustomers={saveCustomers}
               onDeleteCustomer={removeCustomer}
+              onUpdateSettings={saveSettings}
               onNavigateToNewOS={(customer) => {
                 setPrefilledCustomerForOS(customer);
                 setActiveTab('os');

@@ -196,6 +196,8 @@ export interface AppSettings {
   stockLayout?: 'small' | 'medium' | 'list';
   salesLayout?: 'small' | 'medium' | 'list';
   osLayout?: 'small' | 'medium' | 'large';
+  customersLayout?: 'small' | 'medium' | 'large' | 'list';
+  hideCustomerValues?: boolean;
   catalogSlug?: string;
   enableBillNotifications?: boolean;
   enableReceivableNotifications?: boolean;
