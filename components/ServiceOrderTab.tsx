@@ -521,13 +521,13 @@ const ServiceOrderTab: React.FC<Props> = ({
   };
 
   const copyLink = () => {
-    const link = `https://ticcell.com.br/acompanhamento/${formData.trackingToken}`;
+    const link = `${window.location.origin}/acompanhamento/${formData.trackingToken}`;
     navigator.clipboard.writeText(link);
     alert('Link copiado!');
   };
 
   const sendWhatsApp = () => {
-     const link = `https://ticcell.com.br/acompanhamento/${formData.trackingToken}`;
+     const link = `${window.location.origin}/acompanhamento/${formData.trackingToken}`;
      const message = `Olá, ${formData.customerName}! 👋%0A%0ASua Ordem de Serviço #${formData.id?.split('-')[0] || ''} foi registrada na TICCELL.%0A%0AVocê pode acompanhar o andamento do serviço pelo link abaixo:%0A%0A${link}%0A%0AQualquer dúvida, estamos à disposição.`;
      window.open(`https://wa.me/${formData.phoneNumber?.replace(/\D/g, '')}?text=${message}`, '_blank');
   };
@@ -1306,7 +1306,7 @@ const ServiceOrderTab: React.FC<Props> = ({
                   </div>
                   {formData.trackingToken ? (
                     <div className="space-y-2">
-                       <input readOnly value={`https://ticcell.com.br/acompanhamento/${formData.trackingToken}`} className="w-full p-2 text-[10px] font-mono bg-white rounded-lg border border-orange-100" />
+                       <input readOnly value={`${window.location.origin}/acompanhamento/${formData.trackingToken}`} className="w-full p-2 text-[10px] font-mono bg-white rounded-lg border border-orange-100" />
                        <div className="flex gap-2">
                          <button onClick={copyLink} className="flex-1 bg-white border border-orange-200 text-orange-900 py-2 rounded-xl text-[10px] font-black uppercase">Copiar Link</button>
                          <button onClick={sendWhatsApp} className="flex-1 bg-green-500 text-white py-2 rounded-xl text-[10px] font-black uppercase">WhatsApp</button>
