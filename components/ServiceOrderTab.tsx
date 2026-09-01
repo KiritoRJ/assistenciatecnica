@@ -11,6 +11,7 @@ import {
 import { ServiceOrder, AppSettings, User, Customer } from '../types';
 import { formatCurrency, parseCurrencyString, formatDate, formatDateTime, generateRandomNumericCode } from '../utils';
 import { OnlineDB } from '../utils/api';
+import { SavedOrderShareModal } from './SavedOrderShareModal';
 
 export const OS_STATUS_OPTIONS: Array<{
   value: ServiceOrder['status'];
@@ -123,6 +124,7 @@ const ServiceOrderTab: React.FC<Props> = ({
   const [isFullScreenSignatureOpen, setIsFullScreenSignatureOpen] = useState(false);
   const [lastCreatedOrder, setLastCreatedOrder] = useState<ServiceOrder | null>(null);
   const [orderToPrint, setOrderToPrint] = useState<ServiceOrder | null>(null);
+  const [savedOrderShareModal, setSavedOrderShareModal] = useState<{ order: ServiceOrder; isNew: boolean } | null>(null);
 
   const visibleOrders = useMemo(() => orders.filter(o => !o.isDeleted), [orders]);
   const osCount = visibleOrders.length;
@@ -401,6 +403,7 @@ const ServiceOrderTab: React.FC<Props> = ({
     }
     
     let newOrdersList: ServiceOrder[];
+    let savedOrder: ServiceOrder;
     const orderTrackingToken = formData.trackingToken || (Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15));
 
     if (editingOrder) {
@@ -429,6 +432,7 @@ const ServiceOrderTab: React.FC<Props> = ({
           }
       }
 
+      savedOrder = updatedOrder;
       newOrdersList = orders.map(o => o.id === editingOrder.id ? updatedOrder : o);
     } else {
       const formattedId = generateRandomNumericCode();
@@ -446,21 +450,19 @@ const ServiceOrderTab: React.FC<Props> = ({
         technicianId: null // Técnico será atribuído ao concluir
       } as ServiceOrder;
       
+      savedOrder = newOrder;
       newOrdersList = [newOrder, ...orders];
     }
     
     setOrders(newOrdersList);
     setIsModalOpen(false);
+    setLastCreatedOrder(savedOrder);
 
-    // Se for uma nova OS, imprime diretamente
-    if (!editingOrder) {
-      const newOrder = newOrdersList[0];
-      setLastCreatedOrder(newOrder);
-      setOrderToPrint(newOrder);
-      setTimeout(() => {
-        window.print();
-      }, 500);
-    }
+    // Abre o modal de compartilhamento da O.S. e do Link de Acompanhamento
+    setSavedOrderShareModal({ 
+      order: savedOrder, 
+      isNew: !editingOrder 
+    });
 
     resetForm();
     setIsSaving(false);
@@ -2276,6 +2278,21 @@ const ServiceOrderTab: React.FC<Props> = ({
           </div>
         </div>
       )}
+      {/* MODAL DE COMPARTILHAMENTO DA O.S. E DO LINK DE ACOMPANHAMENTO APÓS SALVAR */}
+      <SavedOrderShareModal
+        isOpen={!!savedOrderShareModal}
+        onClose={() => setSavedOrderShareModal(null)}
+        order={savedOrderShareModal?.order || null}
+        isNew={savedOrderShareModal?.isNew}
+        settings={settings}
+        onPrint={(order) => {
+          setOrderToPrint(order);
+          setTimeout(() => {
+            window.print();
+          }, 300);
+        }}
+      />
+
       {/* PORTAL PARA IMPRESSÃO DIRETA DA O.S. */}
       {document.getElementById('print-section') && orderToPrint && createPortal(
         <div 
