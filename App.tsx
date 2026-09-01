@@ -109,7 +109,7 @@ const App: React.FC = () => {
   
   if (pathname.startsWith('/catalogo/')) {
     catalogTenantId = pathname.split('/catalogo/')[1].replace(/\/$/, '');
-  } else if (pathname.length > 1 && !pathname.startsWith('/api/') && !pathname.startsWith('/auth/')) {
+  } else if (pathname.length > 1 && !pathname.startsWith('/api/') && !pathname.startsWith('/auth/') && !pathname.startsWith('/acompanhamento/')) {
     catalogSlug = pathname.substring(1).replace(/\/$/, '');
   }
 
