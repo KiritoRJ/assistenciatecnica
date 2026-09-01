@@ -44,8 +44,6 @@ export const SnakeGameModal: React.FC<SnakeGameModalProps> = ({
 }) => {
   const [snake, setSnake] = useState<Point[]>(INITIAL_SNAKE);
   const [food, setFood] = useState<Point>({ x: 4, y: 4 });
-  const [direction, setDirection] = useState<Direction>('UP');
-  const [nextDirection, setNextDirection] = useState<Direction>('UP');
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState<number>(() => {
     try {
@@ -56,6 +54,29 @@ export const SnakeGameModal: React.FC<SnakeGameModalProps> = ({
   });
   const [isGameOver, setIsGameOver] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  // Refs for zero-latency game loop and input queue
+  const currentDirectionRef = useRef<Direction>('UP');
+  const inputQueueRef = useRef<Direction[]>([]);
+  const isPlayingRef = useRef(false);
+  const isGameOverRef = useRef(false);
+  const snakeRef = useRef<Point[]>(INITIAL_SNAKE);
+  const foodRef = useRef<Point>({ x: 4, y: 4 });
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  isPlayingRef.current = isPlaying;
+  isGameOverRef.current = isGameOver;
+  snakeRef.current = snake;
+  foodRef.current = food;
+
+  const isOpposite = (dirA: Direction, dirB: Direction) => {
+    return (
+      (dirA === 'UP' && dirB === 'DOWN') ||
+      (dirA === 'DOWN' && dirB === 'UP') ||
+      (dirA === 'LEFT' && dirB === 'RIGHT') ||
+      (dirA === 'RIGHT' && dirB === 'LEFT')
+    );
+  };
 
   const generateFood = useCallback((currentSnake: Point[]): Point => {
     while (true) {
@@ -68,28 +89,43 @@ export const SnakeGameModal: React.FC<SnakeGameModalProps> = ({
     }
   }, []);
 
-  const resetGame = () => {
+  const resetGame = useCallback(() => {
+    const freshFood = generateFood(INITIAL_SNAKE);
     setSnake(INITIAL_SNAKE);
-    setDirection('UP');
-    setNextDirection('UP');
+    snakeRef.current = INITIAL_SNAKE;
+    currentDirectionRef.current = 'UP';
+    inputQueueRef.current = [];
     setScore(0);
     setIsGameOver(false);
-    setFood(generateFood(INITIAL_SNAKE));
+    isGameOverRef.current = false;
+    setFood(freshFood);
+    foodRef.current = freshFood;
     setIsPlaying(true);
-  };
+    isPlayingRef.current = true;
+  }, [generateFood]);
 
-  const changeDirection = (newDir: Direction) => {
-    if (!isPlaying) setIsPlaying(true);
-    setNextDirection(prev => {
-      if (newDir === 'UP' && prev !== 'DOWN') return 'UP';
-      if (newDir === 'DOWN' && prev !== 'UP') return 'DOWN';
-      if (newDir === 'LEFT' && prev !== 'RIGHT') return 'LEFT';
-      if (newDir === 'RIGHT' && prev !== 'LEFT') return 'RIGHT';
-      return prev;
-    });
-  };
+  const changeDirection = useCallback((newDir: Direction) => {
+    if (!isPlayingRef.current && !isGameOverRef.current) {
+      setIsPlaying(true);
+      isPlayingRef.current = true;
+    }
+    if (isGameOverRef.current) return;
 
-  // Keyboard controls
+    // Compare with the last queued direction or current moving direction
+    const lastDir = inputQueueRef.current.length > 0 
+      ? inputQueueRef.current[inputQueueRef.current.length - 1] 
+      : currentDirectionRef.current;
+
+    // Ignore if same direction or direct opposite (reverse into self)
+    if (newDir !== lastDir && !isOpposite(newDir, lastDir)) {
+      // Buffer up to 2 fast inputs (e.g. quick corner turns)
+      if (inputQueueRef.current.length < 2) {
+        inputQueueRef.current.push(newDir);
+      }
+    }
+  }, []);
+
+  // Keyboard controls with zero delay
   useEffect(() => {
     if (!isOpen) return;
 
@@ -108,7 +144,7 @@ export const SnakeGameModal: React.FC<SnakeGameModalProps> = ({
         changeDirection('RIGHT');
       } else if (e.code === 'Space') {
         e.preventDefault();
-        if (isGameOver) {
+        if (isGameOverRef.current) {
           resetGame();
         } else {
           setIsPlaying(p => !p);
@@ -116,66 +152,110 @@ export const SnakeGameModal: React.FC<SnakeGameModalProps> = ({
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, { passive: false });
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isGameOver, isPlaying]);
+  }, [isOpen, changeDirection, resetGame]);
+
+  // Touch Swipe Handlers for instant direct-touch play
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - touchStartRef.current.x;
+    const dy = touch.clientY - touchStartRef.current.y;
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+
+    // Minimum swipe threshold
+    if (Math.max(absX, absY) > 20) {
+      if (absX > absY) {
+        // Horizontal swipe
+        if (dx > 0) changeDirection('RIGHT');
+        else changeDirection('LEFT');
+      } else {
+        // Vertical swipe
+        if (dy > 0) changeDirection('DOWN');
+        else changeDirection('UP');
+      }
+    }
+    touchStartRef.current = null;
+  };
 
   // Game Loop
   useEffect(() => {
     if (!isOpen || !isPlaying || isGameOver) return;
 
-    const speed = Math.max(70, INITIAL_SPEED - Math.floor(score / 3) * 5);
+    const speed = Math.max(75, 115 - Math.floor(score / 4) * 4);
 
     const interval = setInterval(() => {
-      setSnake(prevSnake => {
-        const head = { ...prevSnake[0] };
-        const curDir = nextDirection;
-        setDirection(curDir);
-
-        if (curDir === 'UP') head.y -= 1;
-        if (curDir === 'DOWN') head.y += 1;
-        if (curDir === 'LEFT') head.x -= 1;
-        if (curDir === 'RIGHT') head.x += 1;
-
-        // Collision with walls
-        if (head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE) {
-          setIsGameOver(true);
-          setIsPlaying(false);
-          return prevSnake;
+      // Dequeue next direction if available
+      if (inputQueueRef.current.length > 0) {
+        const nextDir = inputQueueRef.current.shift()!;
+        if (!isOpposite(nextDir, currentDirectionRef.current)) {
+          currentDirectionRef.current = nextDir;
         }
+      }
 
-        // Collision with self
-        if (prevSnake.some(seg => seg.x === head.x && seg.y === head.y)) {
-          setIsGameOver(true);
-          setIsPlaying(false);
-          return prevSnake;
-        }
+      const curDir = currentDirectionRef.current;
+      const prevSnake = snakeRef.current;
+      const head = { ...prevSnake[0] };
 
-        const newSnake = [head, ...prevSnake];
+      if (curDir === 'UP') head.y -= 1;
+      if (curDir === 'DOWN') head.y += 1;
+      if (curDir === 'LEFT') head.x -= 1;
+      if (curDir === 'RIGHT') head.x += 1;
 
-        // Eat food
-        if (head.x === food.x && head.y === food.y) {
-          setScore(s => {
-            const nextScore = s + 1;
-            if (nextScore > highScore) {
-              setHighScore(nextScore);
-              try {
-                localStorage.setItem('snake_highscore', nextScore.toString());
-              } catch {}
-            }
-            return nextScore;
-          });
-          setFood(generateFood(newSnake));
-        } else {
-          newSnake.pop();
-        }
+      // Collision with walls
+      if (head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE) {
+        setIsGameOver(true);
+        setIsPlaying(false);
+        return;
+      }
 
-        return newSnake;
-      });
+      // Collision with self
+      if (prevSnake.some(seg => seg.x === head.x && seg.y === head.y)) {
+        setIsGameOver(true);
+        setIsPlaying(false);
+        return;
+      }
+
+      const newSnake = [head, ...prevSnake];
+      const curFood = foodRef.current;
+
+      // Eat food
+      if (head.x === curFood.x && head.y === curFood.y) {
+        try {
+          if (navigator.vibrate) navigator.vibrate(15);
+        } catch {}
+
+        setScore(s => {
+          const nextScore = s + 1;
+          if (nextScore > highScore) {
+            setHighScore(nextScore);
+            try {
+              localStorage.setItem('snake_highscore', nextScore.toString());
+            } catch {}
+          }
+          return nextScore;
+        });
+
+        const newFood = generateFood(newSnake);
+        foodRef.current = newFood;
+        setFood(newFood);
+      } else {
+        newSnake.pop();
+      }
+
+      snakeRef.current = newSnake;
+      setSnake(newSnake);
     }, speed);
 
     return () => clearInterval(interval);
-  }, [isOpen, isPlaying, isGameOver, nextDirection, food, score, highScore, generateFood]);
+  }, [isOpen, isPlaying, isGameOver, score, highScore, generateFood]);
 
   if (!isOpen) return null;
 
@@ -253,11 +333,15 @@ export const SnakeGameModal: React.FC<SnakeGameModalProps> = ({
           </div>
         </div>
 
-        {/* Tabuleiro do Jogo */}
-        <div className="relative w-full aspect-square bg-slate-950 rounded-2xl border-2 border-slate-800 overflow-hidden shadow-inner flex items-center justify-center">
+        {/* Tabuleiro do Jogo com suporte a deslizar o dedo (Swipe) */}
+        <div 
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          className="relative w-full aspect-square bg-slate-950 rounded-2xl border-2 border-slate-800 overflow-hidden shadow-inner flex items-center justify-center touch-none select-none cursor-pointer"
+        >
           {/* Grade de fundo discreta */}
           <div 
-            className="absolute inset-0 grid" 
+            className="absolute inset-0 grid pointer-events-none" 
             style={{ 
               gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(0, 1fr))`,
               gridTemplateRows: `repeat(${GRID_SIZE}, minmax(0, 1fr))` 
@@ -270,7 +354,7 @@ export const SnakeGameModal: React.FC<SnakeGameModalProps> = ({
 
           {/* Comida (Maçã / Circuito) */}
           <div 
-            className="absolute bg-red-500 rounded-full shadow-lg shadow-red-500/50 border border-red-300 animate-pulse"
+            className="absolute bg-red-500 rounded-full shadow-lg shadow-red-500/50 border border-red-300 animate-pulse pointer-events-none"
             style={{
               width: `${100 / GRID_SIZE}%`,
               height: `${100 / GRID_SIZE}%`,
@@ -279,16 +363,16 @@ export const SnakeGameModal: React.FC<SnakeGameModalProps> = ({
             }}
           />
 
-          {/* Cobrinha */}
+          {/* Cobrinha com renderização instantânea (sem lag de transição CSS) */}
           {snake.map((seg, idx) => {
             const isHead = idx === 0;
             return (
               <div 
                 key={idx}
-                className={`absolute transition-all duration-75 ${
+                className={`absolute pointer-events-none ${
                   isHead 
-                    ? 'bg-emerald-400 rounded-md shadow-md shadow-emerald-400/50 border border-emerald-200 z-10' 
-                    : 'bg-emerald-600 rounded-sm'
+                    ? 'bg-emerald-400 rounded-[3px] shadow-md shadow-emerald-400/60 border border-emerald-200 z-10' 
+                    : 'bg-emerald-600 rounded-[2px]'
                 }`}
                 style={{
                   width: `${100 / GRID_SIZE}%`,
@@ -306,8 +390,10 @@ export const SnakeGameModal: React.FC<SnakeGameModalProps> = ({
               <span className="text-red-500 font-black text-sm uppercase tracking-wider mb-1">Fim de Jogo!</span>
               <p className="text-slate-300 text-xs mb-3">Você fez <strong>{score}</strong> {score === 1 ? 'ponto' : 'pontos'}</p>
               <button
+                type="button"
                 onClick={resetGame}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider py-2.5 px-5 rounded-xl flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 active:scale-95 transition-all"
+                onPointerDown={e => { e.preventDefault(); resetGame(); }}
+                className="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs uppercase tracking-wider py-2.5 px-5 rounded-xl flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 transition-all touch-manipulation cursor-pointer"
               >
                 <RotateCcw size={14} /> Jogar Novamente
               </button>
@@ -318,11 +404,13 @@ export const SnakeGameModal: React.FC<SnakeGameModalProps> = ({
           {!isPlaying && !isGameOver && (
             <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xs flex flex-col items-center justify-center p-4 z-20">
               <p className="text-xs text-slate-300 font-medium text-center mb-3">
-                Toque no botão para começar ou use as setas do teclado
+                Deslize o dedo na tela, use os botões ou as setas do teclado
               </p>
               <button
+                type="button"
                 onClick={() => setIsPlaying(true)}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider py-2.5 px-5 rounded-xl flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 active:scale-95 transition-all"
+                onPointerDown={e => { e.preventDefault(); setIsPlaying(true); }}
+                className="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs uppercase tracking-wider py-2.5 px-5 rounded-xl flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 transition-all touch-manipulation cursor-pointer"
               >
                 <Play size={14} /> Iniciar Jogo
               </button>
@@ -330,46 +418,61 @@ export const SnakeGameModal: React.FC<SnakeGameModalProps> = ({
           )}
         </div>
 
-        {/* Controles Touch / D-Pad para Celular */}
-        <div className="mt-3 flex flex-col items-center gap-1.5 select-none">
+        {/* Controles Touch / D-Pad para Celular (Sem atraso de toque) */}
+        <div className="mt-3 flex flex-col items-center gap-1.5 select-none touch-manipulation">
           <button
             type="button"
+            onPointerDown={e => { e.preventDefault(); changeDirection('UP'); }}
             onClick={() => changeDirection('UP')}
-            className="w-12 h-10 bg-slate-800 hover:bg-slate-700 active:bg-emerald-600 text-white rounded-xl flex items-center justify-center shadow transition-colors active:scale-90"
+            className="w-14 h-11 bg-slate-800 hover:bg-slate-700 active:bg-emerald-600 active:scale-90 text-white rounded-xl flex items-center justify-center shadow-md transition-all touch-manipulation cursor-pointer"
+            aria-label="Cima"
           >
-            <ArrowUp size={18} />
+            <ArrowUp size={20} />
           </button>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <button
               type="button"
+              onPointerDown={e => { e.preventDefault(); changeDirection('LEFT'); }}
               onClick={() => changeDirection('LEFT')}
-              className="w-12 h-10 bg-slate-800 hover:bg-slate-700 active:bg-emerald-600 text-white rounded-xl flex items-center justify-center shadow transition-colors active:scale-90"
+              className="w-14 h-11 bg-slate-800 hover:bg-slate-700 active:bg-emerald-600 active:scale-90 text-white rounded-xl flex items-center justify-center shadow-md transition-all touch-manipulation cursor-pointer"
+              aria-label="Esquerda"
             >
-              <ArrowLeft size={18} />
+              <ArrowLeft size={20} />
             </button>
             <button
               type="button"
-              onClick={() => setIsPlaying(p => !p)}
-              disabled={isGameOver}
-              className="w-10 h-10 bg-slate-950 border border-slate-800 text-slate-400 hover:text-white rounded-xl flex items-center justify-center text-[10px] font-bold uppercase transition-colors"
+              onPointerDown={e => {
+                e.preventDefault();
+                if (isGameOver) resetGame();
+                else setIsPlaying(p => !p);
+              }}
+              onClick={() => {
+                if (isGameOver) resetGame();
+                else setIsPlaying(p => !p);
+              }}
+              className="w-12 h-11 bg-slate-950 border border-slate-800 text-slate-400 hover:text-white active:scale-90 rounded-xl flex items-center justify-center text-[10px] font-bold uppercase transition-all touch-manipulation cursor-pointer"
               title="Pausar / Continuar"
             >
-              {isPlaying ? <Pause size={14} /> : <Play size={14} />}
+              {isPlaying ? <Pause size={16} /> : <Play size={16} />}
             </button>
             <button
               type="button"
+              onPointerDown={e => { e.preventDefault(); changeDirection('RIGHT'); }}
               onClick={() => changeDirection('RIGHT')}
-              className="w-12 h-10 bg-slate-800 hover:bg-slate-700 active:bg-emerald-600 text-white rounded-xl flex items-center justify-center shadow transition-colors active:scale-90"
+              className="w-14 h-11 bg-slate-800 hover:bg-slate-700 active:bg-emerald-600 active:scale-90 text-white rounded-xl flex items-center justify-center shadow-md transition-all touch-manipulation cursor-pointer"
+              aria-label="Direita"
             >
-              <ArrowRight size={18} />
+              <ArrowRight size={20} />
             </button>
           </div>
           <button
             type="button"
+            onPointerDown={e => { e.preventDefault(); changeDirection('DOWN'); }}
             onClick={() => changeDirection('DOWN')}
-            className="w-12 h-10 bg-slate-800 hover:bg-slate-700 active:bg-emerald-600 text-white rounded-xl flex items-center justify-center shadow transition-colors active:scale-90"
+            className="w-14 h-11 bg-slate-800 hover:bg-slate-700 active:bg-emerald-600 active:scale-90 text-white rounded-xl flex items-center justify-center shadow-md transition-all touch-manipulation cursor-pointer"
+            aria-label="Baixo"
           >
-            <ArrowDown size={18} />
+            <ArrowDown size={20} />
           </button>
         </div>
 
