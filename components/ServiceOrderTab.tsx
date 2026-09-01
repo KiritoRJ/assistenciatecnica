@@ -5,11 +5,40 @@ import {
   Plus, Search, Trash2, Camera, X, Eye, Loader2, Smartphone, 
   AlertTriangle, Calculator, CheckCircle, Image as ImageIcon, Calendar, 
   KeyRound, Lock, Download, Maximize2, Layout, Check, Printer, Share2,
-  SlidersHorizontal, ArrowDownAZ, Clock, ShieldCheck, RotateCcw
+  SlidersHorizontal, ArrowDownAZ, Clock, ShieldCheck, RotateCcw,
+  Wrench, CheckCircle2, Sparkles
 } from 'lucide-react';
 import { ServiceOrder, AppSettings, User, Customer } from '../types';
 import { formatCurrency, parseCurrencyString, formatDate, formatDateTime, generateRandomNumericCode } from '../utils';
 import { OnlineDB } from '../utils/api';
+
+export const OS_STATUS_OPTIONS: Array<{
+  value: ServiceOrder['status'];
+  label: string;
+  badgeClass: string;
+  icon: any;
+  colorClass: string;
+  activeClass: string;
+}> = [
+  { value: 'Recebido', label: 'Recebido', badgeClass: 'bg-slate-100 text-slate-700 border-slate-200', icon: Clock, colorClass: 'text-slate-700 bg-slate-100 hover:bg-slate-200', activeClass: 'bg-slate-800 text-white' },
+  { value: 'Em Análise', label: 'Em Análise', badgeClass: 'bg-purple-50 text-purple-700 border-purple-200', icon: Smartphone, colorClass: 'text-purple-700 bg-purple-50 hover:bg-purple-100', activeClass: 'bg-purple-600 text-white' },
+  { value: 'Aguardando Peça', label: 'Aguardando Peça', badgeClass: 'bg-amber-50 text-amber-700 border-amber-200', icon: Wrench, colorClass: 'text-amber-700 bg-amber-50 hover:bg-amber-100', activeClass: 'bg-amber-600 text-white' },
+  { value: 'Aprovado', label: 'Aprovado', badgeClass: 'bg-cyan-50 text-cyan-700 border-cyan-200', icon: CheckCircle2, colorClass: 'text-cyan-700 bg-cyan-50 hover:bg-cyan-100', activeClass: 'bg-cyan-600 text-white' },
+  { value: 'Em Manutenção', label: 'Em Manutenção', badgeClass: 'bg-blue-50 text-blue-700 border-blue-200', icon: Wrench, colorClass: 'text-blue-700 bg-blue-50 hover:bg-blue-100', activeClass: 'bg-blue-600 text-white' },
+  { value: 'Concluído', label: 'Concluído', badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: Sparkles, colorClass: 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100', activeClass: 'bg-emerald-600 text-white' },
+  { value: 'Entregue', label: 'Entregue', badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300', icon: CheckCircle, colorClass: 'text-emerald-800 bg-emerald-100 hover:bg-emerald-200', activeClass: 'bg-emerald-700 text-white' },
+];
+
+export const getOrderStatusBadgeClass = (status?: string) => {
+  const s = (status || '').toLowerCase();
+  if (s.includes('entregue')) return 'bg-emerald-100 text-emerald-800 border-emerald-300';
+  if (s.includes('conclu') || s.includes('pronto')) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+  if (s.includes('manuten') || s.includes('repar')) return 'bg-blue-50 text-blue-700 border-blue-200';
+  if (s.includes('aprov')) return 'bg-cyan-50 text-cyan-700 border-cyan-200';
+  if (s.includes('peça') || s.includes('aguard')) return 'bg-amber-50 text-amber-700 border-amber-200';
+  if (s.includes('análise') || s.includes('analise')) return 'bg-purple-50 text-purple-700 border-purple-200';
+  return 'bg-slate-100 text-slate-700 border-slate-200'; // Recebido / Pendente
+};
 
 interface Props {
   orders: ServiceOrder[];
@@ -74,7 +103,19 @@ const ServiceOrderTab: React.FC<Props> = ({
   }, [tenantId, isModalOpen]);
   const [osLayout, setOsLayout] = useState<'small' | 'medium' | 'large'>(settings.osLayout || 'medium');
   const [sortMode, setSortMode] = useState<'recent' | 'alphabetical' | 'oldest'>('recent');
-  const [filterType, setFilterType] = useState<'all' | 'warranty_only' | 'expired_only' | 'pending_only' | 'delivered_only'>('all');
+  const [filterType, setFilterType] = useState<
+    | 'all'
+    | 'warranty_only'
+    | 'expired_only'
+    | 'pending_only'
+    | 'recebido_only'
+    | 'analise_only'
+    | 'peca_only'
+    | 'aprovado_only'
+    | 'manutencao_only'
+    | 'concluido_only'
+    | 'delivered_only'
+  >('all');
   const [isSortModalOpen, setIsSortModalOpen] = useState(false);
   const [isSigning, setIsSigning] = useState(false);
   const signatureRef = React.useRef<HTMLCanvasElement>(null);
@@ -136,7 +177,7 @@ const ServiceOrderTab: React.FC<Props> = ({
   // --- ESTADO DO FORMULÁRIO (DADOS DA O.S.) ---
   const [formData, setFormData] = useState<Partial<ServiceOrder>>({
     customerName: '', phoneNumber: '', address: '', deviceBrand: '', deviceModel: '',
-    defect: '', repairDetails: '', partsCost: 0, serviceCost: 0, status: 'Pendente',
+    defect: '', repairDetails: '', partsCost: 0, serviceCost: 0, status: 'Recebido',
     photos: [], finishedPhotos: [], entryDate: '', exitDate: '',
     checklist: [], signature: '', partSupplierId: '', partSupplierWarranty: '',
     customerId: ''
@@ -157,7 +198,7 @@ const ServiceOrderTab: React.FC<Props> = ({
         address: prefilledCustomer.address || '',
         customerId: prefilledCustomer.id,
         entryDate: today,
-        status: 'Pendente'
+        status: 'Recebido'
       }));
       setIsModalOpen(true);
       if (onClearPrefilledCustomer) onClearPrefilledCustomer();
@@ -360,8 +401,17 @@ const ServiceOrderTab: React.FC<Props> = ({
     }
     
     let newOrdersList: ServiceOrder[];
+    const orderTrackingToken = formData.trackingToken || (Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15));
+
     if (editingOrder) {
-      const updatedOrder = { ...editingOrder, ...formData, customerId: assignedCustomerId } as ServiceOrder;
+      const updatedOrder = { 
+        ...editingOrder, 
+        ...formData, 
+        trackingToken: editingOrder.trackingToken || orderTrackingToken,
+        publicNotes: formData.publicNotes || '',
+        isTrackingEnabled: formData.isTrackingEnabled !== false,
+        customerId: assignedCustomerId 
+      } as ServiceOrder;
       
       // Se o status mudou para Concluído ou Entregue, calcula comissão
       if ((updatedOrder.status === 'Concluído' || updatedOrder.status === 'Entregue') && 
@@ -386,6 +436,9 @@ const ServiceOrderTab: React.FC<Props> = ({
       const newOrder: ServiceOrder = {
         ...formData, 
         id: formattedId,
+        trackingToken: orderTrackingToken,
+        publicNotes: formData.publicNotes || '',
+        isTrackingEnabled: formData.isTrackingEnabled !== false,
         customerId: assignedCustomerId,
         date: new Date().toISOString(), 
         total: formData.total || (formData.partsCost || 0) + (formData.serviceCost || 0),
@@ -419,7 +472,7 @@ const ServiceOrderTab: React.FC<Props> = ({
     setEditingOrder(null);
     setFormData({ 
       customerName: '', phoneNumber: '', address: '', deviceBrand: '', deviceModel: '', 
-      defect: '', status: 'Pendente', photos: [], finishedPhotos: [], 
+      defect: '', status: 'Recebido', photos: [], finishedPhotos: [], 
       partsCost: 0, serviceCost: 0, total: 0, 
       entryDate: today, 
       exitDate: '',
@@ -430,7 +483,7 @@ const ServiceOrderTab: React.FC<Props> = ({
       partSupplierId: '',
       partSupplierWarranty: '',
       customerId: '',
-      trackingToken: '',
+      trackingToken: Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15),
       publicNotes: '',
       isTrackingEnabled: true
     });
@@ -520,16 +573,34 @@ const ServiceOrderTab: React.FC<Props> = ({
     setFormData(prev => ({ ...prev, trackingToken: newToken }));
   };
 
-  const copyLink = () => {
-    const link = `${window.location.origin}/acompanhamento/${formData.trackingToken}`;
-    navigator.clipboard.writeText(link);
-    alert('Link copiado!');
+  const copyLink = async () => {
+    let token = formData.trackingToken;
+    if (!token) {
+      token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      setFormData(prev => ({ ...prev, trackingToken: token }));
+    }
+    const link = `${window.location.origin}/acompanhamento/${token}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      alert('Link copiado com sucesso! Lembre-se de salvar a O.S.');
+    } catch {
+      prompt('Copie o link de acompanhamento:', link);
+    }
   };
 
   const sendWhatsApp = () => {
-     const link = `${window.location.origin}/acompanhamento/${formData.trackingToken}`;
-     const message = `Olá, ${formData.customerName}! 👋%0A%0ASua Ordem de Serviço #${formData.id?.split('-')[0] || ''} foi registrada na TICCELL.%0A%0AVocê pode acompanhar o andamento do serviço pelo link abaixo:%0A%0A${link}%0A%0AQualquer dúvida, estamos à disposição.`;
-     window.open(`https://wa.me/${formData.phoneNumber?.replace(/\D/g, '')}?text=${message}`, '_blank');
+     let token = formData.trackingToken;
+     if (!token) {
+       token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+       setFormData(prev => ({ ...prev, trackingToken: token }));
+     }
+     const link = `${window.location.origin}/acompanhamento/${token}`;
+     const storeName = settings?.storeName || 'TICCELL';
+     const cleanPhone = (formData.phoneNumber || '').replace(/\D/g, '');
+     const phoneWithCountry = cleanPhone.length <= 11 && !cleanPhone.startsWith('55') ? `55${cleanPhone}` : cleanPhone;
+     const osCode = formData.id ? `#${formData.id.split('-')[0]}` : '';
+     const message = `Olá, ${formData.customerName || 'Cliente'}! 👋%0A%0ASua Ordem de Serviço ${osCode} (${formData.deviceBrand || ''} ${formData.deviceModel || ''}) está disponível para acompanhamento.%0A%0AVocê pode acompanhar o andamento em tempo real pelo link:%0A${link}%0A%0AAtenciosamente,%0A${storeName}`;
+     window.open(`https://wa.me/${phoneWithCountry}?text=${message}`, '_blank');
   };
 
   useEffect(() => {
@@ -557,10 +628,17 @@ const ServiceOrderTab: React.FC<Props> = ({
     }
   }, [isFullScreenSignatureOpen, formData.signature]);
 
-  const handleQuickStatusChange = (newStatus: 'Pendente' | 'Concluído' | 'Entregue') => {
+  const handleQuickStatusChange = (newStatus: ServiceOrder['status']) => {
     if (!statusChangeOrder) return;
     
-    const updatedOrder = { ...statusChangeOrder, status: newStatus };
+    const today = new Date().toLocaleDateString('pt-BR');
+    const updatedOrder: ServiceOrder = { 
+      ...statusChangeOrder, 
+      status: newStatus,
+      exitDate: (newStatus === 'Concluído' || newStatus === 'Entregue') && !statusChangeOrder.exitDate 
+        ? today 
+        : statusChangeOrder.exitDate
+    };
     const newOrdersList = orders.map(o => o.id === statusChangeOrder.id ? updatedOrder : o);
     
     setOrders(newOrdersList);
@@ -918,8 +996,23 @@ const ServiceOrderTab: React.FC<Props> = ({
         if (filterType === 'warranty_only') {
           return isUnderWarranty(o);
         }
-        if (filterType === 'pending_only') {
-          return o.status === 'Pendente';
+        if (filterType === 'pending_only' || filterType === 'recebido_only') {
+          return o.status === 'Recebido' || o.status === 'Pendente';
+        }
+        if (filterType === 'analise_only') {
+          return o.status === 'Em Análise';
+        }
+        if (filterType === 'peca_only') {
+          return o.status === 'Aguardando Peça';
+        }
+        if (filterType === 'aprovado_only') {
+          return o.status === 'Aprovado';
+        }
+        if (filterType === 'manutencao_only') {
+          return o.status === 'Em Manutenção';
+        }
+        if (filterType === 'concluido_only') {
+          return o.status === 'Concluído';
         }
         if (filterType === 'delivered_only') {
           return o.status === 'Entregue';
@@ -980,7 +1073,7 @@ const ServiceOrderTab: React.FC<Props> = ({
               ? 'bg-blue-600 text-white shadow-blue-200' 
               : 'bg-white text-slate-400 hover:text-slate-900'
           }`}
-          title="Organizar e Filtrar Listagem (Ordem Alfabética, Recentes, Expiradas, Garantia)"
+          title="Organizar e Filtrar Listagem (Ordem Alfabética, Recentes, Expiradas, Garantia, Status)"
         >
           <SlidersHorizontal size={18} />
           {(sortMode !== 'recent' || filterType !== 'all') && (
@@ -1021,15 +1114,50 @@ const ServiceOrderTab: React.FC<Props> = ({
               <button onClick={() => setFilterType('all')} className="hover:text-emerald-950 ml-1 p-0.5"><X size={11} /></button>
             </span>
           )}
-          {filterType === 'pending_only' && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-100 text-amber-800 rounded-xl text-xs font-bold">
+          {(filterType === 'pending_only' || filterType === 'recebido_only') && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-slate-200 text-slate-800 rounded-xl text-xs font-bold">
               <Clock size={13} />
-              Apenas Pendentes
+              Apenas Recebidas
+              <button onClick={() => setFilterType('all')} className="hover:text-slate-950 ml-1 p-0.5"><X size={11} /></button>
+            </span>
+          )}
+          {filterType === 'analise_only' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-purple-100 text-purple-800 rounded-xl text-xs font-bold">
+              <Smartphone size={13} />
+              Apenas Em Análise
+              <button onClick={() => setFilterType('all')} className="hover:text-purple-950 ml-1 p-0.5"><X size={11} /></button>
+            </span>
+          )}
+          {filterType === 'peca_only' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-100 text-amber-800 rounded-xl text-xs font-bold">
+              <Wrench size={13} />
+              Apenas Aguardando Peça
               <button onClick={() => setFilterType('all')} className="hover:text-amber-950 ml-1 p-0.5"><X size={11} /></button>
             </span>
           )}
-          {filterType === 'delivered_only' && (
+          {filterType === 'aprovado_only' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-cyan-100 text-cyan-800 rounded-xl text-xs font-bold">
+              <CheckCircle2 size={13} />
+              Apenas Aprovadas
+              <button onClick={() => setFilterType('all')} className="hover:text-cyan-950 ml-1 p-0.5"><X size={11} /></button>
+            </span>
+          )}
+          {filterType === 'manutencao_only' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-blue-100 text-blue-800 rounded-xl text-xs font-bold">
+              <Wrench size={13} />
+              Apenas Em Manutenção
+              <button onClick={() => setFilterType('all')} className="hover:text-blue-950 ml-1 p-0.5"><X size={11} /></button>
+            </span>
+          )}
+          {filterType === 'concluido_only' && (
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold">
+              <Sparkles size={13} />
+              Apenas Concluídas
+              <button onClick={() => setFilterType('all')} className="hover:text-emerald-950 ml-1 p-0.5"><X size={11} /></button>
+            </span>
+          )}
+          {filterType === 'delivered_only' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-200 text-emerald-900 rounded-xl text-xs font-bold">
               <CheckCircle size={13} />
               Apenas Entregues
               <button onClick={() => setFilterType('all')} className="hover:text-emerald-950 ml-1 p-0.5"><X size={11} /></button>
@@ -1071,7 +1199,16 @@ const ServiceOrderTab: React.FC<Props> = ({
                 ${osLayout === 'small' ? 'p-2' : osLayout === 'medium' ? 'p-3 sm:p-4' : 'p-5 sm:p-6'}
               `}
             >
-              <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0 cursor-pointer" onClick={() => { setEditingOrder(order); setFormData(order); setIsModalOpen(true); }}>
+              <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0 cursor-pointer" onClick={() => { 
+                const orderToEdit: ServiceOrder = {
+                  ...order,
+                  trackingToken: order.trackingToken || (Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)),
+                  isTrackingEnabled: order.isTrackingEnabled !== false
+                };
+                setEditingOrder(orderToEdit); 
+                setFormData(orderToEdit); 
+                setIsModalOpen(true); 
+              }}>
                 <div 
                   onClick={(e) => { e.stopPropagation(); setStatusChangeOrder(order); }}
                   className={`rounded-xl sm:rounded-2xl flex items-center justify-center text-custom-primary overflow-hidden border shrink-0 transition-colors
@@ -1100,7 +1237,7 @@ const ServiceOrderTab: React.FC<Props> = ({
                     ${osLayout === 'small' ? 'text-[8px] sm:text-[9px]' : osLayout === 'medium' ? 'text-[9px] sm:text-[10px]' : 'text-[10px] sm:text-xs'}
                   `}>{order.deviceBrand} {order.deviceModel}</p>
                   <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-1">
-                     <span className={`font-black px-1.5 py-0.5 rounded-full ${order.status === 'Entregue' ? 'bg-emerald-50 text-emerald-500' : 'bg-blue-50 text-blue-500'} uppercase shrink-0
+                     <span className={`font-black px-1.5 py-0.5 rounded-full border ${getOrderStatusBadgeClass(order.status)} uppercase shrink-0
                        ${osLayout === 'small' ? 'text-[6px] sm:text-[7px]' : osLayout === 'medium' ? 'text-[7px] sm:text-[8px]' : 'text-[8px] sm:text-[9px]'}
                      `}>{order.status}</span>
                      <span className={`font-black text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full shrink-0
@@ -1288,8 +1425,25 @@ const ServiceOrderTab: React.FC<Props> = ({
                   </div>
                   <div className="space-y-1">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Status da O.S.</label>
-                    <select name="status" value={formData.status} onChange={handleInputChange} className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100 appearance-none">
-                      <option value="Pendente">Pendente</option>
+                    <select 
+                      name="status" 
+                      value={formData.status} 
+                      onChange={(e) => {
+                        const val = e.target.value as ServiceOrder['status'];
+                        const today = new Date().toLocaleDateString('pt-BR');
+                        setFormData(prev => ({
+                          ...prev,
+                          status: val,
+                          exitDate: (val === 'Concluído' || val === 'Entregue') && !prev.exitDate ? today : prev.exitDate
+                        }));
+                      }} 
+                      className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100 appearance-none focus:border-blue-500 transition-all cursor-pointer"
+                    >
+                      <option value="Recebido">Recebido</option>
+                      <option value="Em Análise">Em Análise</option>
+                      <option value="Aguardando Peça">Aguardando Peça</option>
+                      <option value="Aprovado">Aprovado</option>
+                      <option value="Em Manutenção">Em Manutenção</option>
                       <option value="Concluído">Concluído</option>
                       <option value="Entregue">Entregue</option>
                     </select>
@@ -1687,35 +1841,40 @@ const ServiceOrderTab: React.FC<Props> = ({
 
       {/* MODAL DE ALTERAÇÃO RÁPIDA DE STATUS */}
       {statusChangeOrder && (
-        <div className="fixed inset-0 bg-slate-950/80 z-[100] flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in" onClick={() => setStatusChangeOrder(null)}>
-          <div className="bg-white w-full max-w-xs rounded-[2rem] overflow-hidden shadow-2xl transition-all duration-300 p-6" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-black text-slate-800 uppercase text-sm tracking-tight">Alterar Status</h3>
+        <div className="fixed inset-0 bg-slate-950/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in" onClick={() => setStatusChangeOrder(null)}>
+          <div className="bg-white w-full max-w-sm rounded-[2rem] overflow-hidden shadow-2xl transition-all duration-300 p-5 sm:p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="font-black text-slate-800 uppercase text-sm tracking-tight">Alterar Status da O.S.</h3>
+                <p className="text-[11px] text-slate-400 font-bold">#{statusChangeOrder.id} - {statusChangeOrder.customerName}</p>
+              </div>
               <button onClick={() => setStatusChangeOrder(null)} className="p-2 text-slate-400 bg-slate-50 rounded-full hover:bg-slate-100 transition-colors"><X size={16} /></button>
             </div>
             
-            <div className="space-y-3">
-              <button 
-                onClick={() => handleQuickStatusChange('Pendente')}
-                className={`w-full py-4 px-4 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-between transition-all ${statusChangeOrder.status === 'Pendente' ? 'bg-slate-800 text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}
-              >
-                <span>Pendente</span>
-                {statusChangeOrder.status === 'Pendente' && <CheckCircle size={16} />}
-              </button>
-              <button 
-                onClick={() => handleQuickStatusChange('Concluído')}
-                className={`w-full py-4 px-4 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-between transition-all ${statusChangeOrder.status === 'Concluído' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
-              >
-                <span>Concluído</span>
-                {statusChangeOrder.status === 'Concluído' && <CheckCircle size={16} />}
-              </button>
-              <button 
-                onClick={() => handleQuickStatusChange('Entregue')}
-                className={`w-full py-4 px-4 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-between transition-all ${statusChangeOrder.status === 'Entregue' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
-              >
-                <span>Entregue</span>
-                {statusChangeOrder.status === 'Entregue' && <CheckCircle size={16} />}
-              </button>
+            <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+              {OS_STATUS_OPTIONS.map((opt) => {
+                const IconComponent = opt.icon;
+                const isSelected = statusChangeOrder.status === opt.value || 
+                  (opt.value === 'Recebido' && statusChangeOrder.status === 'Pendente');
+                return (
+                  <button 
+                    key={opt.value}
+                    type="button"
+                    onClick={() => handleQuickStatusChange(opt.value)}
+                    className={`w-full py-3.5 px-4 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-between transition-all border ${
+                      isSelected 
+                        ? `${opt.activeClass} shadow-md border-transparent` 
+                        : `${opt.colorClass} border-slate-100`
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <IconComponent size={17} />
+                      <span>{opt.label}</span>
+                    </div>
+                    {isSelected && <CheckCircle size={17} />}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -1820,7 +1979,7 @@ const ServiceOrderTab: React.FC<Props> = ({
               {/* Seção 2: Filtro de Exibição */}
               <div>
                 <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider block mb-2.5">
-                  2. Filtro de Exibição
+                  2. Filtro de Exibição por Status e Garantia
                 </label>
                 <div className="grid grid-cols-1 gap-2">
                   <button
@@ -1842,6 +2001,153 @@ const ServiceOrderTab: React.FC<Props> = ({
                       </div>
                     </div>
                     {filterType === 'all' && <Check size={18} className="text-blue-600 shrink-0" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFilterType('recebido_only')}
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+                      filterType === 'recebido_only' || filterType === 'pending_only'
+                        ? 'border-slate-700 bg-slate-100 text-slate-900 font-bold' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${filterType === 'recebido_only' || filterType === 'pending_only' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                        <Clock size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight">Recebido</p>
+                        <p className="text-[11px] text-slate-400 font-normal">Aparelhos recebidos na assistência</p>
+                      </div>
+                    </div>
+                    {(filterType === 'recebido_only' || filterType === 'pending_only') && <Check size={18} className="text-slate-800 shrink-0" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFilterType('analise_only')}
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+                      filterType === 'analise_only' 
+                        ? 'border-purple-600 bg-purple-50 text-purple-900 font-bold' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${filterType === 'analise_only' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700'}`}>
+                        <Smartphone size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight">Em Análise</p>
+                        <p className="text-[11px] text-slate-400 font-normal">Em diagnóstico técnico</p>
+                      </div>
+                    </div>
+                    {filterType === 'analise_only' && <Check size={18} className="text-purple-600 shrink-0" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFilterType('peca_only')}
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+                      filterType === 'peca_only' 
+                        ? 'border-amber-600 bg-amber-50 text-amber-900 font-bold' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${filterType === 'peca_only' ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-700'}`}>
+                        <Wrench size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight">Aguardando Peça</p>
+                        <p className="text-[11px] text-slate-400 font-normal">Peça solicitada ao fornecedor</p>
+                      </div>
+                    </div>
+                    {filterType === 'peca_only' && <Check size={18} className="text-amber-600 shrink-0" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFilterType('aprovado_only')}
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+                      filterType === 'aprovado_only' 
+                        ? 'border-cyan-600 bg-cyan-50 text-cyan-900 font-bold' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${filterType === 'aprovado_only' ? 'bg-cyan-600 text-white' : 'bg-cyan-50 text-cyan-700'}`}>
+                        <CheckCircle2 size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight">Aprovado</p>
+                        <p className="text-[11px] text-slate-400 font-normal">Orçamento aprovado pelo cliente</p>
+                      </div>
+                    </div>
+                    {filterType === 'aprovado_only' && <Check size={18} className="text-cyan-600 shrink-0" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFilterType('manutencao_only')}
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+                      filterType === 'manutencao_only' 
+                        ? 'border-blue-600 bg-blue-50 text-blue-900 font-bold' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${filterType === 'manutencao_only' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700'}`}>
+                        <Wrench size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight">Em Manutenção</p>
+                        <p className="text-[11px] text-slate-400 font-normal">Em execução na bancada</p>
+                      </div>
+                    </div>
+                    {filterType === 'manutencao_only' && <Check size={18} className="text-blue-600 shrink-0" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFilterType('concluido_only')}
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+                      filterType === 'concluido_only' 
+                        ? 'border-emerald-600 bg-emerald-50 text-emerald-900 font-bold' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${filterType === 'concluido_only' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}>
+                        <Sparkles size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight">Concluído</p>
+                        <p className="text-[11px] text-slate-400 font-normal">Serviço pronto para retirada</p>
+                      </div>
+                    </div>
+                    {filterType === 'concluido_only' && <Check size={18} className="text-emerald-600 shrink-0" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFilterType('delivered_only')}
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+                      filterType === 'delivered_only' 
+                        ? 'border-emerald-700 bg-emerald-100 text-emerald-900 font-bold' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${filterType === 'delivered_only' ? 'bg-emerald-700 text-white' : 'bg-emerald-100 text-emerald-800'}`}>
+                        <CheckCircle size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight">Entregue</p>
+                        <p className="text-[11px] text-slate-400 font-normal">Aparelho retirado pelo cliente</p>
+                      </div>
+                    </div>
+                    {filterType === 'delivered_only' && <Check size={18} className="text-emerald-700 shrink-0" />}
                   </button>
 
                   <button
@@ -1890,27 +2196,6 @@ const ServiceOrderTab: React.FC<Props> = ({
                       </div>
                     </div>
                     {filterType === 'expired_only' && <Check size={18} className="text-red-600 shrink-0" />}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setFilterType('pending_only')}
-                    className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
-                      filterType === 'pending_only' 
-                        ? 'border-amber-500 bg-amber-50/70 text-amber-900 font-bold' 
-                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-xl ${filterType === 'pending_only' ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-600'}`}>
-                        <Clock size={16} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold leading-tight">Apenas Pendentes</p>
-                        <p className="text-[11px] text-slate-400 font-normal">Aparelhos em manutenção</p>
-                      </div>
-                    </div>
-                    {filterType === 'pending_only' && <Check size={18} className="text-amber-600 shrink-0" />}
                   </button>
                 </div>
               </div>

@@ -334,27 +334,89 @@ app.post('/api/auth/change-super-password', async (req, res) => {
 // Tracking API
 app.get('/api/os-tracking/:token', async (req, res) => {
   const { token } = req.params;
-  console.log('Fetching tracking for token:', token);
+  const cleanToken = (token || '').trim();
+  console.log('Fetching tracking for token:', cleanToken);
+
   try {
-    const { data, error } = await supabase
+    // 1. Try finding by tracking_token first
+    let { data: order, error } = await supabase
       .from('service_orders')
-      .select('id, customer_name, device_brand, device_model, defect, status, public_notes, created_at, entry_date, exit_date, total, photos')
-      .eq('tracking_token', token)
+      .select('id, tenant_id, customer_name, phone_number, device_brand, device_model, defect, repair_details, status, public_notes, created_at, entry_date, exit_date, total, photos, finished_photos, is_tracking_enabled')
+      .eq('tracking_token', cleanToken)
       .maybeSingle();
+
+    // 2. Fallback: if not found, try finding by OS ID directly
+    if (!order) {
+      const { data: fallbackOrder, error: fallbackError } = await supabase
+        .from('service_orders')
+        .select('id, tenant_id, customer_name, phone_number, device_brand, device_model, defect, repair_details, status, public_notes, created_at, entry_date, exit_date, total, photos, finished_photos, is_tracking_enabled')
+        .eq('id', cleanToken)
+        .maybeSingle();
+
+      if (fallbackError) {
+        console.error('Supabase fallback error:', fallbackError);
+      } else if (fallbackOrder) {
+        order = fallbackOrder;
+      }
+    }
 
     if (error) {
       console.error('Supabase error:', error);
       throw error;
     }
-    if (!data) {
-      console.log('No order found for token:', token);
-      return res.status(404).json({ error: 'Ordem de serviço não encontrada' });
+
+    if (!order) {
+      console.log('No order found for token:', cleanToken);
+      return res.status(404).json({ error: 'Ordem de serviço não encontrada.' });
     }
 
-    res.json(data);
+    if (order.is_tracking_enabled === false) {
+      return res.status(403).json({ error: 'O acompanhamento online para esta O.S. está temporariamente desativado.' });
+    }
+
+    // Fetch store / tenant information
+    let storeInfo: { name: string; phone?: string; logo?: string } = {
+      name: 'TICCELL Assistência Técnica'
+    };
+
+    if (order.tenant_id) {
+      const [tenantRes, settingsRes] = await Promise.all([
+        supabase.from('tenants').select('name, username').eq('id', order.tenant_id).maybeSingle(),
+        supabase.from('cloud_data').select('data_json').eq('tenant_id', order.tenant_id).eq('store_key', 'settings').maybeSingle()
+      ]);
+
+      if (tenantRes.data) {
+        storeInfo.name = tenantRes.data.name || tenantRes.data.username || storeInfo.name;
+      }
+      if (settingsRes.data?.data_json) {
+        const s = settingsRes.data.data_json;
+        if (s.storeName) storeInfo.name = s.storeName;
+        if (s.phoneNumber) storeInfo.phone = s.phoneNumber;
+        if (s.logo) storeInfo.logo = s.logo;
+      }
+    }
+
+    res.json({
+      id: order.id,
+      customerName: order.customer_name,
+      phoneNumber: order.phone_number,
+      deviceBrand: order.device_brand,
+      deviceModel: order.device_model,
+      defect: order.defect,
+      repairDetails: order.repair_details,
+      status: order.status || 'Pendente',
+      publicNotes: order.public_notes,
+      createdAt: order.created_at,
+      entryDate: order.entry_date,
+      exitDate: order.exit_date,
+      total: order.total,
+      photos: order.photos || [],
+      finishedPhotos: order.finished_photos || [],
+      store: storeInfo
+    });
   } catch (err: any) {
     console.error('Error fetching OS tracking:', err);
-    res.status(500).json({ error: 'Erro ao buscar dados' });
+    res.status(500).json({ error: 'Erro ao buscar dados do acompanhamento' });
   }
 });
 

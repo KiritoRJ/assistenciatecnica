@@ -56,7 +56,7 @@ export interface ServiceOrder {
   partsCost: number;
   serviceCost: number;
   total: number;
-  status: 'Pendente' | 'Concluído' | 'Entregue';
+  status: 'Recebido' | 'Em Análise' | 'Aguardando Peça' | 'Aprovado' | 'Em Manutenção' | 'Concluído' | 'Entregue' | 'Pendente';
   photos: string[];
   finishedPhotos?: string[];
   checklist?: string[];

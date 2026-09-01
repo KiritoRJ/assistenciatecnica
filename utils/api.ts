@@ -527,7 +527,10 @@ export class OnlineDB {
         checklist: d.checklist || [],
         partSupplierId: d.part_supplier_id || '',
         partSupplierWarranty: d.part_supplier_warranty || '',
-        customerId: d.customer_id || ''
+        customerId: d.customer_id || '',
+        trackingToken: d.tracking_token || '',
+        publicNotes: d.public_notes || '',
+        isTrackingEnabled: d.is_tracking_enabled !== false
       }));
     } catch (e) { 
       console.error("Erro ao buscar ordens do Supabase:", e);
@@ -741,7 +744,10 @@ export class OnlineDB {
         checklist: os.checklist || [],
         part_supplier_id: os.partSupplierId || '',
         part_supplier_warranty: os.partSupplierWarranty || '',
-        customer_id: os.customerId || null
+        customer_id: os.customerId || null,
+        tracking_token: os.trackingToken || null,
+        public_notes: os.publicNotes || null,
+        is_tracking_enabled: os.isTrackingEnabled !== false
       }));
       const { error } = await supabase.from('service_orders').upsert(payload, { onConflict: 'id' });
       if (error) throw error;
