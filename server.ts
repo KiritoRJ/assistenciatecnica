@@ -334,6 +334,7 @@ app.post('/api/auth/change-super-password', async (req, res) => {
 // Tracking API
 app.get('/api/os-tracking/:token', async (req, res) => {
   const { token } = req.params;
+  console.log('Fetching tracking for token:', token);
   try {
     const { data, error } = await supabase
       .from('service_orders')
@@ -341,8 +342,14 @@ app.get('/api/os-tracking/:token', async (req, res) => {
       .eq('tracking_token', token)
       .maybeSingle();
 
-    if (error) throw error;
-    if (!data) return res.status(404).json({ error: 'Ordem de serviço não encontrada' });
+    if (error) {
+      console.error('Supabase error:', error);
+      throw error;
+    }
+    if (!data) {
+      console.log('No order found for token:', token);
+      return res.status(404).json({ error: 'Ordem de serviço não encontrada' });
+    }
 
     res.json(data);
   } catch (err: any) {

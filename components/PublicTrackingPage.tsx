@@ -12,8 +12,12 @@ const PublicTrackingPage: React.FC<Props> = ({ token }) => {
 
   useEffect(() => {
     fetch(`/api/os-tracking/${token}`)
-      .then(res => {
-        if (!res.ok) throw new Error('Não foi possível localizar esta Ordem de Serviço.');
+      .then(async res => {
+        if (!res.ok) {
+          const text = await res.text();
+          console.error('API Error Response:', text);
+          throw new Error(`Erro ${res.status}: Não foi possível localizar esta Ordem de Serviço.`);
+        }
         return res.json();
       })
       .then(data => {
