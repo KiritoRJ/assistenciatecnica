@@ -429,7 +429,10 @@ const ServiceOrderTab: React.FC<Props> = ({
       paymentInstallments: 1,
       partSupplierId: '',
       partSupplierWarranty: '',
-      customerId: ''
+      customerId: '',
+      trackingToken: '',
+      publicNotes: '',
+      isTrackingEnabled: true
     });
     setShowCustomerSuggestions(false);
   };
@@ -510,6 +513,23 @@ const ServiceOrderTab: React.FC<Props> = ({
       }
       return { ...prev, checklist: [...current, item] };
     });
+  };
+
+  const generateTrackingToken = () => {
+    const newToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    setFormData(prev => ({ ...prev, trackingToken: newToken }));
+  };
+
+  const copyLink = () => {
+    const link = `https://ticcell.com.br/acompanhamento/${formData.trackingToken}`;
+    navigator.clipboard.writeText(link);
+    alert('Link copiado!');
+  };
+
+  const sendWhatsApp = () => {
+     const link = `https://ticcell.com.br/acompanhamento/${formData.trackingToken}`;
+     const message = `Olá, ${formData.customerName}! 👋%0A%0ASua Ordem de Serviço #${formData.id?.split('-')[0] || ''} foi registrada na TICCELL.%0A%0AVocê pode acompanhar o andamento do serviço pelo link abaixo:%0A%0A${link}%0A%0AQualquer dúvida, estamos à disposição.`;
+     window.open(`https://wa.me/${formData.phoneNumber?.replace(/\D/g, '')}?text=${message}`, '_blank');
   };
 
   useEffect(() => {
@@ -1274,6 +1294,28 @@ const ServiceOrderTab: React.FC<Props> = ({
                       <option value="Entregue">Entregue</option>
                     </select>
                   </div>
+                </div>
+
+                {/* ACOMPANHAMENTO DO CLIENTE */}
+                <div className="bg-orange-50 p-4 rounded-3xl space-y-3 mb-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-[10px] font-black text-orange-900 uppercase tracking-widest flex items-center gap-1.5"><Eye size={12}/> Acompanhamento Público</h4>
+                    {formData.trackingToken && (
+                      <button onClick={generateTrackingToken} className="text-[8px] font-black text-orange-600 uppercase tracking-widest hover:underline">Regenerar Link</button>
+                    )}
+                  </div>
+                  {formData.trackingToken ? (
+                    <div className="space-y-2">
+                       <input readOnly value={`https://ticcell.com.br/acompanhamento/${formData.trackingToken}`} className="w-full p-2 text-[10px] font-mono bg-white rounded-lg border border-orange-100" />
+                       <div className="flex gap-2">
+                         <button onClick={copyLink} className="flex-1 bg-white border border-orange-200 text-orange-900 py-2 rounded-xl text-[10px] font-black uppercase">Copiar Link</button>
+                         <button onClick={sendWhatsApp} className="flex-1 bg-green-500 text-white py-2 rounded-xl text-[10px] font-black uppercase">WhatsApp</button>
+                       </div>
+                    </div>
+                  ) : (
+                    <button onClick={generateTrackingToken} className="w-full bg-orange-600 text-white py-2 rounded-xl text-[10px] font-black uppercase">Gerar Link de Acompanhamento</button>
+                  )}
+                  <textarea name="publicNotes" value={formData.publicNotes || ''} onChange={handleInputChange} placeholder="Observações públicas para o cliente..." className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs h-16 resize-none border border-orange-100" />
                 </div>
 
                 {/* CHECKLIST DE DEFEITOS */}

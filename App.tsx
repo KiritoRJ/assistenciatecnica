@@ -12,6 +12,7 @@ import EmployeeManagementTab from './components/EmployeeManagementTab';
 import SuperAdminDashboard from './components/SuperAdminDashboard';
 import SubscriptionView from './components/SubscriptionView';
 import CustomerCatalog from './components/CustomerCatalog';
+import PublicTrackingPage from './components/PublicTrackingPage';
 import { OnlineDB, supabase } from './utils/api';
 import { OfflineSync } from './utils/offlineSync';
 import { db } from './utils/localDb';
@@ -633,6 +634,12 @@ const App: React.FC = () => {
 
   if (catalogTenantId || catalogSlug) {
     return <CustomerCatalog tenantId={catalogTenantId} catalogSlug={catalogSlug} />;
+  }
+
+  // Acompanhamento público de O.S.
+  if (pathname.startsWith('/acompanhamento/')) {
+    const token = pathname.split('/acompanhamento/')[1];
+    return <PublicTrackingPage token={token} />;
   }
 
   if (isInitializing) {

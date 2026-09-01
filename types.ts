@@ -69,6 +69,9 @@ export interface ServiceOrder {
   customerId?: string;
   partSupplierId?: string;
   partSupplierWarranty?: string;
+  trackingToken?: string;
+  publicNotes?: string;
+  isTrackingEnabled?: boolean;
 }
 
 export interface CustomerNote {

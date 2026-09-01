@@ -331,19 +331,23 @@ app.post('/api/auth/change-super-password', async (req, res) => {
   }
 });
 
-// Suppliers Proxy Endpoints
-app.get('/api/suppliers', async (req, res) => {
-  const { tenantId } = req.query;
-  if (!tenantId || typeof tenantId !== 'string') {
-    return res.status(400).json({ error: 'tenantId is required' });
-  }
-
+// Tracking API
+app.get('/api/os-tracking/:token', async (req, res) => {
+  const { token } = req.params;
   try {
-    const suppliers = await OnlineDB.fetchSuppliers(tenantId);
-    res.json(suppliers);
+    const { data, error } = await supabase
+      .from('service_orders')
+      .select('id, customer_name, device_brand, device_model, defect, status, public_notes, created_at, entry_date, exit_date, total, photos')
+      .eq('tracking_token', token)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Ordem de serviço não encontrada' });
+
+    res.json(data);
   } catch (err: any) {
-    console.error('Error fetching suppliers:', err);
-    res.status(500).json({ error: err.message || 'Error fetching suppliers' });
+    console.error('Error fetching OS tracking:', err);
+    res.status(500).json({ error: 'Erro ao buscar dados' });
   }
 });
 
