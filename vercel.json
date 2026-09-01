@@ -1,12 +1,17 @@
 {
   "rewrites": [
     {
+      "source": "/api/os-tracking/:token",
+      "destination": "/api/os-tracking?token=:token"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/$1"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]
 }
+

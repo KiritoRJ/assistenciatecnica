@@ -98,21 +98,117 @@ const PublicTrackingPage: React.FC<Props> = ({ token }) => {
   const orderRef = useRef<TrackingData | null>(null);
   orderRef.current = order;
 
+  const fetchDirectFromSupabase = async (cleanToken: string): Promise<TrackingData> => {
+    // 1. Try finding by tracking_token first
+    let { data: orderData, error: orderErr } = await supabase
+      .from('service_orders')
+      .select('id, tenant_id, customer_name, phone_number, device_brand, device_model, defect, repair_details, status, public_notes, created_at, entry_date, exit_date, total, photos, finished_photos, is_tracking_enabled')
+      .eq('tracking_token', cleanToken)
+      .maybeSingle();
+
+    // 2. Fallback: if not found, try finding by OS ID directly
+    if (!orderData) {
+      const { data: fallbackOrder, error: fallbackError } = await supabase
+        .from('service_orders')
+        .select('id, tenant_id, customer_name, phone_number, device_brand, device_model, defect, repair_details, status, public_notes, created_at, entry_date, exit_date, total, photos, finished_photos, is_tracking_enabled')
+        .eq('id', cleanToken)
+        .maybeSingle();
+
+      if (fallbackOrder) {
+        orderData = fallbackOrder;
+      } else if (fallbackError) {
+        throw fallbackError;
+      }
+    }
+
+    if (orderErr) throw orderErr;
+    if (!orderData) {
+      throw new Error('Ordem de Serviço não encontrada. Verifique se o link está correto ou se a O.S. já foi salva no sistema.');
+    }
+
+    if (orderData.is_tracking_enabled === false) {
+      throw new Error('O acompanhamento online para esta Ordem de Serviço foi desativado pela loja.');
+    }
+
+    let storeInfo: { name: string; phone?: string; logo?: string } = {
+      name: 'Assistência Técnica'
+    };
+
+    if (orderData.tenant_id) {
+      try {
+        const [tenantRes, settingsRes] = await Promise.all([
+          supabase.from('tenants').select('name, username').eq('id', orderData.tenant_id).maybeSingle(),
+          supabase.from('cloud_data').select('data_json').eq('tenant_id', orderData.tenant_id).eq('store_key', 'settings').maybeSingle()
+        ]);
+
+        if (tenantRes.data) {
+          storeInfo.name = tenantRes.data.name || tenantRes.data.username || storeInfo.name;
+        }
+        if (settingsRes.data?.data_json) {
+          const s = settingsRes.data.data_json;
+          if (s.storeName) storeInfo.name = s.storeName;
+          if (s.phoneNumber) storeInfo.phone = s.phoneNumber;
+          if (s.logo) storeInfo.logo = s.logo;
+        }
+      } catch (e) {
+        console.warn('Could not load store info:', e);
+      }
+    }
+
+    return {
+      id: orderData.id,
+      customerName: orderData.customer_name,
+      phoneNumber: orderData.phone_number,
+      deviceBrand: orderData.device_brand,
+      deviceModel: orderData.device_model,
+      defect: orderData.defect,
+      repairDetails: orderData.repair_details,
+      status: orderData.status || 'Pendente',
+      publicNotes: orderData.public_notes,
+      createdAt: orderData.created_at,
+      entryDate: orderData.entry_date,
+      exitDate: orderData.exit_date,
+      total: orderData.total,
+      photos: orderData.photos || [],
+      finishedPhotos: orderData.finished_photos || [],
+      store: storeInfo
+    };
+  };
+
   const fetchTracking = async (showLoading = true, silent = false) => {
     if (showLoading) setLoading(true);
     if (!silent) setError(null);
+    const cleanToken = (token || '').trim();
+
     try {
-      const res = await fetch(`/api/os-tracking/${token}`);
-      if (!res.ok) {
-        if (res.status === 404) {
-          throw new Error('Ordem de Serviço não encontrada. Verifique se o link está correto ou se a O.S. já foi salva no sistema.');
-        } else if (res.status === 403) {
-          throw new Error('O acompanhamento online para esta Ordem de Serviço foi desativado pela loja.');
-        } else {
-          throw new Error(`Não foi possível carregar os dados (Código ${res.status}).`);
+      let data: TrackingData | null = null;
+
+      // 1. Tenta buscar via API
+      try {
+        const res = await fetch(`/api/os-tracking/${encodeURIComponent(cleanToken)}`);
+        const contentType = res.headers.get('content-type') || '';
+        
+        // Verifica se a resposta é realmente JSON válido e não a página HTML do SPA
+        if (res.ok && contentType.includes('application/json')) {
+          data = await res.json();
+        } else if (res.status === 404 && contentType.includes('application/json')) {
+          const errJson = await res.json().catch(() => null);
+          throw new Error(errJson?.error || 'Ordem de Serviço não encontrada.');
+        } else if (res.status === 403 && contentType.includes('application/json')) {
+          const errJson = await res.json().catch(() => null);
+          throw new Error(errJson?.error || 'O acompanhamento online para esta O.S. está desativado.');
         }
+      } catch (apiErr: any) {
+        if (apiErr.message?.includes('não encontrada') || apiErr.message?.includes('desativado')) {
+          throw apiErr;
+        }
+        console.warn('API fetch failed, falling back to direct Supabase query:', apiErr);
       }
-      const data: TrackingData = await res.json();
+
+      // 2. Se a API retornou HTML (ex: Vercel SPA rewrite) ou falhou na rota, busca direto no Supabase
+      if (!data) {
+        data = await fetchDirectFromSupabase(cleanToken);
+      }
       
       // Checa se o status mudou em tempo real
       if (orderRef.current && orderRef.current.status !== data.status) {
