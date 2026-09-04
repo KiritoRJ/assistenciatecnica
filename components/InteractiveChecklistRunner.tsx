@@ -29,7 +29,11 @@ export const InteractiveChecklistRunner: React.FC<Props> = ({
   onSaveResult,
   isBenchMode = false
 }) => {
-  const [loading, setLoading] = useState(!propOrderData);
+  const [loading, setLoading] = useState<boolean>(() => {
+    if (propOrderData) return false;
+    if (token && token.trim().length > 0) return true;
+    return false;
+  });
   const [order, setOrder] = useState<Partial<ServiceOrder> | null>(propOrderData || null);
   const [storeInfo, setStoreInfo] = useState<{ name: string; phone?: string; logo?: string }>(() => ({
     name: propSettings?.storeName || 'Assistência Técnica',
@@ -86,17 +90,41 @@ export const InteractiveChecklistRunner: React.FC<Props> = ({
 
   // Busca dados da O.S. pelo token se necessário
   useEffect(() => {
-    if (!propOrderData && token) {
-      loadOrderByToken(token);
+    if (propOrderData) {
+      setOrder(propOrderData);
+      setLoading(false);
+      return;
+    }
+
+    if (token && token.trim().length > 0) {
+      loadOrderByToken(token.trim());
+    } else {
+      setLoading(false);
     }
   }, [token, propOrderData]);
 
+  // Timeout de segurança absoluto: nunca fica mais de 3.5s na tela de loading
+  useEffect(() => {
+    if (loading) {
+      const timer = setTimeout(() => {
+        setLoading(false);
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [loading]);
+
   const loadOrderByToken = async (cleanToken: string) => {
     setLoading(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+
     try {
-      // 1. Tenta API do servidor
+      // 1. Tenta API do servidor com timeout
       try {
-        const res = await fetch(`/api/os-tracking/${encodeURIComponent(cleanToken)}`);
+        const res = await fetch(`/api/os-tracking/${encodeURIComponent(cleanToken)}`, {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
         if (res.ok) {
           const data = await res.json();
           if (data && data.id) {
@@ -120,48 +148,55 @@ export const InteractiveChecklistRunner: React.FC<Props> = ({
             return;
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        // Ignora e tenta fallback
+      }
 
       // 2. Fallback Supabase direto
-      let { data: orderData } = await supabase
-        .from('service_orders')
-        .select('*')
-        .or(`tracking_token.eq.${cleanToken},id.eq.${cleanToken}`)
-        .maybeSingle();
+      try {
+        let { data: orderData } = await supabase
+          .from('service_orders')
+          .select('*')
+          .or(`tracking_token.eq.${cleanToken},id.eq.${cleanToken}`)
+          .maybeSingle();
 
-      if (orderData) {
-        setOrder({
-          id: orderData.id,
-          customerName: orderData.customer_name,
-          phoneNumber: orderData.phone_number,
-          deviceBrand: orderData.device_brand,
-          deviceModel: orderData.device_model,
-          defect: orderData.defect,
-          status: orderData.status,
-          trackingToken: orderData.tracking_token
-        });
-        if (orderData.tenant_id) {
-          setResolvedTenantId(orderData.tenant_id);
-          try {
-            const { data: storeData } = await supabase
-              .from('cloud_data')
-              .select('data_json')
-              .eq('tenant_id', orderData.tenant_id)
-              .eq('store_key', 'settings')
-              .maybeSingle();
-            if (storeData?.data_json) {
-              setStoreInfo({
-                name: storeData.data_json.storeName || 'Assistência Técnica',
-                phone: storeData.data_json.phoneNumber,
-                logo: storeData.data_json.logoUrl
-              });
-            }
-          } catch {}
+        if (orderData) {
+          setOrder({
+            id: orderData.id,
+            customerName: orderData.customer_name,
+            phoneNumber: orderData.phone_number,
+            deviceBrand: orderData.device_brand,
+            deviceModel: orderData.device_model,
+            defect: orderData.defect,
+            status: orderData.status,
+            trackingToken: orderData.tracking_token
+          });
+          if (orderData.tenant_id) {
+            setResolvedTenantId(orderData.tenant_id);
+            try {
+              const { data: storeData } = await supabase
+                .from('cloud_data')
+                .select('data_json')
+                .eq('tenant_id', orderData.tenant_id)
+                .eq('store_key', 'settings')
+                .maybeSingle();
+              if (storeData?.data_json) {
+                setStoreInfo({
+                  name: storeData.data_json.storeName || 'Assistência Técnica',
+                  phone: storeData.data_json.phoneNumber,
+                  logo: storeData.data_json.logoUrl
+                });
+              }
+            } catch {}
+          }
         }
+      } catch (errDb) {
+        console.warn('Erro ao consultar Supabase fallback:', errDb);
       }
     } catch (e) {
       console.error('Erro ao carregar dados do teste:', e);
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   };
@@ -603,9 +638,19 @@ export const InteractiveChecklistRunner: React.FC<Props> = ({
   // Renderização da Tela de Boas-Vindas
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6 text-center">
-        <Loader2 className="w-12 h-12 text-emerald-400 animate-spin mb-4" />
-        <p className="font-black text-sm uppercase tracking-widest text-slate-300">Carregando Checklist Interativo...</p>
+      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-200">
+        <div className="w-16 h-16 rounded-3xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center mb-4 text-indigo-400 animate-pulse shadow-lg shadow-indigo-500/10">
+          <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
+        </div>
+        <p className="font-black text-sm uppercase tracking-widest text-slate-200">Carregando Checklist Interativo...</p>
+        <p className="text-xs text-slate-400 mt-1 max-w-xs">Preparando módulos de teste de tela, áudio, câmeras e sensores...</p>
+        
+        <button
+          onClick={() => setLoading(false)}
+          className="mt-6 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all"
+        >
+          Iniciar Teste Diretamente
+        </button>
       </div>
     );
   }
