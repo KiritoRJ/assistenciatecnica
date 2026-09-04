@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { 
   X, Check, Copy, ExternalLink, Printer, 
   Smartphone, User, Eye, Send, Image as ImageIcon, Loader2, Download,
-  Sparkles, CheckCircle2
+  Sparkles, CheckCircle2, ClipboardCheck
 } from 'lucide-react';
 import { ServiceOrder, AppSettings } from '../types';
 import { formatCurrency } from '../utils';
 import { generateReceiptCanvasImage, shareReceiptDirectly } from '../utils/receiptGenerator';
+import { generateChecklistShareLink } from '../utils/checklistHelper';
 
 interface SavedOrderShareModalProps {
   isOpen: boolean;
@@ -89,6 +90,29 @@ export const SavedOrderShareModal: React.FC<SavedOrderShareModalProps> = ({
       console.error('Erro ao baixar:', e);
     } finally {
       setIsGeneratingPhoto(false);
+    }
+  };
+
+  const [copiedChecklistLink, setCopiedChecklistLink] = useState(false);
+  const checklistUrl = order ? generateChecklistShareLink(order, '') : '';
+
+  // Envio do convite de checklist no WhatsApp
+  const handleShareChecklistWhatsApp = () => {
+    const text = `Olá, *${order.customerName || 'Cliente'}*! 😊\n\nAqui é da *${storeName}*.\n\nPara garantir total transparência e segurança na sua O.S. *${osCode}*, preparamos um *teste interativo rápido* para você conferir as funções do seu *${order.deviceBrand} ${order.deviceModel}* no próprio aparelho:\n\n👉 *Acesse o link para testar:* \n${checklistUrl}\n\nLeva menos de 2 minutos e gera um laudo oficial!`;
+    const encodedText = encodeURIComponent(text);
+    const targetUrl = phoneWithCountry 
+      ? `https://wa.me/${phoneWithCountry}?text=${encodedText}` 
+      : `https://wa.me/?text=${encodedText}`;
+    window.open(targetUrl, '_blank');
+  };
+
+  const handleCopyChecklistLink = async () => {
+    try {
+      await navigator.clipboard.writeText(checklistUrl);
+      setCopiedChecklistLink(true);
+      setTimeout(() => setCopiedChecklistLink(false), 2500);
+    } catch {
+      prompt('Copie o link do checklist:', checklistUrl);
     }
   };
 
@@ -292,6 +316,65 @@ export const SavedOrderShareModal: React.FC<SavedOrderShareModalProps> = ({
               >
                 <ExternalLink size={15} />
                 <span>Abrir Página</span>
+              </a>
+            </div>
+          </div>
+
+          {/* OPÇÃO 3: ENVIAR LINK DE CHECKLIST INTERATIVO */}
+          <div className="border border-purple-200 bg-purple-50/40 rounded-2xl p-4 space-y-3 transition-all">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-md shadow-purple-600/30 shrink-0">
+                  <ClipboardCheck size={18} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wide text-slate-900">
+                    Enviar Checklist Interativo para o Cliente
+                  </h4>
+                  <p className="text-[11px] text-slate-500 leading-tight mt-0.5">
+                    O cliente testa tela, câmeras, áudio, microfone e sensores no celular dele e gera laudo com assinatura.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Input com Link do Checklist */}
+            <div className="flex items-center gap-1.5 bg-white border border-purple-200 rounded-xl p-1.5 pl-3">
+              <input 
+                type="text" 
+                readOnly 
+                value={checklistUrl}
+                className="w-full text-[11px] text-slate-600 font-mono bg-transparent outline-none select-all"
+              />
+              <button
+                type="button"
+                onClick={handleCopyChecklistLink}
+                className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
+              >
+                {copiedChecklistLink ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
+                <span>{copiedChecklistLink ? 'Copiado!' : 'Copiar'}</span>
+              </button>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch gap-2 pt-0.5">
+              <button
+                type="button"
+                onClick={handleShareChecklistWhatsApp}
+                className="flex-1 bg-purple-600 hover:bg-purple-500 active:scale-[0.98] text-white py-3 px-4 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md shadow-purple-600/30 transition-all cursor-pointer"
+              >
+                <Send size={15} />
+                <span>Enviar Convite de Teste no WhatsApp</span>
+              </button>
+
+              <a
+                href={checklistUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-white hover:bg-slate-100 active:scale-[0.98] border border-slate-300 text-slate-700 py-3 px-3.5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all text-center"
+                title="Abrir checklist interativo em nova aba"
+              >
+                <ExternalLink size={15} />
+                <span>Testar</span>
               </a>
             </div>
           </div>

@@ -6,12 +6,13 @@ import {
   AlertTriangle, Calculator, CheckCircle, Image as ImageIcon, Calendar, 
   KeyRound, Lock, Download, Maximize2, Layout, Check, Printer, Share2,
   SlidersHorizontal, ArrowDownAZ, Clock, ShieldCheck, RotateCcw,
-  Wrench, CheckCircle2, Sparkles
+  Wrench, CheckCircle2, Sparkles, ClipboardCheck
 } from 'lucide-react';
-import { ServiceOrder, AppSettings, User, Customer } from '../types';
+import { ServiceOrder, AppSettings, User, Customer, InteractiveChecklistResult } from '../types';
 import { formatCurrency, parseCurrencyString, formatDate, formatDateTime, generateRandomNumericCode } from '../utils';
-import { OnlineDB } from '../utils/api';
+import { OnlineDB, supabase } from '../utils/api';
 import { SavedOrderShareModal } from './SavedOrderShareModal';
+import { InteractiveChecklistModal } from './InteractiveChecklistModal';
 
 export const OS_STATUS_OPTIONS: Array<{
   value: ServiceOrder['status'];
@@ -125,6 +126,34 @@ const ServiceOrderTab: React.FC<Props> = ({
   const [lastCreatedOrder, setLastCreatedOrder] = useState<ServiceOrder | null>(null);
   const [orderToPrint, setOrderToPrint] = useState<ServiceOrder | null>(null);
   const [savedOrderShareModal, setSavedOrderShareModal] = useState<{ order: ServiceOrder; isNew: boolean } | null>(null);
+  const [selectedOrderForChecklist, setSelectedOrderForChecklist] = useState<ServiceOrder | null>(null);
+  const [checklistsMap, setChecklistsMap] = useState<Record<string, InteractiveChecklistResult>>({});
+
+  // Busca laudos salvos para o tenant
+  useEffect(() => {
+    if (!tenantId) return;
+    const loadChecklists = async () => {
+      try {
+        const { data } = await supabase
+          .from('cloud_data')
+          .select('data_json')
+          .eq('tenant_id', tenantId)
+          .eq('store_key', 'checklists')
+          .maybeSingle();
+
+        if (Array.isArray(data?.data_json)) {
+          const map: Record<string, InteractiveChecklistResult> = {};
+          data.data_json.forEach((c: any) => {
+            if (c.orderId) map[c.orderId] = c;
+          });
+          setChecklistsMap(map);
+        }
+      } catch (err) {
+        console.error('Erro ao buscar laudos:', err);
+      }
+    };
+    loadChecklists();
+  }, [tenantId, selectedOrderForChecklist]);
 
   const visibleOrders = useMemo(() => orders.filter(o => !o.isDeleted), [orders]);
   const osCount = visibleOrders.length;
@@ -1262,6 +1291,18 @@ const ServiceOrderTab: React.FC<Props> = ({
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <button onClick={(e) => { 
                   e.stopPropagation(); 
+                  setSelectedOrderForChecklist(order);
+                }} className={`rounded-lg sm:rounded-xl shadow-md active:scale-90 flex items-center justify-center transition-all ${
+                  checklistsMap[order.id] 
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20 ring-2 ring-emerald-400/50' 
+                    : 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/20'
+                }
+                  ${osLayout === 'small' ? 'p-1 sm:p-1.5' : osLayout === 'medium' ? 'p-1.5 sm:p-2.5' : 'p-2.5 sm:p-3.5'}
+                `} title={checklistsMap[order.id] ? `Ver Laudo do Cliente (${checklistsMap[order.id].scorePercent}%)` : 'Checklist & Laudo Interativo'}>
+                  <ClipboardCheck size={14} className={osLayout === 'large' ? 'sm:w-[20px] sm:h-[20px]' : 'sm:w-[18px] sm:h-[18px]'} />
+                </button>
+                <button onClick={(e) => { 
+                  e.stopPropagation(); 
                   setOrderToPrint(order);
                   setTimeout(() => window.print(), 500);
                 }} className={`bg-slate-900 text-white rounded-lg sm:rounded-xl shadow-md active:scale-90 flex items-center justify-center
@@ -1472,6 +1513,38 @@ const ServiceOrderTab: React.FC<Props> = ({
                     <button onClick={generateTrackingToken} className="w-full bg-orange-600 text-white py-2 rounded-xl text-[10px] font-black uppercase">Gerar Link de Acompanhamento</button>
                   )}
                   <textarea name="publicNotes" value={formData.publicNotes || ''} onChange={handleInputChange} placeholder="Observações públicas para o cliente..." className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs h-16 resize-none border border-orange-100" />
+                </div>
+
+                {/* CHECKLIST INTERATIVO & LAUDO */}
+                <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-purple-950 p-4 rounded-3xl text-white space-y-3 mb-4 shadow-xl border border-indigo-500/20">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-indigo-500/30 rounded-xl text-indigo-300">
+                        <ClipboardCheck size={18} />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-black uppercase tracking-wider text-white">Checklist & Laudo Interativo</h4>
+                        <p className="text-[10px] text-slate-300">Testes de Touch, Câmeras, Áudio, Bateria e Sensores</p>
+                      </div>
+                    </div>
+                    {formData.id && checklistsMap[formData.id] && (
+                      <span className="text-[10px] font-black bg-emerald-500/20 text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/30">
+                        ✓ {checklistsMap[formData.id].scorePercent}% OK
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (formData.id) {
+                        setSelectedOrderForChecklist(formData as ServiceOrder);
+                      }
+                    }}
+                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <ClipboardCheck size={15} />
+                    <span>{formData.id && checklistsMap[formData.id] ? 'Ver Laudo do Cliente / Enviar no WhatsApp' : 'Abrir Teste Interativo / Enviar Link para Cliente'}</span>
+                  </button>
                 </div>
 
                 {/* CHECKLIST DE DEFEITOS */}
@@ -2292,6 +2365,21 @@ const ServiceOrderTab: React.FC<Props> = ({
           }, 300);
         }}
       />
+
+      {/* MODAL DO CHECKLIST INTERATIVO & LAUDO */}
+      {selectedOrderForChecklist && (
+        <InteractiveChecklistModal
+          isOpen={!!selectedOrderForChecklist}
+          onClose={() => setSelectedOrderForChecklist(null)}
+          order={selectedOrderForChecklist}
+          settings={settings}
+          tenantId={tenantId}
+          checklistResult={checklistsMap[selectedOrderForChecklist.id] || null}
+          onUpdateChecklist={(newResult) => {
+            setChecklistsMap(prev => ({ ...prev, [newResult.orderId]: newResult }));
+          }}
+        />
+      )}
 
       {/* PORTAL PARA IMPRESSÃO DIRETA DA O.S. */}
       {document.getElementById('print-section') && orderToPrint && createPortal(

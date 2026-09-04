@@ -17,6 +17,7 @@ export interface Tenant {
     stockTab: boolean;
     salesTab: boolean;
     financeTab: boolean;
+    toolsTab?: boolean;
     profiles: boolean;
     xmlExportImport: boolean;
     hideFinancialReports?: boolean;
@@ -72,6 +73,48 @@ export interface ServiceOrder {
   trackingToken?: string;
   publicNotes?: string;
   isTrackingEnabled?: boolean;
+  interactiveChecklist?: InteractiveChecklistResult;
+}
+
+export type TestStatus = 'pending' | 'passed' | 'failed' | 'skipped';
+
+export interface ChecklistTestItem {
+  id: string;
+  category: 'screen' | 'audio' | 'camera' | 'sensors' | 'connectivity' | 'battery' | 'buttons' | 'structure';
+  title: string;
+  description: string;
+  status: TestStatus;
+  notes?: string;
+  measuredData?: Record<string, any>;
+}
+
+export interface InteractiveChecklistResult {
+  id: string;
+  orderId: string;
+  tenantId: string;
+  customerName: string;
+  phoneNumber?: string;
+  deviceBrand?: string;
+  deviceModel?: string;
+  completedAt: string;
+  completedBy: 'cliente' | 'tecnico';
+  totalTests: number;
+  passedCount: number;
+  failedCount: number;
+  skippedCount: number;
+  scorePercent: number;
+  tests: ChecklistTestItem[];
+  customerNotes?: string;
+  customerSignature?: string;
+  deviceSpecs?: {
+    userAgent?: string;
+    screenResolution?: string;
+    batteryLevel?: number;
+    isCharging?: boolean;
+    onlineStatus?: boolean;
+    touchPoints?: number;
+    platform?: string;
+  };
 }
 
 export interface CustomerNote {

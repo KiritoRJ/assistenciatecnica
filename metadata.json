@@ -2,7 +2,8 @@
   "name": "LOJAS CLOUD",
   "description": "sua loja nas nuvens",
   "requestFramePermissions": [
-    "camera"
+    "camera",
+    "usb"
   ],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

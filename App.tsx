@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Smartphone, Package, ShoppingCart, BarChart3, Settings, LogOut, Menu, X, Loader2, ShieldCheck, KeyRound, ChevronRight, Store, TrendingUp, Users, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Smartphone, Package, ShoppingCart, BarChart3, Settings, LogOut, Menu, X, Loader2, ShieldCheck, KeyRound, ChevronRight, Store, TrendingUp, Users, CheckCircle2, ArrowRight, Wrench } from 'lucide-react';
 import { ServiceOrder, Product, Sale, Transaction, AppSettings, User, Customer } from './types';
 import ServiceOrderTab from './components/ServiceOrderTab';
 import CustomersTab from './components/CustomersTab';
@@ -9,16 +9,18 @@ import SalesTab from './components/SalesTab';
 import FinanceTab from './components/FinanceTab';
 import SettingsTab from './components/SettingsTab';
 import EmployeeManagementTab from './components/EmployeeManagementTab';
+import ToolsTab from './components/ToolsTab';
 import SuperAdminDashboard from './components/SuperAdminDashboard';
 import SubscriptionView from './components/SubscriptionView';
 import CustomerCatalog from './components/CustomerCatalog';
 import PublicTrackingPage from './components/PublicTrackingPage';
+import InteractiveChecklistRunner from './components/InteractiveChecklistRunner';
 import { OnlineDB, supabase } from './utils/api';
 import { OfflineSync } from './utils/offlineSync';
 import { db } from './utils/localDb';
 import { useAppNotifications } from './utils/useAppNotifications';
 
-type Tab = 'os' | 'clientes' | 'estoque' | 'vendas' | 'financeiro' | 'config' | 'team';
+type Tab = 'os' | 'clientes' | 'estoque' | 'vendas' | 'financeiro' | 'config' | 'team' | 'ferramentas';
 
 const DEFAULT_SETTINGS: AppSettings = {
   storeName: 'Minha Assistência',
@@ -59,6 +61,7 @@ const App: React.FC = () => {
       stockTab: boolean;
       salesTab: boolean;
       financeTab: boolean;
+      toolsTab?: boolean;
       profiles: boolean;
       xmlExportImport: boolean;
       hideFinancialReports?: boolean;
@@ -76,7 +79,18 @@ const App: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [activeTab, setActiveTab] = useState<Tab>('vendas');
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('tab') === 'ferramentas' || params.get('view') === 'adb-cleaner' || window.location.hash.includes('adb-cleaner')) {
+        return 'ferramentas';
+      }
+      if (params.get('tab') === 'config') {
+        return 'config';
+      }
+    } catch (e) {}
+    return 'vendas';
+  });
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -636,6 +650,18 @@ const App: React.FC = () => {
     return <CustomerCatalog tenantId={catalogTenantId} catalogSlug={catalogSlug} />;
   }
 
+  // Checklist interativo público pelo cliente / link
+  const checklistParam = new URLSearchParams(window.location.search).get('checklist') || new URLSearchParams(window.location.search).get('test');
+  if (pathname.startsWith('/checklist/') || pathname.startsWith('/laudo/') || checklistParam) {
+    let token = checklistParam || '';
+    if (pathname.startsWith('/checklist/')) {
+      token = pathname.split('/checklist/')[1].replace(/\/$/, '');
+    } else if (pathname.startsWith('/laudo/')) {
+      token = pathname.split('/laudo/')[1].replace(/\/$/, '');
+    }
+    return <InteractiveChecklistRunner token={token} />;
+  }
+
   // Acompanhamento público de O.S.
   if (pathname.startsWith('/acompanhamento/')) {
     const token = pathname.split('/acompanhamento/')[1];
@@ -1019,6 +1045,7 @@ const App: React.FC = () => {
     { id: 'vendas', label: 'Vendas', icon: ShoppingCart, roles: ['admin', 'colaborador'], feature: 'salesTab' },
     { id: 'financeiro', label: 'Finanças', icon: BarChart3, roles: ['admin'], feature: 'financeTab' },
     { id: 'team', label: 'Equipe', icon: ShieldCheck, roles: ['admin'], feature: 'financeTab' },
+    { id: 'ferramentas', label: 'Ferramentas', icon: Wrench, roles: ['admin', 'colaborador'], feature: 'toolsTab' },
     { id: 'config', label: 'Ajustes', icon: Settings, roles: ['admin', 'colaborador'] },
   ];
   
@@ -1129,6 +1156,7 @@ const App: React.FC = () => {
           {activeTab === 'vendas' && <SalesTab products={products} setProducts={saveProducts} sales={sales.filter(s => !s.isDeleted)} setSales={saveSales} settings={settings} onUpdateSettings={saveSettings} currentUser={currentUser} onDeleteSale={removeSale} tenantId={session.tenantId || ''} />}
           {activeTab === 'financeiro' && <FinanceTab orders={orders} sales={sales} products={products} transactions={transactions} setTransactions={saveTransactions} setOrders={saveOrders} onDeleteTransaction={removeTransaction} onDeleteSale={removeSale} tenantId={session.tenantId || ''} settings={settings} enabledFeatures={session.enabledFeatures} />}
           {activeTab === 'team' && <EmployeeManagementTab tenantId={session.tenantId || ''} />}
+          {activeTab === 'ferramentas' && <ToolsTab settings={settings} currentUser={currentUser} tenantId={session.tenantId || ''} />}
           {activeTab === 'config' && <SettingsTab products={products} setProducts={saveProducts} settings={settings} setSettings={saveSettings} isCloudConnected={isCloudConnected} currentUser={currentUser} onSwitchProfile={handleSwitchProfile} tenantId={session.tenantId} deferredPrompt={deferredPrompt} onInstallApp={handleInstallApp} subscriptionStatus={session.subscriptionStatus} subscriptionExpiresAt={session.subscriptionExpiresAt} lastPlanType={session.lastPlanType} enabledFeatures={session.enabledFeatures} maxUsers={session.maxUsers} maxOS={session.maxOS} maxProducts={session.maxProducts} onLogout={() => setIsLogoutModalOpen(true)} />}
         </div>
       </main>

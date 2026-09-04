@@ -1,11 +1,12 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Image as ImageIcon, Camera, FileText, Palette, MoveHorizontal, MoreVertical, ArrowLeft, Check, Layout, Pipette, X, AlertCircle, Users, Shield, UserPlus, Trash2, User as UserIcon, Loader2, Lock, MapPin, Phone, KeyRound, Briefcase, Smartphone, Download, Upload, LogOut, Bell, Package, DollarSign, Percent, Save, Edit2 } from 'lucide-react';
+import { Image as ImageIcon, Camera, FileText, Palette, MoveHorizontal, MoreVertical, ArrowLeft, Check, Layout, Pipette, X, AlertCircle, Users, Shield, ShieldAlert, UserPlus, Trash2, User as UserIcon, Loader2, Lock, MapPin, Phone, KeyRound, Briefcase, Smartphone, Download, Upload, LogOut, Bell, Package, DollarSign, Percent, Save, Edit2, ChevronRight } from 'lucide-react';
 import { AppSettings, User, ServiceOrder, Product, Sale, Transaction, Employee } from '../types';
 import { OnlineDB } from '../utils/api';
 import { OfflineSync } from '../utils/offlineSync';
 import { db } from '../utils/localDb';
 import CatalogManager from './CatalogManager';
+import AdbVirusCleaner from './AdbVirusCleaner';
 
 interface Props {
   products: Product[];
@@ -48,7 +49,15 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
     }
   };
 
-  const [view, setView] = useState<'main' | 'print' | 'theme' | 'users' | 'backup' | 'catalog' | 'notifications' | 'subscription' | 'suppliers'>('main');
+  const [view, setView] = useState<'main' | 'print' | 'theme' | 'users' | 'backup' | 'catalog' | 'notifications' | 'subscription' | 'suppliers' | 'adb-cleaner'>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('view') === 'adb-cleaner' || window.location.hash.includes('adb-cleaner')) {
+        return 'adb-cleaner';
+      }
+    } catch (e) {}
+    return 'main';
+  });
   const [showMenu, setShowMenu] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -1709,6 +1718,10 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
         onBack={() => setView('main')} 
       />
     );
+  }
+
+  if (view === 'adb-cleaner') {
+    return <AdbVirusCleaner onBack={() => setView('main')} />;
   }
 
   return (
