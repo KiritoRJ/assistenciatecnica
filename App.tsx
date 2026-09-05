@@ -102,6 +102,7 @@ const App: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
   const currentUser = useMemo(() => {
     if (!settings?.users) return session?.user || null;
@@ -1043,8 +1044,36 @@ const App: React.FC = () => {
     return roleAllowed && featureAllowed;
   });
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    if (touch.clientX < 40) {
+      setTouchStartX(touch.clientX);
+    } else {
+      setTouchStartX(null);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartX === null) return;
+    const touch = e.touches[0];
+    const diff = touch.clientX - touchStartX;
+    if (diff > 50) {
+      setIsSidebarOpen(true);
+      setTouchStartX(null);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setTouchStartX(null);
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 font-sans flex flex-col md:flex-row">
+    <div 
+      className="min-h-screen bg-slate-50 font-sans flex flex-col md:flex-row"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       <aside className={`hidden md:flex flex-col ${isSidebarCollapsed ? 'w-0 p-0 border-none opacity-0 pointer-events-none overflow-hidden' : 'w-72 p-6 opacity-100 overflow-y-auto'} bg-slate-900 text-white h-[100dvh] sticky top-0 transition-all duration-300 ease-in-out hide-scrollbar [&::-webkit-scrollbar]:hidden`}>
         <div className="flex items-center justify-between mb-12 min-w-[240px]">
           <div className="flex items-center gap-4 overflow-hidden animate-in fade-in">
@@ -1083,12 +1112,30 @@ const App: React.FC = () => {
       </aside>
 
       <main className="flex-1 flex flex-col h-[100dvh] overflow-hidden relative">
+        {/* Mobile Top Header */}
+        <div className="md:hidden flex items-center justify-between bg-white border-b border-slate-100 px-4 py-3 shrink-0 z-20 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div 
+                onClick={() => setIsSidebarOpen(true)}
+                className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow-md cursor-pointer active:scale-95 transition-all overflow-hidden"
+              >
+                {settings.logoUrl ? <img src={settings.logoUrl} className="w-full h-full object-cover rounded-lg" /> : <Smartphone size={16} />}
+              </div>
+              <span className="font-black text-xs uppercase tracking-tight text-slate-900 truncate max-w-[180px]">{settings.storeName}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg">
+              {visibleNavItems.find(i => i.id === activeTab)?.label || 'Menu'}
+            </span>
+          </div>
+        </div>
+
         {/* Botão de Menu Flutuante (Desktop quando fechado) */}
         <div className={`absolute top-4 left-4 z-30 hidden md:block ${!isSidebarCollapsed ? 'md:hidden' : ''}`}>
           <button 
             onClick={() => {
-              // Se for mobile (tela pequena), abre o menu lateral (overlay)
-              // Se for desktop (tela média+), expande a sidebar
               if (window.innerWidth < 768) {
                 setIsSidebarOpen(true);
               } else {
@@ -1101,7 +1148,7 @@ const App: React.FC = () => {
           </button>
         </div>
 
-        <div className={`flex-1 overflow-y-auto p-4 pt-4 pb-24 md:pt-10 md:pb-4 max-w-none mx-auto w-full animate-in fade-in duration-700 hide-scrollbar [&::-webkit-scrollbar]:hidden ${isSidebarCollapsed ? 'md:pl-20' : 'md:pl-4'}`}>
+        <div className={`flex-1 overflow-y-auto p-4 pt-4 pb-6 md:pt-10 md:pb-4 max-w-none mx-auto w-full animate-in fade-in duration-700 hide-scrollbar [&::-webkit-scrollbar]:hidden ${isSidebarCollapsed ? 'md:pl-20' : 'md:pl-4'}`}>
           {activeTab === 'os' && (
             <ServiceOrderTab 
               orders={orders} 
@@ -1148,35 +1195,23 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Bottom Navigation (Mobile Only) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-2 py-3 z-40 flex items-center justify-around shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
-        {visibleNavItems.map((item, idx) => (
-          <button 
-            key={`nav-mobile-bottom-${item.id}-${idx}`} 
-            onClick={() => setActiveTab(item.id as Tab)} 
-            className={`flex flex-col items-center gap-1 transition-all ${activeTab === item.id ? 'text-blue-600 scale-110' : 'text-slate-400'}`}
-          >
-            <item.icon size={20} />
-            <span className="text-[8px] font-black uppercase tracking-widest">{item.label}</span>
-          </button>
-        ))}
-      </nav>
-
       {isSidebarOpen && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 animate-in fade-in flex justify-end">
-          <div className="w-[85vw] max-w-[280px] h-full bg-slate-950 p-5 flex flex-col shadow-2xl animate-in slide-in-from-right duration-300 border-l border-white/5 overflow-hidden">
-            <div className="flex justify-end mb-6 shrink-0">
-              <button onClick={() => setIsSidebarOpen(false)} className="p-2 text-slate-400 hover:text-white transition-colors bg-white/5 rounded-full active:scale-90">
+        <div className="fixed inset-0 bg-transparent z-50 flex justify-start">
+          <div className="absolute inset-0 bg-slate-900/10" onClick={() => setIsSidebarOpen(false)}></div>
+          <div className="relative w-[85vw] max-w-[280px] h-full bg-white text-slate-900 p-5 flex flex-col shadow-2xl animate-in slide-in-from-left duration-300 border-r border-slate-200 overflow-hidden">
+            <div className="flex justify-between items-center mb-6 shrink-0">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Menu Principal</span>
+              <button onClick={() => setIsSidebarOpen(false)} className="p-2 text-slate-500 hover:text-slate-900 transition-colors bg-slate-100 rounded-full active:scale-90">
                 <X size={20} />
               </button>
             </div>
 
-            <div className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl mb-6 border border-white/5 shrink-0">
+            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl mb-6 border border-slate-100 shrink-0">
               <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shrink-0">
                 {settings.logoUrl ? <img src={settings.logoUrl} className="w-full h-full object-cover rounded-xl" /> : <Smartphone size={20} />}
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="text-[10px] font-black text-white uppercase tracking-tight truncate">{settings.storeName}</h3>
+                <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-tight truncate">{settings.storeName}</h3>
                 <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest truncate">
                   {currentUser.role === 'admin' ? 'Administrador' : 'Colaborador'}
                 </p>
@@ -1191,7 +1226,7 @@ const App: React.FC = () => {
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
                     activeTab === item.id 
                       ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                   }`}
                 >
                   <item.icon size={18} className={activeTab === item.id ? 'animate-pulse' : ''} />
@@ -1200,10 +1235,10 @@ const App: React.FC = () => {
               ))}
             </nav>
 
-            <div className="mt-4 pt-4 border-t border-white/5 shrink-0">
+            <div className="mt-4 pt-4 border-t border-slate-100 shrink-0">
               <button 
                 onClick={() => setIsLogoutModalOpen(true)} 
-                className="w-full flex items-center justify-center gap-2 px-6 py-3.5 text-red-500 font-black text-[10px] uppercase tracking-widest border border-red-500/10 rounded-xl bg-red-500/5 hover:bg-red-500/10 transition-all active:scale-95"
+                className="w-full flex items-center justify-center gap-2 px-6 py-3.5 text-red-600 font-black text-[10px] uppercase tracking-widest border border-red-500/10 rounded-xl bg-red-50 hover:bg-red-100 transition-all active:scale-95"
               >
                 <LogOut size={16} /> 
                 Sair
