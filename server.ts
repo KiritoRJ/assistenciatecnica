@@ -45,6 +45,20 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
+// Legacy Safari 5.1 / iOS 5.1.1 (iPad 1st Gen) detector middleware
+const isLegacySafari = (ua: string = '') => {
+  return /OS 5_[0-9]/i.test(ua) || /Safari\/534/i.test(ua) || /iPad.*OS 5/i.test(ua);
+};
+
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api')) return next();
+  const ua = req.headers['user-agent'] || '';
+  if (isLegacySafari(ua)) {
+    return res.sendFile(path.join(__dirname, 'legacy-ipad1.html'));
+  }
+  next();
+});
+
 // Auth Routes
 app.get('/api/resolve-tiktok', async (req, res) => {
   const { url } = req.query;

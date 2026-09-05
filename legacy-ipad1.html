@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lojas Cloud - iPad 1 (Safari 5.1)</title>
+    <style>
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            background-color: #f0f4f8;
+            margin: 0;
+            padding: 0;
+            color: #333;
+            -webkit-text-size-adjust: none;
+        }
+        .header {
+            background-color: #1e293b;
+            color: #ffffff;
+            padding: 15px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            border-bottom: 3px solid #2563eb;
+        }
+        .sub-header {
+            background-color: #334155;
+            color: #cbd5e1;
+            padding: 8px;
+            text-align: center;
+            font-size: 11px;
+        }
+        .nav-bar {
+            background-color: #ffffff;
+            border-bottom: 1px solid #cbd5e1;
+            display: block;
+            text-align: center;
+            padding: 10px 0;
+        }
+        .nav-btn {
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            margin: 2px;
+            font-size: 12px;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            display: inline-block;
+        }
+        .nav-btn.active {
+            background-color: #1e40af;
+            border: 1px solid #93c5fd;
+        }
+        .container {
+            padding: 15px;
+            max-width: 768px;
+            margin: 0 auto;
+        }
+        .card {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        h2 {
+            font-size: 15px;
+            margin-top: 0;
+            color: #1e293b;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 5px;
+        }
+        label {
+            display: block;
+            font-size: 11px;
+            font-weight: bold;
+            margin-top: 8px;
+            color: #475569;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            margin-top: 3px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-size: 13px;
+            box-sizing: border-box;
+            background: #fff;
+        }
+        .btn {
+            background-color: #16a34a;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            font-size: 13px;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+            width: 100%;
+        }
+        .btn-danger {
+            background-color: #dc2626;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+        th, td {
+            border: 1px solid #cbd5e1;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #e2e8f0;
+            color: #1e293b;
+        }
+        tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+        .badge {
+            display: inline-block;
+            padding: 3px 6px;
+            font-size: 10px;
+            font-weight: bold;
+            border-radius: 3px;
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .actions {
+            margin-top: 5px;
+        }
+        .actions button {
+            padding: 3px 6px;
+            font-size: 10px;
+            margin-right: 3px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        Lojas Cloud <span style="font-size: 11px; font-weight: normal; color: #94a3b8;">(Modo iPad 1 - Safari 5.1)</span>
+    </div>
+    <div class="sub-header" id="storeTitle">Carregando dados da Loja...</div>
+
+    <div class="nav-bar">
+        <button class="nav-btn active" onclick="switchTab('os')">Ordens (OS)</button>
+        <button class="nav-btn" onclick="switchTab('clientes')">Clientes</button>
+        <button class="nav-btn" onclick="switchTab('vendas')">Vendas</button>
+        <button class="nav-btn" onclick="switchTab('ajustes')">Ajustes</button>
+    </div>
+
+    <div class="container">
+
+        <!-- TAB OS -->
+        <div id="tab-os" class="tab-content active">
+            <div class="card">
+                <h2>Nova Ordem de Serviço</h2>
+                <label>Cliente / Aparelho:</label>
+                <input type="text" id="os-client" placeholder="Nome do Cliente">
+                <label>Equipamento / Modelo:</label>
+                <input type="text" id="os-device" placeholder="Ex: iPhone 4 / iPad 1">
+                <label>Defeito Relatado:</label>
+                <textarea id="os-issue" placeholder="Descrição do defeito"></textarea>
+                <label>Valor (R$):</label>
+                <input type="number" id="os-price" placeholder="0.00">
+                <button class="btn" onclick="saveOS()">Salvar Ordem de Serviço</button>
+            </div>
+
+            <div class="card">
+                <h2>Ordens Cadastradas</h2>
+                <div id="os-list"></div>
+            </div>
+        </div>
+
+        <!-- TAB CLIENTES -->
+        <div id="tab-clientes" class="tab-content">
+            <div class="card">
+                <h2>Novo Cliente</h2>
+                <label>Nome:</label>
+                <input type="text" id="cli-name" placeholder="Nome completo">
+                <label>Telefone / WhatsApp:</label>
+                <input type="text" id="cli-phone" placeholder="(00) 00000-0000">
+                <button class="btn" onclick="saveClient()">Salvar Cliente</button>
+            </div>
+
+            <div class="card">
+                <h2>Lista de Clientes</h2>
+                <div id="cli-list"></div>
+            </div>
+        </div>
+
+        <!-- TAB VENDAS -->
+        <div id="tab-vendas" class="tab-content">
+            <div class="card">
+                <h2>Registar Venda</h2>
+                <label>Produto / Serviço:</label>
+                <input type="text" id="sale-item" placeholder="Ex: Película / Cabo USB">
+                <label>Valor (R$):</label>
+                <input type="number" id="sale-price" placeholder="0.00">
+                <button class="btn" onclick="saveSale()">Registar Venda</button>
+            </div>
+
+            <div class="card">
+                <h2>Histórico de Vendas</h2>
+                <div id="sale-list"></div>
+            </div>
+        </div>
+
+        <!-- TAB AJUSTES -->
+        <div id="tab-ajustes" class="tab-content">
+            <div class="card">
+                <h2>Configurações da Loja</h2>
+                <label>Nome da Loja:</label>
+                <input type="text" id="set-store" value="Minha Assistência">
+                <label>Telefone:</label>
+                <input type="text" id="set-phone" value="">
+                <button class="btn" onclick="saveSettings()">Salvar Ajustes</button>
+                <br><br>
+                <button class="btn btn-danger" onclick="clearData()">Apagar Todos os Dados</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="text/javascript">
+        // Legacy ES5 code compatible with Safari 5.1.1 / iOS 5.1.1
+        function getLocalStorage(key, defaultVal) {
+            try {
+                var val = localStorage.getItem(key);
+                return val ? JSON.parse(val) : defaultVal;
+            } catch(e) {
+                return defaultVal;
+            }
+        }
+
+        function setLocalStorage(key, val) {
+            try {
+                localStorage.setItem(key, JSON.stringify(val));
+            } catch(e) {}
+        }
+
+        function switchTab(tabId) {
+            var tabs = document.getElementsByClassName('tab-content');
+            for (var i = 0; i < tabs.length; i++) {
+                tabs[i].className = 'tab-content';
+            }
+            var btns = document.getElementsByClassName('nav-btn');
+            for (var i = 0; i < btns.length; i++) {
+                btns[i].className = 'nav-btn';
+            }
+            document.getElementById('tab-' + tabId).className = 'tab-content active';
+            event.target.className = 'nav-btn active';
+        }
+
+        function loadSettings() {
+            var settings = getLocalStorage('legacy_settings', { storeName: 'Minha Assistência', phone: '' });
+            document.getElementById('storeTitle').innerHTML = settings.storeName + (settings.phone ? ' - ' + settings.phone : '');
+            document.getElementById('set-store').value = settings.storeName;
+            document.getElementById('set-phone').value = settings.phone;
+        }
+
+        function saveSettings() {
+            var name = document.getElementById('set-store').value;
+            var phone = document.getElementById('set-phone').value;
+            setLocalStorage('legacy_settings', { storeName: name, phone: phone });
+            loadSettings();
+            alert('Ajustes salvos com sucesso!');
+        }
+
+        function clearData() {
+            if (confirm('Tem certeza que deseja apagar todos os dados do iPad?')) {
+                localStorage.clear();
+                loadAll();
+                alert('Dados limpos.');
+            }
+        }
+
+        // OS Management
+        function saveOS() {
+            var client = document.getElementById('os-client').value;
+            var device = document.getElementById('os-device').value;
+            var issue = document.getElementById('os-issue').value;
+            var price = document.getElementById('os-price').value;
+
+            if (!client) {
+                alert('Informe o nome do cliente.');
+                return;
+            }
+
+            var list = getLocalStorage('legacy_os', []);
+            list.unshift({
+                id: 'OS-' + Math.floor(Math.random() * 90000 + 10000),
+                client: client,
+                device: device || 'Não informado',
+                issue: issue || '-',
+                price: price || '0.00',
+                date: new Date().toLocaleDateString()
+            });
+            setLocalStorage('legacy_os', list);
+
+            document.getElementById('os-client').value = '';
+            document.getElementById('os-device').value = '';
+            document.getElementById('os-issue').value = '';
+            document.getElementById('os-price').value = '';
+
+            renderOS();
+            alert('Ordem de serviço salva!');
+        }
+
+        function deleteOS(id) {
+            if (!confirm('Excluir esta OS?')) return;
+            var list = getLocalStorage('legacy_os', []);
+            var newList = [];
+            for (var i = 0; i < list.length; i++) {
+                if (list[i].id !== id) newList.push(list[i]);
+            }
+            setLocalStorage('legacy_os', newList);
+            renderOS();
+        }
+
+        function renderOS() {
+            var list = getLocalStorage('legacy_os', []);
+            var html = '';
+            if (list.length === 0) {
+                html = '<p style="font-size:11px; color:#666;">Nenhuma ordem cadastrada.</p>';
+            } else {
+                html = '<table><tr><th>OS</th><th>Cliente</th><th>Aparelho</th><th>Ações</th></tr>';
+                for (var i = 0; i < list.length; i++) {
+                    html += '<tr>' +
+                        '<td><b>' + list[i].id + '</b><br><small>' + list[i].date + '</small></td>' +
+                        '<td>' + list[i].client + '<br><small>R$ ' + list[i].price + '</small></td>' +
+                        '<td>' + list[i].device + '<br><small>' + list[i].issue + '</small></td>' +
+                        '<td class="actions"><button onclick="deleteOS(\'' + list[i].id + '\')" class="nav-btn" style="background:#dc2626;">X</button></td>' +
+                        '</tr>';
+                }
+                html += '</table>';
+            }
+            document.getElementById('os-list').innerHTML = html;
+        }
+
+        // Clients Management
+        function saveClient() {
+            var name = document.getElementById('cli-name').value;
+            var phone = document.getElementById('cli-phone').value;
+            if (!name) {
+                alert('Informe o nome.');
+                return;
+            }
+            var list = getLocalStorage('legacy_clients', []);
+            list.unshift({ name: name, phone: phone || '-' });
+            setLocalStorage('legacy_clients', list);
+            document.getElementById('cli-name').value = '';
+            document.getElementById('cli-phone').value = '';
+            renderClients();
+            alert('Cliente salvo!');
+        }
+
+        function renderClients() {
+            var list = getLocalStorage('legacy_clients', []);
+            var html = '';
+            if (list.length === 0) {
+                html = '<p style="font-size:11px; color:#666;">Nenhum cliente cadastrado.</p>';
+            } else {
+                html = '<table><tr><th>Nome</th><th>Telefone</th></tr>';
+                for (var i = 0; i < list.length; i++) {
+                    html += '<tr><td>' + list[i].name + '</td><td>' + list[i].phone + '</td></tr>';
+                }
+                html += '</table>';
+            }
+            document.getElementById('cli-list').innerHTML = html;
+        }
+
+        // Sales Management
+        function saveSale() {
+            var item = document.getElementById('sale-item').value;
+            var price = document.getElementById('sale-price').value;
+            if (!item) {
+                alert('Informe o produto/serviço.');
+                return;
+            }
+            var list = getLocalStorage('legacy_sales', []);
+            list.unshift({ item: item, price: price || '0.00', date: new Date().toLocaleDateString() });
+            setLocalStorage('legacy_sales', list);
+            document.getElementById('sale-item').value = '';
+            document.getElementById('sale-price').value = '';
+            renderSales();
+            alert('Venda registrada!');
+        }
+
+        function renderSales() {
+            var list = getLocalStorage('legacy_sales', []);
+            var html = '';
+            if (list.length === 0) {
+                html = '<p style="font-size:11px; color:#666;">Nenhuma venda registrada.</p>';
+            } else {
+                html = '<table><tr><th>Item</th><th>Valor</th><th>Data</th></tr>';
+                for (var i = 0; i < list.length; i++) {
+                    html += '<tr><td>' + list[i].item + '</td><td>R$ ' + list[i].price + '</td><td>' + list[i].date + '</td></tr>';
+                }
+                html += '</table>';
+            }
+            document.getElementById('sale-list').innerHTML = html;
+        }
+
+        function loadAll() {
+            loadSettings();
+            renderOS();
+            renderClients();
+            renderSales();
+        }
+
+        window.onload = function() {
+            loadAll();
+        };
+    </script>
+</body>
+</html>
