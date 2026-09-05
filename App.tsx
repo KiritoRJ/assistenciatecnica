@@ -1046,7 +1046,7 @@ const App: React.FC = () => {
 
   const handleTouchStart = (e: React.TouchEvent) => {
     const touch = e.touches[0];
-    if (touch.clientX < 40) {
+    if (touch.clientX < 90) {
       setTouchStartX(touch.clientX);
     } else {
       setTouchStartX(null);
@@ -1057,7 +1057,7 @@ const App: React.FC = () => {
     if (touchStartX === null) return;
     const touch = e.touches[0];
     const diff = touch.clientX - touchStartX;
-    if (diff > 50) {
+    if (diff > 40) {
       setIsSidebarOpen(true);
       setTouchStartX(null);
     }
@@ -1130,6 +1130,15 @@ const App: React.FC = () => {
               {visibleNavItems.find(i => i.id === activeTab)?.label || 'Menu'}
             </span>
           </div>
+        </div>
+
+        {/* Subtle Edge Handle for Mobile Swipe/Tap */}
+        <div 
+          onClick={() => setIsSidebarOpen(true)}
+          className="md:hidden fixed left-0 top-1/2 -translate-y-1/2 w-1.5 h-16 bg-blue-600/40 hover:bg-blue-600 rounded-r-md z-30 shadow cursor-pointer flex items-center justify-center transition-all opacity-70 hover:opacity-100"
+          title="Abrir Menu"
+        >
+          <div className="w-0.5 h-6 bg-white/90 rounded-full"></div>
         </div>
 
         {/* Botão de Menu Flutuante (Desktop quando fechado) */}
