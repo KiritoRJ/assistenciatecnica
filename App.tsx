@@ -14,7 +14,6 @@ import SuperAdminDashboard from './components/SuperAdminDashboard';
 import SubscriptionView from './components/SubscriptionView';
 import CustomerCatalog from './components/CustomerCatalog';
 import PublicTrackingPage from './components/PublicTrackingPage';
-import InteractiveChecklistRunner from './components/InteractiveChecklistRunner';
 import { OnlineDB, supabase } from './utils/api';
 import { OfflineSync } from './utils/offlineSync';
 import { db } from './utils/localDb';
@@ -123,14 +122,7 @@ const App: React.FC = () => {
   
   if (pathname.startsWith('/catalogo/')) {
     catalogTenantId = pathname.split('/catalogo/')[1].replace(/\/$/, '');
-  } else if (
-    pathname.length > 1 && 
-    !pathname.startsWith('/api/') && 
-    !pathname.startsWith('/auth/') && 
-    !pathname.startsWith('/acompanhamento/') &&
-    !pathname.startsWith('/checklist') &&
-    !pathname.startsWith('/laudo')
-  ) {
+  } else if (pathname.length > 1 && !pathname.startsWith('/api/') && !pathname.startsWith('/auth/') && !pathname.startsWith('/acompanhamento/')) {
     catalogSlug = pathname.substring(1).replace(/\/$/, '');
   }
 
@@ -655,18 +647,6 @@ const App: React.FC = () => {
 
   if (catalogTenantId || catalogSlug) {
     return <CustomerCatalog tenantId={catalogTenantId} catalogSlug={catalogSlug} />;
-  }
-
-  // Checklist interativo público pelo cliente / link
-  const checklistParam = new URLSearchParams(window.location.search).get('checklist') || new URLSearchParams(window.location.search).get('test');
-  if (pathname.startsWith('/checklist/') || pathname.startsWith('/laudo/') || checklistParam) {
-    let token = checklistParam || '';
-    if (pathname.startsWith('/checklist/')) {
-      token = pathname.split('/checklist/')[1].replace(/\/$/, '');
-    } else if (pathname.startsWith('/laudo/')) {
-      token = pathname.split('/laudo/')[1].replace(/\/$/, '');
-    }
-    return <InteractiveChecklistRunner token={token} />;
   }
 
   // Acompanhamento público de O.S.

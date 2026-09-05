@@ -611,33 +611,6 @@ const PublicTrackingPage: React.FC<Props> = ({ token }) => {
           </div>
         )}
 
-        {/* BANNER INTERATIVO PARA FAZER O CHECKLIST DE FUNÇÕES */}
-        <div 
-          onClick={() => {
-            window.location.href = `/checklist/${token}`;
-          }}
-          className="bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-slate-900 rounded-3xl p-4 sm:p-5 border border-indigo-500/40 shadow-xl cursor-pointer hover:border-indigo-500/70 hover:bg-indigo-950/70 transition-all flex items-center justify-between gap-3 group"
-        >
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-300 shrink-0 group-hover:scale-105 transition-transform">
-              <CheckCircle size={22} className="text-indigo-400" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-black uppercase tracking-wider text-white">Checklist de Funções do Celular</span>
-                <span className="text-[9px] font-black uppercase tracking-widest bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full">Interativo</span>
-              </div>
-              <p className="text-[11px] text-slate-300 mt-0.5">Teste o touch, câmeras, som e sensores do aparelho e emita um laudo técnico oficial.</p>
-            </div>
-          </div>
-          <button 
-            type="button"
-            className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-wider shadow-md shadow-indigo-600/30 flex items-center gap-1.5 shrink-0"
-          >
-            Testar <ChevronRight size={14} />
-          </button>
-        </div>
-
         {/* BANNER INTERATIVO PARA JOGAR ENQUANTO ESPERA */}
         <div 
           onClick={() => setIsSnakeGameOpen(true)}
