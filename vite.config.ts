@@ -80,33 +80,7 @@ export default defineConfig(({ mode }) => {
           output: {
             manualChunks(id) {
               if (id.includes('node_modules')) {
-                if (id.includes('jspdf-autotable') || id.includes('jspdf')) {
-                  return 'vendor-jspdf';
-                }
-                if (id.includes('html2canvas') || id.includes('html2pdf.js')) {
-                  return 'vendor-html2canvas';
-                }
-                if (id.includes('recharts') || id.includes('d3-')) {
-                  return 'vendor-charts';
-                }
-                if (id.includes('@yume-chan')) {
-                  return 'vendor-adb';
-                }
-                if (id.includes('@supabase')) {
-                  return 'vendor-supabase';
-                }
-                if (id.includes('lucide-react')) {
-                  return 'vendor-icons';
-                }
-                if (id.includes('html5-qrcode') || id.includes('qrcode')) {
-                  return 'vendor-qr';
-                }
-                if (id.includes('dexie')) {
-                  return 'vendor-dexie';
-                }
-                if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
-                  return 'vendor-react';
-                }
+                return 'vendor';
               }
             }
           }
