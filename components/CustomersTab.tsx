@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Customer, CustomerNote, ServiceOrder, AppSettings, User } from '../types';
 import { formatCurrency, formatDate, formatDateTime } from '../utils';
+import { CustomerBroadcastModal } from './CustomerBroadcastModal';
 
 interface Props {
   customers: Customer[];
@@ -90,6 +91,7 @@ export const CustomersTab: React.FC<Props> = ({
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [selectedCustomerForProfile, setSelectedCustomerForProfile] = useState<Customer | null>(null);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+  const [broadcastCustomer, setBroadcastCustomer] = useState<{ name: string; phone: string; order?: ServiceOrder } | null>(null);
 
   // Perfil do Cliente: Abas internas
   const [profileTab, setProfileTab] = useState<'services' | 'payments' | 'notes' | 'details'>('services');
@@ -911,17 +913,17 @@ export const CustomersTab: React.FC<Props> = ({
                   </div>
 
                   <div className="flex items-center gap-1">
-                    {waLink && (
-                      <a
-                        href={waLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center transition-colors active:scale-95"
-                        title="Conversar no WhatsApp"
-                      >
-                        <MessageSquare size={14} />
-                      </a>
-                    )}
+                    <button
+                      onClick={() => setBroadcastCustomer({
+                        name: customer.name,
+                        phone: customer.phoneNumber,
+                        order: metrics.activeOS || metrics.custOrders[0]
+                      })}
+                      className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center transition-colors active:scale-95 shadow-2xs"
+                      title="Divulgar Promoção ou Enviar Proposta no WhatsApp (1-Clique)"
+                    >
+                      <MessageSquare size={14} />
+                    </button>
                     {customer.phoneNumber && (
                       <a
                         href={`tel:${digitsOnly(customer.phoneNumber)}`}
@@ -1391,17 +1393,18 @@ export const CustomersTab: React.FC<Props> = ({
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {waLink && (
-                      <a
-                        href={waLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
-                      >
-                        <MessageSquare size={14} />
-                        <span>WhatsApp</span>
-                      </a>
-                    )}
+                    <button
+                      onClick={() => setBroadcastCustomer({
+                        name: selectedCustomerForProfile.name,
+                        phone: selectedCustomerForProfile.phoneNumber,
+                        order: metrics.activeOS || metrics.custOrders[0]
+                      })}
+                      className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+                      title="Divulgar Promoção ou Enviar Proposta / Orçamento no WhatsApp"
+                    >
+                      <MessageSquare size={14} />
+                      <span>Divulgar / Proposta</span>
+                    </button>
                     <button
                       onClick={() => {
                         const targetCust = selectedCustomerForProfile;
@@ -2449,6 +2452,23 @@ export const CustomersTab: React.FC<Props> = ({
           </div>
         </div>
       )}
+
+      {/* MODAL DE DIVULGAÇÃO E PROPOSTAS WHATSAPP 1-CLIQUE */}
+      <CustomerBroadcastModal
+        isOpen={!!broadcastCustomer}
+        onClose={() => setBroadcastCustomer(null)}
+        customer={broadcastCustomer ? {
+          id: '',
+          tenantId: tenantId,
+          name: broadcastCustomer.name,
+          phoneNumber: broadcastCustomer.phone,
+          address: '',
+          notes: '',
+          createdAt: new Date().toISOString()
+        } : null}
+        order={broadcastCustomer?.order || null}
+        settings={settings}
+      />
     </div>
   );
 };

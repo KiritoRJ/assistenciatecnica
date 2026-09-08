@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ShoppingBag, Search, X, History, ShoppingCart, Package, ArrowLeft, CheckCircle2, Eye, Loader2, Plus, Minus, Trash2, ChevronUp, ChevronDown, Receipt, Share2, Download, ScanBarcode, Lock, KeyRound, Printer, LayoutGrid, Grid, List, Rows, CreditCard, Camera, Image as ImageIcon } from 'lucide-react';
+import { ShoppingBag, Search, X, History, ShoppingCart, Package, ArrowLeft, CheckCircle2, Eye, Loader2, Plus, Minus, Trash2, ChevronUp, ChevronDown, Receipt, Share2, Download, ScanBarcode, Lock, KeyRound, Printer, LayoutGrid, Grid, List, Rows, CreditCard, Camera, Image as ImageIcon, AlertTriangle, Sparkles, TrendingUp, ShieldAlert } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import html2canvas from 'html2canvas';
 import { Product, Sale, AppSettings, User } from '../types';
@@ -312,11 +312,45 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
     return cart.reduce((acc, item) => acc + (item.product.salePrice * item.quantity), 0);
   }, [cart]);
 
+  const cartCost = useMemo(() => {
+    return cart.reduce((acc, item) => acc + ((item.product.costPrice || 0) * item.quantity), 0);
+  }, [cart]);
+
   const finalTotal = useMemo(() => {
     const discounted = Math.max(0, cartTotal - totalDiscount);
     const surchargeAmount = discounted * (totalSurcharge / 100);
     return discounted + surchargeAmount;
   }, [cartTotal, totalDiscount, totalSurcharge]);
+
+  const cartProfit = useMemo(() => {
+    return finalTotal - cartCost;
+  }, [finalTotal, cartCost]);
+
+  const profitMarginPercent = useMemo(() => {
+    if (finalTotal <= 0) return 0;
+    return (cartProfit / finalTotal) * 100;
+  }, [cartProfit, finalTotal]);
+
+  const isCartInLoss = useMemo(() => {
+    return cart.length > 0 && cartCost > 0 && finalTotal < cartCost;
+  }, [cart.length, cartCost, finalTotal]);
+
+  // Sugestões inteligentes de Venda Casada (Cross-Selling)
+  const crossSellSuggestions = useMemo(() => {
+    if (!products || products.length === 0) return [];
+    const cartProductIds = new Set(cart.map(item => item.product.id));
+    const available = products.filter(p => p.quantity > 0 && !cartProductIds.has(p.id));
+    
+    // Palavras-chave de acessórios e itens complementares de alta conversão
+    const highMarginKeywords = ['pelicula', 'película', 'capa', 'capinha', 'carregador', 'cabo', 'fone', 'suporte', 'adaptador', 'bateria'];
+    
+    const matched = available.filter(p => {
+      const text = `${p.name} ${p.category || ''} ${p.description || ''}`.toLowerCase();
+      return highMarginKeywords.some(k => text.includes(k));
+    });
+
+    return (matched.length > 0 ? matched : available).slice(0, 6);
+  }, [products, cart]);
 
   const calculateFinalTotal = (discount: number, surcharge: number) => {
     const discounted = Math.max(0, cartTotal - discount);
@@ -380,6 +414,16 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
 
   const handleFinalizeSale = () => {
     if (cart.length === 0) return;
+
+    // Trava de Margem de Lucro / Alerta de Prejuízo no PDV
+    if (cartCost > 0 && finalTotal < cartCost) {
+      const lossAmount = cartCost - finalTotal;
+      const confirmed = window.confirm(
+        `⚠️ ALERTA DE PREJUÍZO NO PDV!\n\nO valor final da venda (${formatCurrency(finalTotal)}) é MENOR que o custo dos produtos em estoque (${formatCurrency(cartCost)}).\n\n📉 Prejuízo estimado: -${formatCurrency(lossAmount)}\n\nDeseja realmente autorizar e finalizar esta venda com prejuízo?`
+      );
+      if (!confirmed) return;
+    }
+
     const uniqueTransactions = new Set(sales.map(s => s.transactionId).filter(Boolean));
     const nextTransactionNumber = uniqueTransactions.size + 1;
     const transactionId = generateRandomNumericCode();
@@ -871,6 +915,50 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
                 </div>
 
                 <div className="p-3 bg-slate-50 border-t border-slate-100 space-y-2">
+                  {/* ALERTA DE PREJUÍZO / MARGEM DE LUCRO */}
+                  {cart.length > 0 && (
+                    isCartInLoss ? (
+                      <div className="p-2 bg-red-500 text-white rounded-lg text-[8px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm animate-pulse">
+                        <AlertTriangle size={12} className="shrink-0" />
+                        <span>Atenção: Prejuízo de {formatCurrency(cartCost - finalTotal)}</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between px-2 py-1 bg-emerald-50 text-emerald-800 rounded-md text-[8px] font-bold border border-emerald-100">
+                        <span className="flex items-center gap-1">
+                          <TrendingUp size={10} className="text-emerald-600" /> Lucro Est.:
+                        </span>
+                        <span className="font-black text-emerald-700">
+                          {formatCurrency(cartProfit)} ({profitMarginPercent.toFixed(0)}%)
+                        </span>
+                      </div>
+                    )
+                  )}
+
+                  {/* SUGESTÃO DE VENDA CASADA (CROSS-SELLING) */}
+                  {cart.length > 0 && crossSellSuggestions.length > 0 && (
+                    <div className="bg-blue-50/70 border border-blue-100 rounded-lg p-2 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[8px] font-black text-blue-900 uppercase tracking-wider flex items-center gap-1">
+                          <Sparkles size={10} className="text-blue-600" /> Venda Casada (+Ticket)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 custom-scrollbar">
+                        {crossSellSuggestions.map(p => (
+                          <button
+                            key={p.id}
+                            onClick={() => addToCart(p)}
+                            className="px-2 py-1 bg-white hover:bg-blue-600 hover:text-white border border-blue-200 rounded-md text-[8px] font-black uppercase text-blue-800 shrink-0 transition-all flex items-center gap-1 active:scale-95 shadow-2xs"
+                            title={`Adicionar ${p.name}`}
+                          >
+                            <Plus size={8} />
+                            <span className="max-w-[70px] truncate">{p.name}</span>
+                            <span className="text-emerald-600 group-hover:text-white font-bold">+{formatCurrency(p.salePrice)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-1">
                     <div className="flex justify-between text-lg font-bold text-slate-400 uppercase">
                       <span>Subtotal</span>
@@ -1074,6 +1162,47 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
                   </div>
 
                   <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 space-y-2.5">
+                    {/* ALERTA DE PREJUÍZO / MARGEM MOBILE */}
+                    {cart.length > 0 && (
+                      isCartInLoss ? (
+                        <div className="p-2 bg-red-500 text-white rounded-lg text-[8px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm animate-pulse">
+                          <AlertTriangle size={12} className="shrink-0" />
+                          <span>Prejuízo Detectado: -{formatCurrency(cartCost - finalTotal)}</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between px-2 py-1 bg-emerald-50 text-emerald-800 rounded-md text-[8px] font-bold border border-emerald-100">
+                          <span className="flex items-center gap-1">
+                            <TrendingUp size={10} className="text-emerald-600" /> Lucro Est.:
+                          </span>
+                          <span className="font-black text-emerald-700">
+                            {formatCurrency(cartProfit)} ({profitMarginPercent.toFixed(0)}%)
+                          </span>
+                        </div>
+                      )
+                    )}
+
+                    {/* VENDA CASADA MOBILE */}
+                    {cart.length > 0 && crossSellSuggestions.length > 0 && (
+                      <div className="bg-blue-50/70 border border-blue-100 rounded-lg p-2 space-y-1">
+                        <span className="text-[7px] font-black text-blue-900 uppercase tracking-wider flex items-center gap-1">
+                          <Sparkles size={9} className="text-blue-600" /> Sugestão de Venda Casada
+                        </span>
+                        <div className="flex items-center gap-1 overflow-x-auto pb-0.5 custom-scrollbar">
+                          {crossSellSuggestions.map(p => (
+                            <button
+                              key={p.id}
+                              onClick={() => addToCart(p)}
+                              className="px-2 py-1 bg-white hover:bg-blue-600 hover:text-white border border-blue-200 rounded-md text-[7px] font-black uppercase text-blue-800 shrink-0 transition-all flex items-center gap-1 active:scale-95 shadow-2xs"
+                            >
+                              <Plus size={8} />
+                              <span className="max-w-[65px] truncate">{p.name}</span>
+                              <span className="text-emerald-600 font-bold">+{formatCurrency(p.salePrice)}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="space-y-1">
                       <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                         <span>Subtotal</span>
@@ -1247,10 +1376,29 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
                 return null;
               })()}
 
-              {/* TOTAL A PAGAR (Compact) */}
-              <div className="bg-emerald-50 p-4 rounded-xl text-center mt-2 border border-emerald-100">
-                <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-0.5">Total a Pagar</p>
-                <p className="text-2xl font-black text-emerald-800">{formatCurrency(finalTotal)}</p>
+              {/* TOTAL A PAGAR COM TRAVA / MARGEM DE LUCRO */}
+              <div className="bg-emerald-50 p-3.5 rounded-xl text-center mt-2 border border-emerald-100 space-y-1">
+                <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest leading-none">Total a Pagar</p>
+                <p className="text-2xl font-black text-emerald-800 leading-tight">{formatCurrency(finalTotal)}</p>
+                
+                {/* STATUS DE MARGEM / PREJUÍZO */}
+                {cartCost > 0 && (
+                  <div className="pt-1.5 border-t border-emerald-200/60 mt-1">
+                    {isCartInLoss ? (
+                      <div className="bg-red-500 text-white py-1 px-2 rounded-lg text-[9px] font-black flex items-center justify-center gap-1 animate-pulse">
+                        <AlertTriangle size={12} />
+                        <span>PREJUÍZO: -{formatCurrency(cartCost - finalTotal)} (Custo: {formatCurrency(cartCost)})</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between text-[9px] font-bold text-emerald-900 px-1">
+                        <span className="text-emerald-700">Lucro Líquido:</span>
+                        <span className="font-black text-emerald-800">
+                          {formatCurrency(cartProfit)} ({profitMarginPercent.toFixed(0)}% de margem)
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

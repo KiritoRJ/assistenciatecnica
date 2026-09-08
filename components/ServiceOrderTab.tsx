@@ -6,13 +6,14 @@ import {
   AlertTriangle, Calculator, CheckCircle, Image as ImageIcon, Calendar, 
   KeyRound, Lock, Download, Maximize2, Layout, Check, Printer, Share2,
   SlidersHorizontal, ArrowDownAZ, Clock, ShieldCheck, RotateCcw,
-  Wrench, CheckCircle2, Sparkles, QrCode
+  Wrench, CheckCircle2, Sparkles, QrCode, TrendingUp, MessageSquare, Send, Zap
 } from 'lucide-react';
 import { ServiceOrder, AppSettings, User, Customer, DeviceDiagnosticResults } from '../types';
 import { formatCurrency, parseCurrencyString, formatDate, formatDateTime, generateRandomNumericCode } from '../utils';
 import { OnlineDB } from '../utils/api';
 import { SavedOrderShareModal } from './SavedOrderShareModal';
 import { DiagnosticReportModal } from './DiagnosticReportModal';
+import { CustomerBroadcastModal } from './CustomerBroadcastModal';
 import QRCode from 'qrcode';
 
 export const OS_STATUS_OPTIONS: Array<{
@@ -129,6 +130,7 @@ const ServiceOrderTab: React.FC<Props> = ({
   const [printQrCodeUrl, setPrintQrCodeUrl] = useState<string | null>(null);
   const [savedOrderShareModal, setSavedOrderShareModal] = useState<{ order: ServiceOrder; isNew: boolean } | null>(null);
   const [selectedOrderForDiagnostic, setSelectedOrderForDiagnostic] = useState<ServiceOrder | null>(null);
+  const [selectedOrderForBroadcast, setSelectedOrderForBroadcast] = useState<ServiceOrder | null>(null);
 
   useEffect(() => {
     if (orderToPrint) {
@@ -560,6 +562,20 @@ const ServiceOrderTab: React.FC<Props> = ({
     }
 
     if (!formData.customerName || !formData.deviceModel) return alert('Campos obrigatórios faltando.');
+
+    // Trava de Margem de Lucro / Alerta de Prejuízo na O.S.
+    const partsCostVal = Number(formData.partsCost || 0);
+    const serviceCostVal = Number(formData.serviceCost || 0);
+    const totalVal = Number(formData.total || (partsCostVal + serviceCostVal));
+
+    if (partsCostVal > 0 && totalVal < partsCostVal) {
+      const loss = partsCostVal - totalVal;
+      const confirmed = window.confirm(
+        `⚠️ ALERTA DE PREJUÍZO NA ORDEM DE SERVIÇO!\n\nO valor total cobrado (${formatCurrency(totalVal)}) é MENOR que o custo da peça informada (${formatCurrency(partsCostVal)}).\n\n📉 Prejuízo estimado: -${formatCurrency(loss)}\n\nDeseja realmente autorizar e salvar esta O.S. com prejuízo?`
+      );
+      if (!confirmed) return;
+    }
+
     setIsSaving(true);
 
     // --- SINCRONIZAÇÃO AUTOMÁTICA DO CLIENTE ---
@@ -1576,6 +1592,14 @@ const ServiceOrderTab: React.FC<Props> = ({
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <button onClick={(e) => { 
                   e.stopPropagation(); 
+                  setSelectedOrderForBroadcast(order);
+                }} className={`bg-emerald-600 text-white rounded-lg sm:rounded-xl shadow-md active:scale-90 flex items-center justify-center hover:bg-emerald-500 transition-colors
+                  ${osLayout === 'small' ? 'p-1 sm:p-1.5' : osLayout === 'medium' ? 'p-1.5 sm:p-2.5' : 'p-2.5 sm:p-3.5'}
+                `} title="Divulgar / Enviar Orçamento e Proposta no WhatsApp (1-Clique)">
+                  <MessageSquare size={14} className={osLayout === 'large' ? 'sm:w-[20px] sm:h-[20px]' : 'sm:w-[18px] sm:h-[18px]'} />
+                </button>
+                <button onClick={(e) => { 
+                  e.stopPropagation(); 
                   setSavedOrderShareModal({ order, isNew: false });
                 }} className={`bg-indigo-600 text-white rounded-lg sm:rounded-xl shadow-md active:scale-90 flex items-center justify-center hover:bg-indigo-500 transition-colors
                   ${osLayout === 'small' ? 'p-1 sm:p-1.5' : osLayout === 'medium' ? 'p-1.5 sm:p-2.5' : 'p-2.5 sm:p-3.5'}
@@ -1596,7 +1620,7 @@ const ServiceOrderTab: React.FC<Props> = ({
                 `} title="Ver Recibo">
                   {isGeneratingReceipt ? <Loader2 className="animate-spin" size={14} /> : <Eye size={14} className={osLayout === 'large' ? 'sm:w-[20px] sm:h-[20px]' : 'sm:w-[18px] sm:h-[18px]'} />}
                 </button>
-                <button onClick={(e) => { e.stopPropagation(); setSelectedOrderForPhotos(order); }} className={`bg-emerald-600 text-white rounded-lg sm:rounded-xl shadow-md active:scale-90 flex items-center justify-center
+                <button onClick={(e) => { e.stopPropagation(); setSelectedOrderForPhotos(order); }} className={`bg-slate-700 text-white rounded-lg sm:rounded-xl shadow-md active:scale-90 flex items-center justify-center hover:bg-slate-600
                   ${osLayout === 'small' ? 'p-1 sm:p-1.5' : osLayout === 'medium' ? 'p-1.5 sm:p-2.5' : 'p-2.5 sm:p-3.5'}
                 `} title="Ver Fotos">
                   <ImageIcon size={14} className={osLayout === 'large' ? 'sm:w-[20px] sm:h-[20px]' : 'sm:w-[18px] sm:h-[18px]'} />
@@ -2046,6 +2070,42 @@ const ServiceOrderTab: React.FC<Props> = ({
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Reparo Efetuado</label>
                     <textarea name="repairDetails" value={formData.repairDetails} onChange={handleInputChange} placeholder="O que foi feito..." className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs h-16 resize-none border border-slate-100" />
                   </div>
+
+                  {/* SUGESTÃO DE VENDA CASADA (CROSS-SELLING NA O.S.) */}
+                  <div className="bg-blue-50/70 border border-blue-100 rounded-2xl p-3 space-y-2 mt-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
+                        <Sparkles size={12} className="text-blue-600" /> Venda Casada (+ Lucro no Atendimento)
+                      </span>
+                      <span className="text-[8px] font-bold text-blue-600">Toque para adicionar ao laudo:</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { label: '🛡️ + Película 3D/Hidrogel', desc: 'Aplicação de Película Protetora' },
+                        { label: '📱 + Capa Anti-Impacto', desc: 'Capa Protetora de Alta Resistência' },
+                        { label: '⚡ + Carregador/Cabo Turbo', desc: 'Cabo Turbo Homologado' },
+                        { label: '🧼 + Limpeza e Desoxidação', desc: 'Limpeza Ultrassônica Preventiva dos Conectores' },
+                        { label: '🔋 + Troca/Calibragem de Bateria', desc: 'Substituição e Calibragem de Bateria' }
+                      ].map((item, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            const currentRepair = formData.repairDetails || '';
+                            const separator = currentRepair.trim() ? ' | ' : '';
+                            setFormData(prev => ({
+                              ...prev,
+                              repairDetails: `${currentRepair}${separator}${item.desc}`
+                            }));
+                          }}
+                          className="px-2.5 py-1.5 bg-white hover:bg-blue-600 hover:text-white border border-blue-200 text-blue-900 rounded-xl text-[9px] font-black uppercase tracking-tight transition-all active:scale-95 shadow-2xs cursor-pointer flex items-center gap-1"
+                        >
+                          <Plus size={10} />
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 {/* INFORMAÇÕES DO FORNECEDOR (PEÇA) */}
@@ -2176,6 +2236,7 @@ const ServiceOrderTab: React.FC<Props> = ({
                       </div>
                     </div>
                   </div>
+                  
                   <div className="flex items-center justify-between pt-2 border-t border-white/10">
                     <div className="flex items-center gap-2 text-white">
                       <Calculator size={16} className="text-blue-400" />
@@ -2183,6 +2244,45 @@ const ServiceOrderTab: React.FC<Props> = ({
                     </div>
                     <input name="total" value={formatCurrency(formData.total || 0).replace('R$', '').trim()} onChange={handleInputChange} className="bg-transparent font-black text-white outline-none text-xl text-right w-32" placeholder="0,00" />
                   </div>
+
+                  {/* TRAVA DE MARGEM DE LUCRO / ALERTA DE PREJUÍZO NA O.S. */}
+                  {(() => {
+                    const pCost = Number(formData.partsCost || 0);
+                    const sCost = Number(formData.serviceCost || 0);
+                    const tot = Number(formData.total || (pCost + sCost));
+                    const profit = tot - pCost;
+                    const marginPct = tot > 0 ? (profit / tot) * 100 : 0;
+
+                    if (pCost > 0 && tot < pCost) {
+                      return (
+                        <div className="bg-red-500/90 text-white p-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-2 animate-pulse border border-red-400">
+                          <AlertTriangle size={16} className="shrink-0" />
+                          <span>ALERTA DE PREJUÍZO: Total cobrado ({formatCurrency(tot)}) é menor que o custo da peça ({formatCurrency(pCost)})! Prejuízo de -{formatCurrency(pCost - tot)}</span>
+                        </div>
+                      );
+                    }
+                    if (pCost > 0 && sCost === 0 && tot === pCost) {
+                      return (
+                        <div className="bg-amber-500/20 text-amber-300 p-2 rounded-xl text-[9px] font-bold uppercase tracking-wider flex items-center gap-1.5 border border-amber-500/30">
+                          <AlertTriangle size={13} className="shrink-0" />
+                          <span>Mão de Obra Zerada: Você está apenas repassando o custo da peça sem margem de lucro.</span>
+                        </div>
+                      );
+                    }
+                    if (tot > 0) {
+                      return (
+                        <div className="bg-emerald-500/20 text-emerald-300 px-3 py-1.5 rounded-xl text-[9px] font-bold uppercase tracking-wider flex items-center justify-between border border-emerald-500/30">
+                          <span className="flex items-center gap-1">
+                            <TrendingUp size={12} className="text-emerald-400" /> Lucro Líquido do Reparo:
+                          </span>
+                          <span className="font-black text-emerald-400 text-[10px]">
+                            {formatCurrency(profit)} ({marginPct.toFixed(0)}% margem)
+                          </span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
 
                   <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/10">
                     <div className="space-y-1">
@@ -2881,6 +2981,23 @@ const ServiceOrderTab: React.FC<Props> = ({
         isOpen={!!selectedOrderForDiagnostic}
         onClose={() => setSelectedOrderForDiagnostic(null)}
         order={selectedOrderForDiagnostic ? (orders.find(o => o.id === selectedOrderForDiagnostic.id) || selectedOrderForDiagnostic) : null}
+        settings={settings}
+      />
+
+      {/* MODAL DE DIVULGAÇÃO E PROPOSTAS WHATSAPP 1-CLIQUE */}
+      <CustomerBroadcastModal
+        isOpen={!!selectedOrderForBroadcast}
+        onClose={() => setSelectedOrderForBroadcast(null)}
+        customer={selectedOrderForBroadcast ? {
+          id: selectedOrderForBroadcast.customerId || '',
+          tenantId: tenantId || '',
+          name: selectedOrderForBroadcast.customerName,
+          phoneNumber: selectedOrderForBroadcast.phoneNumber,
+          address: selectedOrderForBroadcast.address || '',
+          notes: '',
+          createdAt: selectedOrderForBroadcast.date
+        } : null}
+        order={selectedOrderForBroadcast}
         settings={settings}
       />
 
