@@ -153,7 +153,12 @@ export const DeviceHardwareTestPage: React.FC<Props> = ({ osIdOrToken }) => {
 
   // Load Order Data
   useEffect(() => {
-    fetchOrderData();
+    if (osIdOrToken) {
+      fetchOrderData();
+    } else {
+      setLoading(false);
+      setError('Token ou ID da OS não fornecido.');
+    }
   }, [osIdOrToken]);
 
   const fetchOrderData = async () => {
