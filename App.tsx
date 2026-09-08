@@ -19,6 +19,12 @@ import { OnlineDB, supabase } from './utils/api';
 import { OfflineSync } from './utils/offlineSync';
 import { db } from './utils/localDb';
 import { useAppNotifications } from './utils/useAppNotifications';
+import { ConnectionStatusManager } from './utils/connectionStatus';
+import { 
+  ConnectionStatusTag, 
+  DatabaseOfflineBanner, 
+  ConnectionStatusToast 
+} from './components/DatabaseOfflineAlert';
 
 type Tab = 'os' | 'clientes' | 'estoque' | 'vendas' | 'financeiro' | 'config' | 'team' | 'ferramentas';
 
@@ -85,12 +91,30 @@ const App: React.FC = () => {
       if (params.get('tab') === 'ferramentas' || params.get('view') === 'adb-cleaner' || window.location.hash.includes('adb-cleaner')) {
         return 'ferramentas';
       }
-      if (params.get('tab') === 'config') {
-        return 'config';
+      if (params.get('tab') === 'config') return 'config';
+      if (params.get('tab') === 'os') return 'os';
+      if (params.get('tab') === 'clientes') return 'clientes';
+      if (params.get('tab') === 'estoque') return 'estoque';
+      if (params.get('tab') === 'vendas') return 'vendas';
+      if (params.get('tab') === 'financeiro') return 'financeiro';
+      if (params.get('tab') === 'team') return 'team';
+
+      const saved = localStorage.getItem('last_active_tab') as Tab;
+      if (saved && ['os', 'clientes', 'estoque', 'vendas', 'financeiro', 'config', 'team', 'ferramentas'].includes(saved)) {
+        return saved;
       }
     } catch (e) {}
     return 'vendas';
   });
+
+  // Salva a aba ativa para nunca perder o contexto ao minimizar no celular
+  useEffect(() => {
+    try {
+      if (activeTab) {
+        localStorage.setItem('last_active_tab', activeTab);
+      }
+    } catch (e) {}
+  }, [activeTab]);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -144,6 +168,7 @@ const App: React.FC = () => {
     }
     
     OfflineSync.init();
+    ConnectionStatusManager.init();
     const handleStatusChange = () => setIsOnline(navigator.onLine);
     window.addEventListener('online', handleStatusChange);
     window.addEventListener('offline', handleStatusChange);
@@ -273,6 +298,8 @@ const App: React.FC = () => {
         ]);
 
         if (cloudData) {
+          setIsCloudConnected(true);
+          ConnectionStatusManager.reportSuccess();
           const finalSettings = { ...DEFAULT_SETTINGS, ...cloudData.settings };
           
           // Se o tenantData trouxer um printer_size atualizado, usamos ele
@@ -292,7 +319,12 @@ const App: React.FC = () => {
           setSales(cloudData.sales || []);
           setTransactions(cloudData.transactions || []);
           return;
+        } else {
+          setIsCloudConnected(false);
+          ConnectionStatusManager.reportError(new Error('Falha ao conectar com banco de dados remoto'));
         }
+      } else {
+        setIsCloudConnected(false);
       }
 
       // Se offline ou falha no pull, carrega local
@@ -308,6 +340,7 @@ const App: React.FC = () => {
     } catch (e) {
       console.error("Erro ao carregar dados:", e);
       setIsCloudConnected(false);
+      ConnectionStatusManager.reportError(e);
       const localData = await OfflineSync.getLocalData(tenantId);
       const finalSettings = { ...DEFAULT_SETTINGS, ...(localData.settings || {}) };
       finalSettings.users = localData.users || [];
@@ -1150,7 +1183,10 @@ const App: React.FC = () => {
             </button>
           ))}
         </nav>
-        <div className="mt-8 pt-8 border-t border-white/5 min-w-[240px]">
+        <div className="mt-auto pt-4 border-t border-white/5 min-w-[240px]">
+          <div className="px-2 mb-4">
+            <ConnectionStatusTag className="w-full justify-center py-2" />
+          </div>
           <div className="flex items-center gap-3 px-4 mb-6">
             <div className="w-10 h-10 bg-slate-800 rounded-xl overflow-hidden border border-white/10 shrink-0">
               {currentUser.photo ? <img src={currentUser.photo} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-600 font-black text-xs">?</div>}
@@ -1169,8 +1205,8 @@ const App: React.FC = () => {
 
       <main className="flex-1 flex flex-col h-[100dvh] overflow-hidden relative">
         {/* Mobile Top Header */}
-        <div className="md:hidden flex items-center justify-between bg-white border-b border-slate-100 px-4 py-2.5 shrink-0 z-20 shadow-sm">
-          <div className="flex items-center gap-2.5">
+        <div className="md:hidden flex items-center justify-between bg-white border-b border-slate-100 px-3 py-2 shrink-0 z-20 shadow-sm gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <button
               type="button"
               onClick={() => setIsSidebarOpen(true)}
@@ -1185,9 +1221,9 @@ const App: React.FC = () => {
             </button>
             <div 
               onClick={() => setIsSidebarOpen(true)} 
-              className="cursor-pointer flex flex-col justify-center select-none"
+              className="cursor-pointer flex flex-col justify-center select-none min-w-0"
             >
-              <span className="font-black text-xs uppercase tracking-tight text-slate-900 truncate max-w-[170px] leading-tight">
+              <span className="font-black text-xs uppercase tracking-tight text-slate-900 truncate max-w-[140px] leading-tight">
                 {settings.storeName}
               </span>
               <span className="text-[9px] font-bold text-blue-600 tracking-wider flex items-center gap-0.5 leading-tight mt-0.5">
@@ -1195,12 +1231,41 @@ const App: React.FC = () => {
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-blue-700 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-lg shadow-xs">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <ConnectionStatusTag />
+            <span className="text-[9px] font-black uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-100 px-2.5 py-1.5 rounded-lg shadow-xs whitespace-nowrap">
               {visibleNavItems.find(i => i.id === activeTab)?.label || 'Menu'}
             </span>
           </div>
         </div>
+
+        {/* Desktop Top Header (Barra Superior de Status) */}
+        <div className="hidden md:flex items-center justify-between px-6 py-3 bg-white border-b border-slate-100 shrink-0 z-10">
+          <div className="flex items-center gap-3">
+            {isSidebarCollapsed && (
+              <button 
+                onClick={() => setIsSidebarCollapsed(false)}
+                className="w-9 h-9 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl flex items-center justify-center transition-all active:scale-95 cursor-pointer shadow-xs"
+                title="Expandir menu lateral"
+              >
+                <Menu size={18} />
+              </button>
+            )}
+            <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+              {visibleNavItems.find(i => i.id === activeTab)?.label || 'Painel'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <ConnectionStatusTag />
+          </div>
+        </div>
+
+        {/* Alerta de Banco SQL Offline / Modo Offline */}
+        <DatabaseOfflineBanner 
+          tenantId={session?.tenantId} 
+          onRefreshData={() => session?.tenantId && loadData(session.tenantId)} 
+        />
 
         {/* Alça Lateral Ergonômica para Celulares com Borda Infinita / Gestos */}
         <div 
@@ -1217,23 +1282,7 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Botão de Menu Flutuante (Desktop quando fechado) */}
-        <div className={`absolute top-4 left-4 z-30 hidden md:block ${!isSidebarCollapsed ? 'md:hidden' : ''}`}>
-          <button 
-            onClick={() => {
-              if (window.innerWidth < 768) {
-                setIsSidebarOpen(true);
-              } else {
-                setIsSidebarCollapsed(false);
-              }
-            }}
-            className="w-12 h-12 bg-white text-slate-800 rounded-2xl shadow-xl border border-slate-100 flex items-center justify-center hover:bg-slate-50 transition-all active:scale-95"
-          >
-            <Menu size={24} />
-          </button>
-        </div>
-
-        <div className={`flex-1 overflow-y-auto p-4 pt-4 pb-6 md:pt-10 md:pb-4 max-w-none mx-auto w-full animate-in fade-in duration-700 hide-scrollbar [&::-webkit-scrollbar]:hidden ${isSidebarCollapsed ? 'md:pl-20' : 'md:pl-4'}`}>
+        <div className={`flex-1 overflow-y-auto p-4 pt-4 pb-6 md:pt-6 md:pb-4 max-w-none mx-auto w-full animate-in fade-in duration-700 hide-scrollbar [&::-webkit-scrollbar]:hidden ${isSidebarCollapsed ? 'md:pl-6' : 'md:pl-6'}`}>
           {activeTab === 'os' && (
             <ServiceOrderTab 
               orders={orders} 
@@ -1303,6 +1352,10 @@ const App: React.FC = () => {
               </div>
             </div>
 
+            <div className="mb-3 px-1">
+              <ConnectionStatusTag className="w-full justify-center py-2" />
+            </div>
+
             <nav className="flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden pr-1">
                {visibleNavItems.map((item, idx) => (
                 <button 
@@ -1365,6 +1418,9 @@ const App: React.FC = () => {
            </div>
         </div>
       )}
+
+      {/* Notificação Toast em Tempo Real de Queda / Retorno do Banco SQL */}
+      <ConnectionStatusToast />
     </div>
   );
 };

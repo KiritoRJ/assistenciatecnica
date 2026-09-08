@@ -313,6 +313,41 @@ const ServiceOrderTab: React.FC<Props> = ({
 
   // Estado de confirmação de descarte de alterações ao fechar modal
   const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
+  const [restoredDraftNotice, setRestoredDraftNotice] = useState(false);
+
+  // Limpa o rascunho temporário do armazenamento local
+  const clearDraft = () => {
+    try {
+      localStorage.removeItem('lojascloud_os_draft');
+      setRestoredDraftNotice(false);
+    } catch (e) {}
+  };
+
+  // Restaura rascunho de O.S. caso o celular recarregue ao minimizar
+  useEffect(() => {
+    try {
+      const savedDraft = localStorage.getItem('lojascloud_os_draft');
+      if (savedDraft) {
+        const parsed = JSON.parse(savedDraft);
+        if (parsed && parsed.formData && (
+          (parsed.formData.customerName && parsed.formData.customerName.trim().length > 0) ||
+          (parsed.formData.deviceModel && parsed.formData.deviceModel.trim().length > 0) ||
+          (parsed.formData.defect && parsed.formData.defect.trim().length > 0) ||
+          (parsed.formData.repairDetails && parsed.formData.repairDetails.trim().length > 0) ||
+          (parsed.formData.phoneNumber && parsed.formData.phoneNumber.replace(/\D/g, '').replace(/^55/, '').length > 0)
+        )) {
+          setFormData(parsed.formData);
+          if (parsed.editingOrder) {
+            setEditingOrder(parsed.editingOrder);
+          }
+          setIsModalOpen(true);
+          setRestoredDraftNotice(true);
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao restaurar rascunho de O.S.:', e);
+    }
+  }, []);
 
   // Verifica se o formulário possui alterações ou dados preenchidos
   const isFormDirty = (): boolean => {
@@ -362,8 +397,32 @@ const ServiceOrderTab: React.FC<Props> = ({
     setShowExitConfirmModal(false);
     setIsModalOpen(false);
     setShowCustomerSuggestions(false);
+    clearDraft();
     resetForm();
   };
+
+  // Salva automaticamente o rascunho em background a cada alteração enquanto o modal estiver aberto
+  useEffect(() => {
+    if (isModalOpen && isFormDirty()) {
+      try {
+        localStorage.setItem('lojascloud_os_draft', JSON.stringify({
+          formData,
+          editingOrder,
+          savedAt: Date.now()
+        }));
+      } catch (e) {
+        // Previne estouro de cota caso o usuário anexe imagens pesadas
+        try {
+          const lightFormData = { ...formData, photos: [], finishedPhotos: [] };
+          localStorage.setItem('lojascloud_os_draft', JSON.stringify({
+            formData: lightFormData,
+            editingOrder,
+            savedAt: Date.now()
+          }));
+        } catch (err) {}
+      }
+    }
+  }, [formData, isModalOpen, editingOrder]);
 
   // Sugestões e busca automática de clientes existentes
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
@@ -687,12 +746,14 @@ const ServiceOrderTab: React.FC<Props> = ({
       isNew: !editingOrder 
     });
 
+    clearDraft();
     resetForm();
     setIsSaving(false);
   };
 
   // Limpa o formulário para uma nova entrada
   const resetForm = () => {
+    clearDraft();
     const today = getTodayDateBR();
     setEditingOrder(null);
     setFormData({ 
@@ -1665,6 +1726,27 @@ const ServiceOrderTab: React.FC<Props> = ({
             </div>
             
             <div className="p-4 space-y-4 overflow-y-auto pb-10 flex-1">
+              {restoredDraftNotice && (
+                <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-2xl flex items-center justify-between gap-2 animate-in fade-in">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                    <p className="text-[10px] font-black text-emerald-800 uppercase tracking-tight truncate">
+                      ⚡ Rascunho recuperado automaticamente!
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearDraft();
+                      resetForm();
+                    }}
+                    className="text-[9px] font-black uppercase text-red-600 hover:text-red-800 bg-white border border-red-200 px-2.5 py-1 rounded-xl shrink-0 active:scale-95 transition-all shadow-2xs"
+                  >
+                    Descartar
+                  </button>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 gap-3">
                 {/* DADOS DO CLIENTE */}
                 <div className="bg-slate-50 p-4 rounded-3xl space-y-3 relative">

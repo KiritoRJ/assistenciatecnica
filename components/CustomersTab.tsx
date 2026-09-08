@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Users, UserPlus, Search, Phone, MessageSquare, Calendar, DollarSign, 
   Wrench, Clock, CheckCircle2, AlertCircle, Edit, Trash2, Plus, 
@@ -112,6 +112,43 @@ export const CustomersTab: React.FC<Props> = ({
     email: '',
     notes: ''
   });
+
+  // Limpa rascunho de cliente
+  const clearCustomerDraft = () => {
+    try {
+      localStorage.removeItem('lojascloud_customer_draft');
+    } catch (e) {}
+  };
+
+  // Restaura rascunho de cliente caso recarregue no celular
+  useEffect(() => {
+    try {
+      const savedDraft = localStorage.getItem('lojascloud_customer_draft');
+      if (savedDraft) {
+        const parsed = JSON.parse(savedDraft);
+        if (parsed && parsed.formData && (parsed.formData.name || parsed.formData.phoneNumber || parsed.formData.document)) {
+          setFormData(parsed.formData);
+          if (parsed.editingCustomer) setEditingCustomer(parsed.editingCustomer);
+          setIsNewCustomerModalOpen(true);
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao restaurar rascunho de cliente:', e);
+    }
+  }, []);
+
+  // Salva automaticamente o rascunho enquanto o modal de cliente estiver aberto
+  useEffect(() => {
+    if (isNewCustomerModalOpen && (formData.name || formData.phoneNumber || formData.document || formData.address || formData.notes)) {
+      try {
+        localStorage.setItem('lojascloud_customer_draft', JSON.stringify({
+          formData,
+          editingCustomer,
+          savedAt: Date.now()
+        }));
+      } catch (e) {}
+    }
+  }, [formData, isNewCustomerModalOpen, editingCustomer]);
 
   // Estado para nova anotação no diário do cliente
   const [newNoteText, setNewNoteText] = useState('');
@@ -386,6 +423,7 @@ export const CustomersTab: React.FC<Props> = ({
 
   // Abre formulário para novo cliente
   const handleOpenNewCustomer = () => {
+    clearCustomerDraft();
     setEditingCustomer(null);
     setFormData({
       name: '',
@@ -451,6 +489,7 @@ export const CustomersTab: React.FC<Props> = ({
       await onSaveCustomer(newCustomer);
     }
 
+    clearCustomerDraft();
     setIsNewCustomerModalOpen(false);
   };
 

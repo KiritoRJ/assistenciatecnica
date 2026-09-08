@@ -34,6 +34,43 @@ const StockTab: React.FC<Props> = ({ products, setProducts, onDeleteProduct, set
     name: '', costPrice: 0, salePrice: 0, quantity: 0, photo: null, barcode: ''
   });
 
+  // Limpa rascunho de produto
+  const clearStockDraft = () => {
+    try {
+      localStorage.removeItem('lojascloud_stock_draft');
+    } catch (e) {}
+  };
+
+  // Restaura rascunho de produto caso recarregue no celular
+  useEffect(() => {
+    try {
+      const savedDraft = localStorage.getItem('lojascloud_stock_draft');
+      if (savedDraft) {
+        const parsed = JSON.parse(savedDraft);
+        if (parsed && parsed.formData && (parsed.formData.name || parsed.formData.barcode || parsed.formData.salePrice)) {
+          setFormData(parsed.formData);
+          if (parsed.editingProduct) setEditingProduct(parsed.editingProduct);
+          setIsModalOpen(true);
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao restaurar rascunho de estoque:', e);
+    }
+  }, []);
+
+  // Salva automaticamente o rascunho enquanto o modal de produto estiver aberto
+  useEffect(() => {
+    if (isModalOpen && (formData.name || formData.barcode || (formData.salePrice || 0) > 0 || (formData.quantity || 0) > 0)) {
+      try {
+        localStorage.setItem('lojascloud_stock_draft', JSON.stringify({
+          formData: { ...formData, photo: null }, // evita fotos pesadas no localStorage
+          editingProduct,
+          savedAt: Date.now()
+        }));
+      } catch (e) {}
+    }
+  }, [formData, isModalOpen, editingProduct]);
+
   // Função para comprimir imagem antes de salvar no banco
   const compressImage = (base64Str: string): Promise<string> => {
     return new Promise((resolve) => {
@@ -197,6 +234,7 @@ const StockTab: React.FC<Props> = ({ products, setProducts, onDeleteProduct, set
   };
 
   const resetForm = () => {
+    clearStockDraft();
     setEditingProduct(null);
     setFormData({ name: '', costPrice: 0, salePrice: 0, quantity: 0, photo: null, barcode: '' });
   };

@@ -67,6 +67,51 @@ const SalesTab: React.FC<Props> = ({ products, setProducts, sales, setSales, set
   const [isCompressingBanner, setIsCompressingBanner] = useState(false);
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
+  // Recupera carrinho do PDV caso o app seja minimizado ou recarregado no celular
+  useEffect(() => {
+    try {
+      const savedDraft = localStorage.getItem('lojascloud_pdv_draft');
+      if (savedDraft) {
+        const parsed = JSON.parse(savedDraft);
+        if (parsed && Array.isArray(parsed.cart) && parsed.cart.length > 0) {
+          setCart(parsed.cart);
+          if (typeof parsed.totalDiscount === 'number') setTotalDiscount(parsed.totalDiscount);
+          if (typeof parsed.totalSurcharge === 'number') setTotalSurcharge(parsed.totalSurcharge);
+          if (Array.isArray(parsed.paymentEntries) && parsed.paymentEntries.length > 0) {
+            setPaymentEntries(parsed.paymentEntries);
+          }
+          if (parsed.showCheckoutModal) {
+            setShowCheckoutModal(true);
+          }
+          if (parsed.showCartDrawer) {
+            setShowCartDrawer(true);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao restaurar carrinho PDV:', e);
+    }
+  }, []);
+
+  // Salva automaticamente o carrinho e estado de finalização no storage
+  useEffect(() => {
+    try {
+      if (cart.length > 0) {
+        localStorage.setItem('lojascloud_pdv_draft', JSON.stringify({
+          cart,
+          totalDiscount,
+          totalSurcharge,
+          paymentEntries,
+          showCheckoutModal,
+          showCartDrawer,
+          savedAt: Date.now()
+        }));
+      } else {
+        localStorage.removeItem('lojascloud_pdv_draft');
+      }
+    } catch (e) {}
+  }, [cart, totalDiscount, totalSurcharge, paymentEntries, showCheckoutModal, showCartDrawer]);
+
   const compressImage = (base64Str: string, size: number = 800): Promise<string> => {
     return new Promise((resolve) => {
       const img = new Image();

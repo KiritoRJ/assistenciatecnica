@@ -2,6 +2,7 @@
 import { db, SyncItem } from './localDb';
 import { OnlineDB } from './api';
 import { ServiceOrder, Product, Sale, Transaction, AppSettings, User, Customer } from '../types';
+import { ConnectionStatusManager } from './connectionStatus';
 
 export class OfflineSync {
   private static isSyncing = false;
@@ -24,6 +25,7 @@ export class OfflineSync {
 
     try {
       const queue = await db.syncQueue.orderBy('timestamp').toArray();
+      ConnectionStatusManager.refreshPendingCount();
       if (queue.length === 0) {
         this.isSyncing = false;
         return;
@@ -92,6 +94,8 @@ export class OfflineSync {
 
         if (success) {
           await db.syncQueue.delete(item.id!);
+          ConnectionStatusManager.refreshPendingCount();
+          ConnectionStatusManager.reportSuccess();
         } else {
           // If one fails, stop and wait for next online event or retry
           console.warn('Sync failed for item, stopping queue processing.');
@@ -100,7 +104,13 @@ export class OfflineSync {
       }
     } finally {
       this.isSyncing = false;
+      ConnectionStatusManager.refreshPendingCount();
     }
+  }
+
+  private static async enqueue(item: SyncItem) {
+    await db.syncQueue.add(item);
+    ConnectionStatusManager.refreshPendingCount();
   }
 
   static async saveOrder(tenantId: string, order: ServiceOrder) {
@@ -109,7 +119,7 @@ export class OfflineSync {
       const res = await OnlineDB.upsertOrders(tenantId, [order]);
       if (res.success) return;
     }
-    await db.syncQueue.add({
+    await this.enqueue({
       tenantId,
       type: 'orders',
       action: 'upsert',
@@ -127,7 +137,7 @@ export class OfflineSync {
       const res = await OnlineDB.deleteOS(orderId);
       if (res.success) return;
     }
-    await db.syncQueue.add({
+    await this.enqueue({
       tenantId,
       type: 'orders',
       action: 'delete',
@@ -142,7 +152,7 @@ export class OfflineSync {
       const res = await OnlineDB.upsertProducts(tenantId, [product]);
       if (res.success) return;
     }
-    await db.syncQueue.add({
+    await this.enqueue({
       tenantId,
       type: 'products',
       action: 'upsert',
@@ -157,7 +167,7 @@ export class OfflineSync {
       const res = await OnlineDB.deleteProduct(productId);
       if (res.success) return;
     }
-    await db.syncQueue.add({
+    await this.enqueue({
       tenantId,
       type: 'products',
       action: 'delete',
@@ -172,7 +182,7 @@ export class OfflineSync {
       const res = await OnlineDB.upsertSales(tenantId, [sale]);
       if (res.success) return;
     }
-    await db.syncQueue.add({
+    await this.enqueue({
       tenantId,
       type: 'sales',
       action: 'upsert',
@@ -190,7 +200,7 @@ export class OfflineSync {
       const res = await OnlineDB.deleteSale(saleId);
       if (res.success) return;
     }
-    await db.syncQueue.add({
+    await this.enqueue({
       tenantId,
       type: 'sales',
       action: 'delete',
@@ -205,7 +215,7 @@ export class OfflineSync {
       const res = await OnlineDB.upsertTransactions(tenantId, [transaction]);
       if (res.success) return;
     }
-    await db.syncQueue.add({
+    await this.enqueue({
       tenantId,
       type: 'transactions',
       action: 'upsert',
@@ -223,7 +233,7 @@ export class OfflineSync {
       const res = await OnlineDB.deleteTransaction(transactionId);
       if (res.success) return;
     }
-    await db.syncQueue.add({
+    await this.enqueue({
       tenantId,
       type: 'transactions',
       action: 'delete',
@@ -247,7 +257,7 @@ export class OfflineSync {
       const res = await OnlineDB.syncPush(tenantId, 'settings', settings);
       if (res.success) return;
     }
-    await db.syncQueue.add({
+    await this.enqueue({
       tenantId,
       type: 'settings',
       action: 'upsert',
@@ -262,7 +272,7 @@ export class OfflineSync {
       const res = await OnlineDB.upsertCustomers(tenantId, [customer]);
       if (res.success) return;
     }
-    await db.syncQueue.add({
+    await this.enqueue({
       tenantId,
       type: 'customers',
       action: 'upsert',
@@ -277,7 +287,7 @@ export class OfflineSync {
       const res = await OnlineDB.upsertCustomers(tenantId, customers);
       if (res.success) return;
     }
-    await db.syncQueue.add({
+    await this.enqueue({
       tenantId,
       type: 'customers',
       action: 'upsert',
@@ -295,7 +305,7 @@ export class OfflineSync {
       const res = await OnlineDB.deleteCustomer(tenantId, customerId);
       if (res.success) return;
     }
-    await db.syncQueue.add({
+    await this.enqueue({
       tenantId,
       type: 'customers',
       action: 'delete',

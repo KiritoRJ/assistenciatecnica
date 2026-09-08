@@ -7,6 +7,7 @@ import { OfflineSync } from '../utils/offlineSync';
 import { db } from '../utils/localDb';
 import CatalogManager from './CatalogManager';
 import AdbVirusCleaner from './AdbVirusCleaner';
+import { ConnectionStatusTag, ConnectionStatusDetailModal } from './DatabaseOfflineAlert';
 
 interface Props {
   products: Product[];
@@ -1847,16 +1848,9 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
               </div>
            </div>
 
-           <div className={`p-4 rounded-[2rem] border flex flex-col items-center justify-center text-center gap-2 transition-all ${isCloudConnected ? 'bg-emerald-50/50 border-emerald-100' : 'bg-red-50/50 border-red-100'}`}>
-              <div className={`w-8 h-8 text-white rounded-full flex items-center justify-center shadow-sm ${isCloudConnected ? 'bg-emerald-500' : 'bg-red-500'}`}>
-                {isCloudConnected ? <Check size={14} /> : <AlertCircle size={14} />}
-              </div>
-              <div>
-                <p className={`text-[10px] font-black uppercase tracking-tight ${isCloudConnected ? 'text-emerald-800' : 'text-red-800'}`}>
-                  {isCloudConnected ? 'Online' : 'Offline'}
-                </p>
-                <p className="text-[8px] text-slate-400 uppercase tracking-widest font-bold">Sincronizado</p>
-              </div>
+           <div className="p-4 rounded-[2rem] bg-slate-50 border border-slate-100 flex flex-col items-center justify-center text-center gap-2">
+              <ConnectionStatusTag />
+              <p className="text-[8px] text-slate-400 uppercase tracking-widest font-bold">Status da Conexão</p>
            </div>
         </div>
 

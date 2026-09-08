@@ -7,6 +7,54 @@ const SUPABASE_KEY = (typeof process !== 'undefined' && process.env?.VITE_SUPABA
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Helper para detectar falhas transitórias de conexão / offline
+export function isNetworkOrOfflineError(err: any): boolean {
+  if (!err) return false;
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return true;
+  const str = String(err?.message || err?.details || err?.hint || err || '').toLowerCase();
+  return (
+    str.includes('failed to fetch') ||
+    str.includes('networkerror') ||
+    str.includes('network error') ||
+    str.includes('load failed') ||
+    str.includes('abort') ||
+    str.includes('timeout') ||
+    str.includes('offline') ||
+    str.includes('econnrefused') ||
+    str.includes('typeerror: failed to fetch')
+  );
+}
+
+// Callback para notificar em tempo real sobre o estado do banco SQL e rede
+let onApiErrorCallback: ((error: any, context: string) => void) | null = null;
+let onApiSuccessCallback: (() => void) | null = null;
+
+export function registerApiStatusReporter(
+  onError: (error: any, context: string) => void,
+  onSuccess: () => void
+) {
+  onApiErrorCallback = onError;
+  onApiSuccessCallback = onSuccess;
+}
+
+export function markSupabaseSuccess() {
+  if (onApiSuccessCallback) {
+    onApiSuccessCallback();
+  }
+}
+
+// Log suave para não alarmar o usuário quando o app estiver offline ou com instabilidade de rede
+export function logSupabaseNotice(context: string, error: any) {
+  if (onApiErrorCallback) {
+    onApiErrorCallback(error, context);
+  }
+  if (isNetworkOrOfflineError(error)) {
+    console.debug(`[Modo Offline/Cache] ${context}: conexão com a nuvem indisponível no momento.`);
+  } else {
+    console.warn(`[Supabase] ${context}:`, error?.message || error);
+  }
+}
+
 export class OnlineDB {
   // Busca configurações globais do sistema
   static async getGlobalSettings() {
@@ -472,12 +520,12 @@ export class OnlineDB {
         .maybeSingle();
       
       if (error) {
-        console.warn("Aviso ao buscar loja por ID no Supabase:", error.message || error);
+        logSupabaseNotice("Aviso ao buscar loja por ID", error);
         return null;
       }
       return data || null;
     } catch (e: any) {
-      console.warn("Conexão offline/indisponível ao buscar loja por ID:", e?.message || e);
+      logSupabaseNotice("Conexão ao buscar loja por ID", e);
       return null;
     }
   }
@@ -489,7 +537,7 @@ export class OnlineDB {
         .from('service_orders')
         .update({ is_deleted: true })
         .eq('id', osId);
-      if (error) console.warn("Aviso ao deletar OS:", error);
+      if (error) logSupabaseNotice("Aviso ao deletar OS", error);
       return { success: !error };
     } catch (e) { return { success: false }; }
   }
@@ -505,7 +553,7 @@ export class OnlineDB {
         .order('created_at', { ascending: false });
       
       if (error) {
-        console.warn("Aviso ao buscar ordens do Supabase:", error.message || error);
+        logSupabaseNotice("Aviso ao buscar ordens", error);
         return null;
       }
       
@@ -556,7 +604,7 @@ export class OnlineDB {
         };
       });
     } catch (e: any) { 
-      console.warn("Conexão offline/indisponível ao buscar ordens:", e?.message || e);
+      logSupabaseNotice("Conexão ao buscar ordens", e);
       return null; 
     }
   }
@@ -572,12 +620,12 @@ export class OnlineDB {
         .maybeSingle();
         
       if (error) {
-        console.warn("Aviso ao buscar loja pelo link:", error.message || error);
+        logSupabaseNotice("Aviso ao buscar loja pelo link", error);
         return null;
       }
       return data?.tenant_id || null;
     } catch (e: any) {
-      console.warn("Conexão offline/indisponível ao buscar loja pelo link:", e?.message || e);
+      logSupabaseNotice("Conexão ao buscar loja pelo link", e);
       return null;
     }
   }
@@ -620,7 +668,7 @@ export class OnlineDB {
 
       return { products, settings };
     } catch (e: any) {
-      console.warn("Conexão offline/indisponível ao buscar catálogo público:", e?.message || e);
+      logSupabaseNotice("Conexão ao buscar catálogo público", e);
       return null;
     }
   }
@@ -636,7 +684,7 @@ export class OnlineDB {
         .order('id', { ascending: false });
       
       if (error) {
-        console.warn("Aviso ao buscar produtos do Supabase:", error.message || error);
+        logSupabaseNotice("Aviso ao buscar produtos do Supabase", error);
         return null;
       }
       
@@ -667,7 +715,7 @@ export class OnlineDB {
         };
       });
     } catch (e: any) { 
-      console.warn("Conexão offline/indisponível ao buscar produtos:", e?.message || e);
+      logSupabaseNotice("Conexão ao buscar produtos", e);
       return null; 
     }
   }
@@ -683,7 +731,7 @@ export class OnlineDB {
         .order('date', { ascending: false });
       
       if (error) {
-        console.warn("Aviso ao buscar vendas do Supabase:", error.message || error);
+        logSupabaseNotice("Aviso ao buscar vendas", error);
         return null;
       }
       
@@ -707,7 +755,7 @@ export class OnlineDB {
         isDeleted: d.is_deleted || false
       }));
     } catch (e: any) {
-      console.warn("Conexão offline/indisponível ao buscar vendas:", e?.message || e);
+      logSupabaseNotice("Conexão ao buscar vendas", e);
       return null;
     }
   }
@@ -723,7 +771,7 @@ export class OnlineDB {
         .order('date', { ascending: false });
       
       if (error) {
-        console.warn("Aviso ao buscar transações do Supabase:", error.message || error);
+        logSupabaseNotice("Aviso ao buscar transações", error);
         return null;
       }
       
@@ -742,7 +790,7 @@ export class OnlineDB {
         recurrence: d.recurrence
       }));
     } catch (e: any) {
-      console.warn("Conexão offline/indisponível ao buscar transações:", e?.message || e);
+      logSupabaseNotice("Conexão ao buscar transações", e);
       return null;
     }
   }
@@ -792,8 +840,8 @@ export class OnlineDB {
       const { error } = await supabase.from('service_orders').upsert(payload, { onConflict: 'id' });
       if (error) throw error;
       return { success: true };
-    } catch (e) { 
-      console.error("Erro ao salvar ordens no Supabase:", e);
+    } catch (e: any) { 
+      logSupabaseNotice("Erro ao salvar ordens no Supabase", e);
       return { success: false }; 
     }
   }
@@ -824,14 +872,14 @@ export class OnlineDB {
           description: p.category ? `[CAT:${p.category}] ${p.description || ''}` : p.description,
           additional_photos: additionalPhotos,
           promotional_price: p.promotionalPrice || 0,
-          is_promotion: p.isPromotion || false
+          isPromotion: p.isPromotion || false
         };
       });
       const { error } = await supabase.from('products').upsert(payload, { onConflict: 'id' });
       if (error) throw error;
       return { success: true };
-    } catch (e) { 
-      console.error("Erro ao salvar produtos no Supabase:", e);
+    } catch (e: any) { 
+      logSupabaseNotice("Erro ao salvar produtos no Supabase", e);
       return { success: false }; 
     }
   }
@@ -860,8 +908,8 @@ export class OnlineDB {
       const { error } = await supabase.from('sales').upsert(payload, { onConflict: 'id' });
       if (error) throw error;
       return { success: true };
-    } catch (e) {
-      console.error("Erro ao salvar vendas no Supabase:", e);
+    } catch (e: any) {
+      logSupabaseNotice("Erro ao salvar vendas no Supabase", e);
       return { success: false };
     }
   }
@@ -888,8 +936,8 @@ export class OnlineDB {
       const { error } = await supabase.from('transactions').upsert(payload, { onConflict: 'id' });
       if (error) throw error;
       return { success: true };
-    } catch (e) {
-      console.error("Erro ao salvar transações no Supabase:", e);
+    } catch (e: any) {
+      logSupabaseNotice("Erro ao salvar transações no Supabase", e);
       return { success: false };
     }
   }
