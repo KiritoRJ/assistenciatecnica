@@ -471,10 +471,13 @@ export class OnlineDB {
         .eq('id', tenantId)
         .maybeSingle();
       
-      if (error) throw error;
+      if (error) {
+        console.warn("Aviso ao buscar loja por ID no Supabase:", error.message || error);
+        return null;
+      }
       return data || null;
-    } catch (e) {
-      console.error("Erro ao buscar loja por ID:", e);
+    } catch (e: any) {
+      console.warn("Conexão offline/indisponível ao buscar loja por ID:", e?.message || e);
       return null;
     }
   }
@@ -486,13 +489,13 @@ export class OnlineDB {
         .from('service_orders')
         .update({ is_deleted: true })
         .eq('id', osId);
-      if (error) console.error("Erro ao deletar OS:", error);
+      if (error) console.warn("Aviso ao deletar OS:", error);
       return { success: !error };
     } catch (e) { return { success: false }; }
   }
 
   // Busca as Ordens de Serviço e mapeia as novas colunas entry_date e exit_date
-  static async fetchOrders(tenantId: string) {
+  static async fetchOrders(tenantId: string): Promise<any[] | null> {
     if (!tenantId) return [];
     try {
       const { data, error } = await supabase
@@ -501,7 +504,10 @@ export class OnlineDB {
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.warn("Aviso ao buscar ordens do Supabase:", error.message || error);
+        return null;
+      }
       
       return (data || []).map(d => {
         let diagnosticTests: any = undefined;
@@ -549,9 +555,9 @@ export class OnlineDB {
           isTrackingEnabled: d.is_tracking_enabled !== false
         };
       });
-    } catch (e) { 
-      console.error("Erro ao buscar ordens do Supabase:", e);
-      return []; 
+    } catch (e: any) { 
+      console.warn("Conexão offline/indisponível ao buscar ordens:", e?.message || e);
+      return null; 
     }
   }
 
@@ -565,10 +571,13 @@ export class OnlineDB {
         .eq('data_json->>catalogSlug', slug)
         .maybeSingle();
         
-      if (error) throw error;
+      if (error) {
+        console.warn("Aviso ao buscar loja pelo link:", error.message || error);
+        return null;
+      }
       return data?.tenant_id || null;
-    } catch (e) {
-      console.error("Erro ao buscar loja pelo link:", e);
+    } catch (e: any) {
+      console.warn("Conexão offline/indisponível ao buscar loja pelo link:", e?.message || e);
       return null;
     }
   }
@@ -581,11 +590,9 @@ export class OnlineDB {
       ]);
 
       const products = (productsData.data || []).map(d => {
-        // Extract videoUrl from additional_photos if present (legacy support or workaround)
         let videoUrl = d.video_url || null;
         let additionalPhotos = d.additional_photos || [];
         
-        // Check for video in additionalPhotos
         const videoEntryIndex = additionalPhotos.findIndex((p: string) => p.startsWith('VIDEO:'));
         if (videoEntryIndex !== -1) {
           videoUrl = additionalPhotos[videoEntryIndex].replace('VIDEO:', '');
@@ -612,14 +619,14 @@ export class OnlineDB {
       const settings = settingsData.data?.data_json || null;
 
       return { products, settings };
-    } catch (e) {
-      console.error("Erro ao buscar catálogo público:", e);
+    } catch (e: any) {
+      console.warn("Conexão offline/indisponível ao buscar catálogo público:", e?.message || e);
       return null;
     }
   }
 
   // Busca produtos em estoque
-  static async fetchProducts(tenantId: string) {
+  static async fetchProducts(tenantId: string): Promise<any[] | null> {
     if (!tenantId) return [];
     try {
       const { data, error } = await supabase
@@ -628,10 +635,12 @@ export class OnlineDB {
         .eq('tenant_id', tenantId)
         .order('id', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.warn("Aviso ao buscar produtos do Supabase:", error.message || error);
+        return null;
+      }
       
       return (data || []).map(d => {
-        // Extract videoUrl from additional_photos if present
         let videoUrl = d.video_url || null;
         let additionalPhotos = d.additional_photos || [];
         
@@ -657,14 +666,14 @@ export class OnlineDB {
           videoUrl: videoUrl
         };
       });
-    } catch (e) { 
-      console.error("Erro ao buscar produtos do Supabase:", e);
-      return []; 
+    } catch (e: any) { 
+      console.warn("Conexão offline/indisponível ao buscar produtos:", e?.message || e);
+      return null; 
     }
   }
 
   // Busca histórico de vendas
-  static async fetchSales(tenantId: string) {
+  static async fetchSales(tenantId: string): Promise<any[] | null> {
     if (!tenantId) return [];
     try {
       const { data, error } = await supabase
@@ -673,7 +682,10 @@ export class OnlineDB {
         .eq('tenant_id', tenantId)
         .order('date', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.warn("Aviso ao buscar vendas do Supabase:", error.message || error);
+        return null;
+      }
       
       return (data || []).map(d => ({
         id: d.id,
@@ -694,14 +706,14 @@ export class OnlineDB {
         transactionId: d.transaction_id,
         isDeleted: d.is_deleted || false
       }));
-    } catch (e) {
-      console.error("Erro ao buscar vendas do Supabase:", e);
-      return [];
+    } catch (e: any) {
+      console.warn("Conexão offline/indisponível ao buscar vendas:", e?.message || e);
+      return null;
     }
   }
 
   // Busca transações manuais (entradas e saídas)
-  static async fetchTransactions(tenantId: string) {
+  static async fetchTransactions(tenantId: string): Promise<any[] | null> {
     if (!tenantId) return [];
     try {
       const { data, error } = await supabase
@@ -710,7 +722,10 @@ export class OnlineDB {
         .eq('tenant_id', tenantId)
         .order('date', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.warn("Aviso ao buscar transações do Supabase:", error.message || error);
+        return null;
+      }
       
       return (data || []).map(d => ({
         id: d.id,
@@ -726,9 +741,9 @@ export class OnlineDB {
         installments: d.installments,
         recurrence: d.recurrence
       }));
-    } catch (e) {
-      console.error("Erro ao buscar transações do Supabase:", e);
-      return [];
+    } catch (e: any) {
+      console.warn("Conexão offline/indisponível ao buscar transações:", e?.message || e);
+      return null;
     }
   }
 

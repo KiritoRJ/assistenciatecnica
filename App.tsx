@@ -394,12 +394,12 @@ const App: React.FC = () => {
       };
     }
 
-    // 3. Polling de segurança em tempo real a cada 4 segundos quando a aba estiver ativa
+    // 3. Polling de segurança em tempo real a cada 8 segundos quando a aba estiver ativa
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible' && navigator.onLine) {
         debouncedLoad(0);
       }
-    }, 4000);
+    }, 8000);
 
     return () => {
       clearTimeout(timeout);

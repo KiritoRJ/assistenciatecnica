@@ -206,7 +206,27 @@ export const CustomersTab: React.FC<Props> = ({
     return Array.from(map.values());
   }, [orders, customers]);
 
-  // Importar clientes de O.S. existentes em lote
+  // Auto-sincronização automática com o banco de dados caso existam clientes em O.S. que ainda não estão salvos na tabela de clientes
+  const autoSyncedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (unimportedCustomersFromOrders.length > 0 && !autoSyncedRef.current) {
+      autoSyncedRef.current = true;
+      const newCusts: Customer[] = unimportedCustomersFromOrders.map((item, index) => ({
+        id: 'C_' + (Date.now() + index) + '_' + Math.random().toString(36).substr(2, 4).toUpperCase(),
+        tenantId,
+        name: item.name,
+        phoneNumber: item.phone,
+        address: item.address,
+        notes: `Cliente cadastrado automaticamente via histórico de ${item.count} O.S.`,
+        notesHistory: [],
+        createdAt: new Date().toISOString()
+      }));
+
+      onSaveCustomers([...newCusts, ...customers]);
+    }
+  }, [unimportedCustomersFromOrders.length, tenantId]);
+
+  // Importar clientes de O.S. existentes em lote manualmente (caso o usuário queira forçar)
   const handleAutoImportCustomers = async () => {
     if (unimportedCustomersFromOrders.length === 0) return;
     

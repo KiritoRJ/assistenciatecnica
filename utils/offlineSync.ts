@@ -305,7 +305,7 @@ export class OfflineSync {
   }
 
   static async pullAllData(tenantId: string) {
-    if (!navigator.onLine) return;
+    if (!navigator.onLine) return null;
 
     try {
       const [cloudSettings, cloudOrders, cloudProducts, cloudSales, cloudTransactions, cloudUsers, cloudCustomers] = await Promise.all([
@@ -318,44 +318,49 @@ export class OfflineSync {
         OnlineDB.fetchCustomers(tenantId)
       ]);
 
+      // Se todas as fontes retornaram null (falha de rede/Supabase offline), mantém os dados locais
+      if (cloudOrders === null && cloudProducts === null && cloudSales === null && cloudSettings === null) {
+        return null;
+      }
+
       if (cloudSettings) await db.settings.put({ ...cloudSettings, tenantId });
-      if (cloudUsers) {
+      if (Array.isArray(cloudUsers) && cloudUsers.length > 0) {
         await db.users.where('tenantId').equals(tenantId).delete();
         await db.users.bulkPut(cloudUsers.map((u: any) => ({ ...u, tenantId })));
       }
-      if (cloudOrders) {
+      if (Array.isArray(cloudOrders)) {
         await db.orders.where('tenantId').equals(tenantId).delete();
         await db.orders.bulkPut(cloudOrders.map((o: any) => ({ ...o, tenantId })));
       }
-      if (cloudProducts) {
+      if (Array.isArray(cloudProducts)) {
         await db.products.where('tenantId').equals(tenantId).delete();
         await db.products.bulkPut(cloudProducts.map((p: any) => ({ ...p, tenantId })));
       }
-      if (cloudSales) {
+      if (Array.isArray(cloudSales)) {
         await db.sales.where('tenantId').equals(tenantId).delete();
         await db.sales.bulkPut(cloudSales.map((s: any) => ({ ...s, tenantId })));
       }
-      if (cloudTransactions) {
+      if (Array.isArray(cloudTransactions)) {
         await db.transactions.where('tenantId').equals(tenantId).delete();
         await db.transactions.bulkPut(cloudTransactions.map((t: any) => ({ ...t, tenantId })));
       }
-      if (cloudCustomers) {
+      if (Array.isArray(cloudCustomers)) {
         await db.customers.where('tenantId').equals(tenantId).delete();
         await db.customers.bulkPut(cloudCustomers.map((c: any) => ({ ...c, tenantId })));
       }
 
       return {
         settings: cloudSettings,
-        orders: cloudOrders,
-        products: cloudProducts,
-        sales: cloudSales,
-        transactions: cloudTransactions,
-        users: cloudUsers,
-        customers: cloudCustomers || []
+        orders: Array.isArray(cloudOrders) ? cloudOrders : [],
+        products: Array.isArray(cloudProducts) ? cloudProducts : [],
+        sales: Array.isArray(cloudSales) ? cloudSales : [],
+        transactions: Array.isArray(cloudTransactions) ? cloudTransactions : [],
+        users: Array.isArray(cloudUsers) ? cloudUsers : [],
+        customers: Array.isArray(cloudCustomers) ? cloudCustomers : []
       };
     } catch (e) {
-      console.error('Error pulling data from cloud:', e);
-      throw e;
+      console.warn('Conexão instável ao puxar dados da nuvem, mantendo dados locais salvos.');
+      return null;
     }
   }
 
