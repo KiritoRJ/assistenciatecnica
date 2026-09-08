@@ -1422,3 +1422,5 @@ export const DeviceHardwareTestPage: React.FC<Props> = ({ osIdOrToken }) => {
     </div>
   );
 };
+
+export default DeviceHardwareTestPage;

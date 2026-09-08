@@ -6,15 +6,18 @@ import ServiceOrderTab from './components/ServiceOrderTab';
 import CustomersTab from './components/CustomersTab';
 import StockTab from './components/StockTab';
 import SalesTab from './components/SalesTab';
-import FinanceTab from './components/FinanceTab';
-import SettingsTab from './components/SettingsTab';
-import EmployeeManagementTab from './components/EmployeeManagementTab';
-import ToolsTab from './components/ToolsTab';
-import SuperAdminDashboard from './components/SuperAdminDashboard';
-import SubscriptionView from './components/SubscriptionView';
-import CustomerCatalog from './components/CustomerCatalog';
-import PublicTrackingPage from './components/PublicTrackingPage';
-import { DeviceHardwareTestPage } from './components/DeviceHardwareTestPage';
+
+// Lazy loading de páginas e módulos pesados para manter o bundle leve e rápido de carregar
+const FinanceTab = React.lazy(() => import('./components/FinanceTab'));
+const SettingsTab = React.lazy(() => import('./components/SettingsTab'));
+const EmployeeManagementTab = React.lazy(() => import('./components/EmployeeManagementTab'));
+const ToolsTab = React.lazy(() => import('./components/ToolsTab'));
+const SuperAdminDashboard = React.lazy(() => import('./components/SuperAdminDashboard'));
+const SubscriptionView = React.lazy(() => import('./components/SubscriptionView'));
+const CustomerCatalog = React.lazy(() => import('./components/CustomerCatalog'));
+const PublicTrackingPage = React.lazy(() => import('./components/PublicTrackingPage'));
+const DeviceHardwareTestPage = React.lazy(() => import('./components/DeviceHardwareTestPage'));
+
 import { OnlineDB, supabase } from './utils/api';
 import { OfflineSync } from './utils/offlineSync';
 import { db } from './utils/localDb';
@@ -767,17 +770,44 @@ const App: React.FC = () => {
       }
     }
 
-    return <DeviceHardwareTestPage osIdOrToken={osIdOrToken} />;
+    return (
+      <React.Suspense fallback={
+        <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4">
+          <Loader2 className="w-10 h-10 text-blue-500 animate-spin mb-4" />
+          <p className="text-sm font-bold uppercase tracking-wider text-slate-400">Carregando Testes de Hardware...</p>
+        </div>
+      }>
+        <DeviceHardwareTestPage osIdOrToken={osIdOrToken} />
+      </React.Suspense>
+    );
   }
 
   // Acompanhamento público de O.S.
   if (lowerPath.startsWith('/acompanhamento/') || lowerPath.startsWith('/acompanhamento')) {
     const token = pathname.split(/\/acompanhamento\/?/i)[1]?.split('/')[0]?.split('?')[0] || searchParams.get('token') || '';
-    return <PublicTrackingPage token={token} />;
+    return (
+      <React.Suspense fallback={
+        <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4">
+          <Loader2 className="w-10 h-10 text-blue-500 animate-spin mb-4" />
+          <p className="text-sm font-bold uppercase tracking-wider text-slate-400">Carregando Acompanhamento...</p>
+        </div>
+      }>
+        <PublicTrackingPage token={token} />
+      </React.Suspense>
+    );
   }
 
   if (catalogTenantId || catalogSlug) {
-    return <CustomerCatalog tenantId={catalogTenantId} catalogSlug={catalogSlug} />;
+    return (
+      <React.Suspense fallback={
+        <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
+          <Loader2 className="w-10 h-10 text-blue-500 animate-spin mb-4" />
+          <p className="text-sm font-bold uppercase tracking-wider text-slate-400">Carregando Catálogo...</p>
+        </div>
+      }>
+        <CustomerCatalog tenantId={catalogTenantId} catalogSlug={catalogSlug} />
+      </React.Suspense>
+    );
   }
 
   if (isInitializing) {
@@ -1049,11 +1079,27 @@ const App: React.FC = () => {
     );
   }
 
-  if (session.type === 'super') return <SuperAdminDashboard onLogout={handleLogout} onLoginAs={handleLoginAs} />;
+  if (session.type === 'super') {
+    return (
+      <React.Suspense fallback={
+        <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4">
+          <Loader2 className="w-10 h-10 text-blue-500 animate-spin mb-4" />
+          <p className="text-sm font-bold uppercase tracking-wider text-slate-400">Carregando Painel Super Admin...</p>
+        </div>
+      }>
+        <SuperAdminDashboard onLogout={handleLogout} onLoginAs={handleLoginAs} />
+      </React.Suspense>
+    );
+  }
 
   if (session.subscriptionStatus === 'expired' || isSubscriptionModalOpen) {
     return (
-      <>
+      <React.Suspense fallback={
+        <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4">
+          <Loader2 className="w-10 h-10 text-blue-500 animate-spin mb-4" />
+          <p className="text-sm font-bold uppercase tracking-wider text-slate-400">Carregando Assinatura...</p>
+        </div>
+      }>
         <SubscriptionView 
           tenantId={session.tenantId!} 
           storeName={settings?.storeName || 'Sua Loja'} 
@@ -1103,7 +1149,7 @@ const App: React.FC = () => {
              </div>
           </div>
         )}
-      </>
+      </React.Suspense>
     );
   }
 
@@ -1326,49 +1372,56 @@ const App: React.FC = () => {
         </div>
 
         <div className={`flex-1 overflow-y-auto p-4 pt-4 pb-6 md:pt-6 md:pb-4 max-w-none mx-auto w-full animate-in fade-in duration-700 hide-scrollbar [&::-webkit-scrollbar]:hidden ${isSidebarCollapsed ? 'md:pl-6' : 'md:pl-6'}`}>
-          {activeTab === 'os' && (
-            <ServiceOrderTab 
-              orders={orders} 
-              setOrders={saveOrders} 
-              settings={settings} 
-              onUpdateSettings={saveSettings} 
-              onDeleteOrder={removeOrder} 
-              tenantId={session.tenantId || ''} 
-              maxOS={session.maxOS} 
-              currentUser={currentUser}
-              customers={customers}
-              onSaveCustomer={saveCustomer}
-              onSaveCustomers={saveCustomers}
-              prefilledCustomer={prefilledCustomerForOS}
-              onClearPrefilledCustomer={() => setPrefilledCustomerForOS(null)}
-            />
-          )}
-          {activeTab === 'clientes' && (
-            <CustomersTab 
-              customers={customers}
-              orders={orders}
-              settings={settings}
-              currentUser={currentUser}
-              tenantId={session.tenantId || ''}
-              onSaveCustomer={saveCustomer}
-              onSaveCustomers={saveCustomers}
-              onDeleteCustomer={removeCustomer}
-              onUpdateSettings={saveSettings}
-              onNavigateToNewOS={(customer) => {
-                setPrefilledCustomerForOS(customer);
-                setActiveTab('os');
-              }}
-              onViewOrder={() => {
-                setActiveTab('os');
-              }}
-            />
-          )}
-          {activeTab === 'estoque' && <StockTab products={products} setProducts={saveProducts} onDeleteProduct={removeProduct} settings={settings} onUpdateSettings={saveSettings} maxProducts={session.maxProducts} />}
-          {activeTab === 'vendas' && <SalesTab products={products} setProducts={saveProducts} sales={sales.filter(s => !s.isDeleted)} setSales={saveSales} settings={settings} onUpdateSettings={saveSettings} currentUser={currentUser} onDeleteSale={removeSale} tenantId={session.tenantId || ''} />}
-          {activeTab === 'financeiro' && <FinanceTab orders={orders} sales={sales} products={products} transactions={transactions} setTransactions={saveTransactions} setOrders={saveOrders} onDeleteTransaction={removeTransaction} onDeleteSale={removeSale} tenantId={session.tenantId || ''} settings={settings} enabledFeatures={session.enabledFeatures} />}
-          {activeTab === 'team' && <EmployeeManagementTab tenantId={session.tenantId || ''} />}
-          {activeTab === 'ferramentas' && <ToolsTab settings={settings} currentUser={currentUser} tenantId={session.tenantId || ''} />}
-          {activeTab === 'config' && <SettingsTab products={products} setProducts={saveProducts} settings={settings} setSettings={saveSettings} isCloudConnected={isCloudConnected} currentUser={currentUser} onSwitchProfile={handleSwitchProfile} tenantId={session.tenantId} deferredPrompt={deferredPrompt} onInstallApp={handleInstallApp} subscriptionStatus={session.subscriptionStatus} subscriptionExpiresAt={session.subscriptionExpiresAt} lastPlanType={session.lastPlanType} enabledFeatures={session.enabledFeatures} maxUsers={session.maxUsers} maxOS={session.maxOS} maxProducts={session.maxProducts} onLogout={() => setIsLogoutModalOpen(true)} />}
+          <React.Suspense fallback={
+            <div className="min-h-[400px] w-full flex flex-col items-center justify-center gap-3 p-8">
+              <Loader2 className="animate-spin text-blue-600" size={32} />
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Carregando módulo...</span>
+            </div>
+          }>
+            {activeTab === 'os' && (
+              <ServiceOrderTab 
+                orders={orders} 
+                setOrders={saveOrders} 
+                settings={settings} 
+                onUpdateSettings={saveSettings} 
+                onDeleteOrder={removeOrder} 
+                tenantId={session.tenantId || ''} 
+                maxOS={session.maxOS} 
+                currentUser={currentUser}
+                customers={customers}
+                onSaveCustomer={saveCustomer}
+                onSaveCustomers={saveCustomers}
+                prefilledCustomer={prefilledCustomerForOS}
+                onClearPrefilledCustomer={() => setPrefilledCustomerForOS(null)}
+              />
+            )}
+            {activeTab === 'clientes' && (
+              <CustomersTab 
+                customers={customers}
+                orders={orders}
+                settings={settings}
+                currentUser={currentUser}
+                tenantId={session.tenantId || ''}
+                onSaveCustomer={saveCustomer}
+                onSaveCustomers={saveCustomers}
+                onDeleteCustomer={removeCustomer}
+                onUpdateSettings={saveSettings}
+                onNavigateToNewOS={(customer) => {
+                  setPrefilledCustomerForOS(customer);
+                  setActiveTab('os');
+                }}
+                onViewOrder={() => {
+                  setActiveTab('os');
+                }}
+              />
+            )}
+            {activeTab === 'estoque' && <StockTab products={products} setProducts={saveProducts} onDeleteProduct={removeProduct} settings={settings} onUpdateSettings={saveSettings} maxProducts={session.maxProducts} />}
+            {activeTab === 'vendas' && <SalesTab products={products} setProducts={saveProducts} sales={sales.filter(s => !s.isDeleted)} setSales={saveSales} settings={settings} onUpdateSettings={saveSettings} currentUser={currentUser} onDeleteSale={removeSale} tenantId={session.tenantId || ''} />}
+            {activeTab === 'financeiro' && <FinanceTab orders={orders} sales={sales} products={products} transactions={transactions} setTransactions={saveTransactions} setOrders={saveOrders} onDeleteTransaction={removeTransaction} onDeleteSale={removeSale} tenantId={session.tenantId || ''} settings={settings} enabledFeatures={session.enabledFeatures} />}
+            {activeTab === 'team' && <EmployeeManagementTab tenantId={session.tenantId || ''} />}
+            {activeTab === 'ferramentas' && <ToolsTab settings={settings} currentUser={currentUser} tenantId={session.tenantId || ''} />}
+            {activeTab === 'config' && <SettingsTab products={products} setProducts={saveProducts} settings={settings} setSettings={saveSettings} isCloudConnected={isCloudConnected} currentUser={currentUser} onSwitchProfile={handleSwitchProfile} tenantId={session.tenantId} deferredPrompt={deferredPrompt} onInstallApp={handleInstallApp} subscriptionStatus={session.subscriptionStatus} subscriptionExpiresAt={session.subscriptionExpiresAt} lastPlanType={session.lastPlanType} enabledFeatures={session.enabledFeatures} maxUsers={session.maxUsers} maxOS={session.maxOS} maxProducts={session.maxProducts} onLogout={() => setIsLogoutModalOpen(true)} />}
+          </React.Suspense>
         </div>
       </main>
 
