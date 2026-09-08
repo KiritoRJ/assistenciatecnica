@@ -1,10 +1,6 @@
 {
   "rewrites": [
     {
-      "source": "/api/device-test/:idOrToken",
-      "destination": "/api/device-test?idOrToken=:idOrToken"
-    },
-    {
       "source": "/api/os-tracking/:token",
       "destination": "/api/os-tracking?token=:token"
     },

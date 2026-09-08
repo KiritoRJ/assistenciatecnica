@@ -153,10 +153,9 @@ const App: React.FC = () => {
     pathname.length > 1 && 
     !pathname.startsWith('/api/') && 
     !pathname.startsWith('/auth/') && 
-    !pathname.startsWith('/acompanhamento') &&
-    !pathname.startsWith('/teste-hardware') &&
-    !pathname.startsWith('/hardware-test') &&
-    !pathname.startsWith('/test')
+    !pathname.startsWith('/acompanhamento/') &&
+    !pathname.startsWith('/teste-hardware/') &&
+    !pathname.startsWith('/test/')
   ) {
     catalogSlug = pathname.substring(1).replace(/\/$/, '');
   }
@@ -720,38 +719,22 @@ const App: React.FC = () => {
     }
   };
 
-  // Teste de hardware de celular (acesso via QR Code gerado na O.S.)
-  const searchParams = new URLSearchParams(window.location.search);
-  const queryTestToken = searchParams.get('test') || searchParams.get('teste') || searchParams.get('hardware') || searchParams.get('diag');
-  const isHardwareTestPath = pathname.startsWith('/teste-hardware') || pathname.startsWith('/test/') || pathname.startsWith('/hardware-test/');
-
-  if (isHardwareTestPath || queryTestToken) {
-    let osIdOrToken = queryTestToken;
-    if (!osIdOrToken) {
-      if (pathname.startsWith('/teste-hardware/')) {
-        osIdOrToken = pathname.split('/teste-hardware/')[1]?.split('/')[0]?.split('?')[0];
-      } else if (pathname.startsWith('/test/')) {
-        osIdOrToken = pathname.split('/test/')[1]?.split('/')[0]?.split('?')[0];
-      } else if (pathname.startsWith('/hardware-test/')) {
-        osIdOrToken = pathname.split('/hardware-test/')[1]?.split('/')[0]?.split('?')[0];
-      }
-    }
-    if (osIdOrToken) {
-      return <DeviceHardwareTestPage osIdOrToken={decodeURIComponent(osIdOrToken)} />;
-    }
-  }
-
-  // Acompanhamento público de O.S. (via URL ou ?track=)
-  const queryTrackToken = searchParams.get('track');
-  if (pathname.startsWith('/acompanhamento/') || queryTrackToken) {
-    const token = queryTrackToken || pathname.split('/acompanhamento/')[1]?.split('/')[0]?.split('?')[0];
-    if (token) {
-      return <PublicTrackingPage token={decodeURIComponent(token)} />;
-    }
-  }
-
   if (catalogTenantId || catalogSlug) {
     return <CustomerCatalog tenantId={catalogTenantId} catalogSlug={catalogSlug} />;
+  }
+
+  // Acompanhamento público de O.S.
+  if (pathname.startsWith('/acompanhamento/')) {
+    const token = pathname.split('/acompanhamento/')[1];
+    return <PublicTrackingPage token={token} />;
+  }
+
+  // Teste de hardware de celular (acesso via QR Code gerado na O.S.)
+  if (pathname.startsWith('/teste-hardware/') || pathname.startsWith('/test/')) {
+    const osIdOrToken = pathname.startsWith('/teste-hardware/')
+      ? pathname.split('/teste-hardware/')[1]?.split('/')[0]?.split('?')[0]
+      : pathname.split('/test/')[1]?.split('/')[0]?.split('?')[0];
+    return <DeviceHardwareTestPage osIdOrToken={osIdOrToken} />;
   }
 
   if (isInitializing) {
