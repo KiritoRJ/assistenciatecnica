@@ -145,28 +145,17 @@ const App: React.FC = () => {
 
   const pathname = window.location.pathname;
   let catalogTenantId = new URLSearchParams(window.location.search).get('catalog');
-  let catalogSlug: string | null = null;
+  let catalogSlug = null;
   
-  const isHardwareTestRoute = 
-    pathname.startsWith('/teste-hardware') || 
-    pathname.startsWith('/test-hardware') || 
-    pathname.startsWith('/hardware-test') || 
-    pathname.startsWith('/test/') ||
-    pathname.startsWith('/teste/');
-
-  const isTrackingRoute = 
-    pathname.startsWith('/acompanhamento/') || 
-    pathname.startsWith('/acompanhar/') ||
-    pathname.startsWith('/tracking/');
-
   if (pathname.startsWith('/catalogo/')) {
     catalogTenantId = pathname.split('/catalogo/')[1].replace(/\/$/, '');
   } else if (
     pathname.length > 1 && 
     !pathname.startsWith('/api/') && 
     !pathname.startsWith('/auth/') && 
-    !isTrackingRoute &&
-    !isHardwareTestRoute
+    !pathname.startsWith('/acompanhamento/') &&
+    !pathname.startsWith('/teste-hardware/') &&
+    !pathname.startsWith('/test/')
   ) {
     catalogSlug = pathname.substring(1).replace(/\/$/, '');
   }
@@ -730,50 +719,22 @@ const App: React.FC = () => {
     }
   };
 
-  // Acompanhamento público de O.S. (máxima prioridade)
-  if (isTrackingRoute) {
-    let token = '';
-    if (pathname.startsWith('/acompanhamento/')) {
-      token = pathname.split('/acompanhamento/')[1]?.replace(/^\//, '')?.split('/')[0]?.split('?')[0] || '';
-    } else if (pathname.startsWith('/acompanhar/')) {
-      token = pathname.split('/acompanhar/')[1]?.replace(/^\//, '')?.split('/')[0]?.split('?')[0] || '';
-    } else if (pathname.startsWith('/tracking/')) {
-      token = pathname.split('/tracking/')[1]?.replace(/^\//, '')?.split('/')[0]?.split('?')[0] || '';
-    }
-    if (!token) {
-      token = new URLSearchParams(window.location.search).get('token') || '';
-    }
-    if (token) {
-      return <PublicTrackingPage token={token} />;
-    }
+  if (catalogTenantId || catalogSlug) {
+    return <CustomerCatalog tenantId={catalogTenantId} catalogSlug={catalogSlug} />;
+  }
+
+  // Acompanhamento público de O.S.
+  if (pathname.startsWith('/acompanhamento/')) {
+    const token = pathname.split('/acompanhamento/')[1];
+    return <PublicTrackingPage token={token} />;
   }
 
   // Teste de hardware de celular (acesso via QR Code gerado na O.S.)
-  if (isHardwareTestRoute) {
-    let osIdOrToken = '';
-    if (pathname.startsWith('/teste-hardware')) {
-      osIdOrToken = pathname.split('/teste-hardware')[1]?.replace(/^\//, '')?.split('/')[0]?.split('?')[0] || '';
-    } else if (pathname.startsWith('/test-hardware')) {
-      osIdOrToken = pathname.split('/test-hardware')[1]?.replace(/^\//, '')?.split('/')[0]?.split('?')[0] || '';
-    } else if (pathname.startsWith('/hardware-test')) {
-      osIdOrToken = pathname.split('/hardware-test')[1]?.replace(/^\//, '')?.split('/')[0]?.split('?')[0] || '';
-    } else if (pathname.startsWith('/test/')) {
-      osIdOrToken = pathname.split('/test/')[1]?.replace(/^\//, '')?.split('/')[0]?.split('?')[0] || '';
-    } else if (pathname.startsWith('/teste/')) {
-      osIdOrToken = pathname.split('/teste/')[1]?.replace(/^\//, '')?.split('/')[0]?.split('?')[0] || '';
-    }
-    
-    if (!osIdOrToken) {
-      osIdOrToken = new URLSearchParams(window.location.search).get('token') || new URLSearchParams(window.location.search).get('id') || '';
-    }
-
-    if (osIdOrToken) {
-      return <DeviceHardwareTestPage osIdOrToken={osIdOrToken} />;
-    }
-  }
-
-  if (catalogTenantId || catalogSlug) {
-    return <CustomerCatalog tenantId={catalogTenantId} catalogSlug={catalogSlug} />;
+  if (pathname.startsWith('/teste-hardware/') || pathname.startsWith('/test/')) {
+    const osIdOrToken = pathname.startsWith('/teste-hardware/')
+      ? pathname.split('/teste-hardware/')[1]?.split('/')[0]?.split('?')[0]
+      : pathname.split('/test/')[1]?.split('/')[0]?.split('?')[0];
+    return <DeviceHardwareTestPage osIdOrToken={osIdOrToken} />;
   }
 
   if (isInitializing) {

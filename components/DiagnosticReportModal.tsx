@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { ServiceOrder, AppSettings, DeviceDiagnosticResults } from '../types';
 import { formatDateTime } from '../utils';
-import { supabase } from '../utils/api';
 
 interface DiagnosticReportModalProps {
   isOpen: boolean;
@@ -95,41 +94,10 @@ export const DiagnosticReportModal: React.FC<DiagnosticReportModalProps> = ({
     const fetchLiveDiagnostics = async () => {
       try {
         setIsLiveSyncing(true);
-        let foundDiagnostics: DeviceDiagnosticResults | null = null;
-
-        // Tenta API primeiro
-        try {
-          const resp = await fetch(`/api/device-test/${encodeURIComponent(targetToken)}`);
-          const contentType = resp.headers.get('content-type') || '';
-          if (resp.ok && contentType.includes('application/json')) {
-            const data = await resp.json();
-            if (data.success && data.order?.diagnosticTests) {
-              foundDiagnostics = data.order.diagnosticTests;
-            }
-          }
-        } catch (apiErr) {}
-
-        // Se a API não respondeu com JSON, busca no Supabase
-        if (!foundDiagnostics) {
-          const { data: orderData } = await supabase
-            .from('service_orders')
-            .select('checklist')
-            .or(`tracking_token.eq.${targetToken},id.eq.${targetToken}`)
-            .maybeSingle();
-
-          if (orderData && Array.isArray(orderData.checklist)) {
-            for (const item of orderData.checklist) {
-              if (typeof item === 'string' && item.startsWith('__DIAG_JSON__:')) {
-                try {
-                  foundDiagnostics = JSON.parse(item.substring(14));
-                } catch (e) {}
-              }
-            }
-          }
-        }
-
-        if (foundDiagnostics) {
-          setLiveDiagnostics(foundDiagnostics);
+        const resp = await fetch(`/api/device-test/${encodeURIComponent(targetToken)}`);
+        const data = await resp.json();
+        if (resp.ok && data.success && data.order?.diagnosticTests) {
+          setLiveDiagnostics(data.order.diagnosticTests);
         }
       } catch (e) {
         // Silencioso em caso de oscilação momentânea

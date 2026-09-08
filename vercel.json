@@ -5,10 +5,6 @@
       "destination": "/api/os-tracking?token=:token"
     },
     {
-      "source": "/api/device-test/:idOrToken",
-      "destination": "/api/device-test?idOrToken=:idOrToken"
-    },
-    {
       "source": "/api/(.*)",
       "destination": "/api/$1"
     },
