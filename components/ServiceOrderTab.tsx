@@ -6,12 +6,14 @@ import {
   AlertTriangle, Calculator, CheckCircle, Image as ImageIcon, Calendar, 
   KeyRound, Lock, Download, Maximize2, Layout, Check, Printer, Share2,
   SlidersHorizontal, ArrowDownAZ, Clock, ShieldCheck, RotateCcw,
-  Wrench, CheckCircle2, Sparkles
+  Wrench, CheckCircle2, Sparkles, QrCode
 } from 'lucide-react';
-import { ServiceOrder, AppSettings, User, Customer } from '../types';
+import { ServiceOrder, AppSettings, User, Customer, DeviceDiagnosticResults } from '../types';
 import { formatCurrency, parseCurrencyString, formatDate, formatDateTime, generateRandomNumericCode } from '../utils';
 import { OnlineDB } from '../utils/api';
 import { SavedOrderShareModal } from './SavedOrderShareModal';
+import { DiagnosticReportModal } from './DiagnosticReportModal';
+import QRCode from 'qrcode';
 
 export const OS_STATUS_OPTIONS: Array<{
   value: ServiceOrder['status'];
@@ -57,7 +59,7 @@ interface Props {
   onClearPrefilledCustomer?: () => void;
 }
 
-const COMMON_DEFECTS = [
+export const COMMON_DEFECTS = [
   'Não Liga', 'Tela Quebrada', 'Bateria Viciada', 'Conector de Carga', 
   'Câmera com Defeito', 'Botões Falhando', 'Som Baixo/Mudo', 'Sinal de Rede', 
   'Wi-Fi não conecta', 'Software/Travando', 'Oxidação/Molhou', 'Vidro Traseiro'
@@ -124,7 +126,41 @@ const ServiceOrderTab: React.FC<Props> = ({
   const [isFullScreenSignatureOpen, setIsFullScreenSignatureOpen] = useState(false);
   const [lastCreatedOrder, setLastCreatedOrder] = useState<ServiceOrder | null>(null);
   const [orderToPrint, setOrderToPrint] = useState<ServiceOrder | null>(null);
+  const [printQrCodeUrl, setPrintQrCodeUrl] = useState<string | null>(null);
   const [savedOrderShareModal, setSavedOrderShareModal] = useState<{ order: ServiceOrder; isNew: boolean } | null>(null);
+  const [selectedOrderForDiagnostic, setSelectedOrderForDiagnostic] = useState<ServiceOrder | null>(null);
+
+  useEffect(() => {
+    if (orderToPrint) {
+      const trackingToken = orderToPrint.trackingToken || orderToPrint.id;
+      const url = `${window.location.origin}/?track=${trackingToken}`;
+      QRCode.toDataURL(url, { width: 140, margin: 1, errorCorrectionLevel: 'M' })
+        .then(dataUrl => setPrintQrCodeUrl(dataUrl))
+        .catch(() => setPrintQrCodeUrl(null));
+    } else {
+      setPrintQrCodeUrl(null);
+    }
+  }, [orderToPrint]);
+
+  const getOrderDiagnostics = (os?: ServiceOrder | null): DeviceDiagnosticResults | null => {
+    if (!os) return null;
+    if (os.diagnosticTests) return os.diagnosticTests;
+    if (Array.isArray(os.checklist)) {
+      for (const item of os.checklist) {
+        if (typeof item === 'string' && item.startsWith('__DIAG_JSON__:')) {
+          try {
+            return JSON.parse(item.substring(14));
+          } catch (e) {}
+        }
+      }
+    }
+    try {
+      const targetToken = os.trackingToken || os.id;
+      const cached = localStorage.getItem(`os_diag_${targetToken}`) || localStorage.getItem(`os_diag_${os.id}`);
+      if (cached) return JSON.parse(cached);
+    } catch (e) {}
+    return null;
+  };
 
   const visibleOrders = useMemo(() => orders.filter(o => !o.isDeleted), [orders]);
   const osCount = visibleOrders.length;
@@ -176,14 +212,156 @@ const ServiceOrderTab: React.FC<Props> = ({
     return false;
   };
 
+  // Helper para data atual formatada em pt-BR (DD/MM/AAAA)
+  const getTodayDateBR = (): string => {
+    const d = new Date();
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  // Helper para datas com deslocamento em dias (+1, +3, +7, etc.)
+  const getDateOffsetBR = (daysOffset: number): string => {
+    const d = new Date();
+    d.setDate(d.getDate() + daysOffset);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  // Conversores para o seletor visual nativo de calendário (HTML5 type="date")
+  const toISODate = (brDate?: string): string => {
+    if (!brDate) return '';
+    if (brDate.includes('-') && brDate.length === 10) return brDate;
+    const parts = brDate.split('/');
+    if (parts.length === 3) {
+      const day = parts[0].padStart(2, '0');
+      const month = parts[1].padStart(2, '0');
+      const year = parts[2];
+      return `${year}-${month}-${day}`;
+    }
+    return '';
+  };
+
+  const toBRDate = (isoDate?: string): string => {
+    if (!isoDate) return '';
+    if (isoDate.includes('/')) return isoDate;
+    const parts = isoDate.split('-');
+    if (parts.length === 3) {
+      const year = parts[0];
+      const month = parts[1];
+      const day = parts[2];
+      return `${day}/${month}/${year}`;
+    }
+    return isoDate;
+  };
+
+  // Formatação inteligente de telefone com DDI Brasil (+55)
+  const formatPhoneWithDDI = (rawVal?: string): string => {
+    if (!rawVal) return '+55 ';
+    let digits = rawVal.replace(/\D/g, '');
+    if (digits.startsWith('55')) {
+      digits = digits.substring(2);
+    }
+    if (digits.length === 0) {
+      return '+55 ';
+    }
+    let formatted = '+55';
+    if (digits.length > 0) {
+      formatted += ` (${digits.substring(0, 2)}`;
+    }
+    if (digits.length >= 3) {
+      if (digits.length > 10) {
+        // Celular 9 dígitos: +55 (XX) XXXXX-XXXX
+        formatted += `) ${digits.substring(2, 7)}-${digits.substring(7, 11)}`;
+      } else if (digits.length > 6) {
+        // Fixo 8 dígitos ou em digitação: +55 (XX) XXXX-XXXX
+        formatted += `) ${digits.substring(2, 6)}-${digits.substring(6, 10)}`;
+      } else {
+        formatted += `) ${digits.substring(2)}`;
+      }
+    }
+    return formatted;
+  };
+
   // --- ESTADO DO FORMULÁRIO (DADOS DA O.S.) ---
   const [formData, setFormData] = useState<Partial<ServiceOrder>>({
-    customerName: '', phoneNumber: '', address: '', deviceBrand: '', deviceModel: '',
-    defect: '', repairDetails: '', partsCost: 0, serviceCost: 0, status: 'Recebido',
-    photos: [], finishedPhotos: [], entryDate: '', exitDate: '',
-    checklist: [], signature: '', partSupplierId: '', partSupplierWarranty: '',
+    customerName: '', 
+    phoneNumber: '+55 ', 
+    address: '', 
+    deviceBrand: '', 
+    deviceModel: '',
+    defect: '', 
+    repairDetails: '', 
+    partsCost: 0, 
+    serviceCost: 0, 
+    status: 'Recebido',
+    photos: [], 
+    finishedPhotos: [], 
+    entryDate: getTodayDateBR(), 
+    exitDate: getTodayDateBR(),
+    checklist: [], 
+    signature: '', 
+    partSupplierId: '', 
+    partSupplierWarranty: '',
     customerId: ''
   });
+
+  // Estado de confirmação de descarte de alterações ao fechar modal
+  const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
+
+  // Verifica se o formulário possui alterações ou dados preenchidos
+  const isFormDirty = (): boolean => {
+    if (editingOrder) {
+      // Se editando OS existente
+      const hasNameChanged = (formData.customerName || '') !== (editingOrder.customerName || '');
+      const hasPhoneChanged = (formData.phoneNumber || '') !== (editingOrder.phoneNumber || '');
+      const hasBrandChanged = (formData.deviceBrand || '') !== (editingOrder.deviceBrand || '');
+      const hasModelChanged = (formData.deviceModel || '') !== (editingOrder.deviceModel || '');
+      const hasDefectChanged = (formData.defect || '') !== (editingOrder.defect || '');
+      const hasRepairChanged = (formData.repairDetails || '') !== (editingOrder.repairDetails || '');
+      const hasStatusChanged = (formData.status || '') !== (editingOrder.status || '');
+      const hasPartsChanged = (formData.partsCost || 0) !== (editingOrder.partsCost || 0);
+      const hasServiceChanged = (formData.serviceCost || 0) !== (editingOrder.serviceCost || 0);
+      return hasNameChanged || hasPhoneChanged || hasBrandChanged || hasModelChanged || hasDefectChanged || hasRepairChanged || hasStatusChanged || hasPartsChanged || hasServiceChanged;
+    }
+
+    // Se criando uma nova OS
+    const hasName = !!(formData.customerName && formData.customerName.trim().length > 0);
+    const rawPhoneDigits = (formData.phoneNumber || '').replace(/\D/g, '').replace(/^55/, '');
+    const hasPhone = rawPhoneDigits.length > 0;
+    const hasBrand = !!(formData.deviceBrand && formData.deviceBrand.trim().length > 0);
+    const hasModel = !!(formData.deviceModel && formData.deviceModel.trim().length > 0);
+    const hasDefect = !!(formData.defect && formData.defect.trim().length > 0);
+    const hasRepair = !!(formData.repairDetails && formData.repairDetails.trim().length > 0);
+    const hasCosts = (formData.partsCost || 0) > 0 || (formData.serviceCost || 0) > 0;
+    const hasPhotos = (formData.photos && formData.photos.length > 0) || (formData.finishedPhotos && formData.finishedPhotos.length > 0);
+    const hasSignature = !!formData.signature;
+    const hasAddress = !!(formData.address && formData.address.trim().length > 0);
+
+    return hasName || hasPhone || hasBrand || hasModel || hasDefect || hasRepair || hasCosts || hasPhotos || hasSignature || hasAddress;
+  };
+
+  // Trata tentativa de fechar o modal
+  const handleRequestCloseModal = () => {
+    if (isFormDirty()) {
+      setShowExitConfirmModal(true);
+    } else {
+      setIsModalOpen(false);
+      setShowCustomerSuggestions(false);
+      resetForm();
+    }
+  };
+
+  // Confirma descarte e fecha modal
+  const handleConfirmExit = () => {
+    setShowExitConfirmModal(false);
+    setIsModalOpen(false);
+    setShowCustomerSuggestions(false);
+    resetForm();
+  };
 
   // Sugestões e busca automática de clientes existentes
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
@@ -192,14 +370,15 @@ const ServiceOrderTab: React.FC<Props> = ({
   useEffect(() => {
     if (prefilledCustomer) {
       resetForm();
-      const today = new Date().toLocaleDateString('pt-BR');
+      const today = getTodayDateBR();
       setFormData(prev => ({
         ...prev,
         customerName: prefilledCustomer.name,
-        phoneNumber: prefilledCustomer.phoneNumber || '',
+        phoneNumber: formatPhoneWithDDI(prefilledCustomer.phoneNumber),
         address: prefilledCustomer.address || '',
         customerId: prefilledCustomer.id,
         entryDate: today,
+        exitDate: today,
         status: 'Recebido'
       }));
       setIsModalOpen(true);
@@ -249,16 +428,44 @@ const ServiceOrderTab: React.FC<Props> = ({
     setFormData(prev => ({
       ...prev,
       customerName: customer.name,
-      phoneNumber: customer.phoneNumber || prev.phoneNumber,
+      phoneNumber: formatPhoneWithDDI(customer.phoneNumber) || prev.phoneNumber || '+55 ',
       address: customer.address || prev.address,
       customerId: customer.id
     }));
     setShowCustomerSuggestions(false);
   };
 
+  // Manipulador de digitação de telefone com prefixo +55 automático
+  const handlePhoneInputChange = (rawVal: string) => {
+    const formatted = formatPhoneWithDDI(rawVal);
+    setFormData(prev => ({ ...prev, phoneNumber: formatted }));
+  };
+
+  // Manipulador de digitação de datas com máscara DD/MM/AAAA
+  const handleDateInputChange = (field: 'entryDate' | 'exitDate', value: string) => {
+    const clean = value.replace(/[^\d]/g, '');
+    let masked = clean;
+    if (clean.length > 2 && clean.length <= 4) {
+      masked = `${clean.substring(0, 2)}/${clean.substring(2)}`;
+    } else if (clean.length > 4) {
+      masked = `${clean.substring(0, 2)}/${clean.substring(2, 4)}/${clean.substring(4, 8)}`;
+    }
+    setFormData(prev => ({ ...prev, [field]: masked }));
+  };
+
   // Manipula mudanças nos campos de texto e select
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    // Formatação de telefone
+    if (name === 'phoneNumber') {
+      handlePhoneInputChange(value);
+      return;
+    }
+    // Formatação de datas
+    if (name === 'entryDate' || name === 'exitDate') {
+      handleDateInputChange(name, value);
+      return;
+    }
     // Formatação de moeda em tempo real
     if (name === 'partsCost' || name === 'serviceCost' || name === 'total') {
       const numericValue = parseCurrencyString(value);
@@ -470,14 +677,23 @@ const ServiceOrderTab: React.FC<Props> = ({
 
   // Limpa o formulário para uma nova entrada
   const resetForm = () => {
-    const today = new Date().toLocaleDateString('pt-BR');
+    const today = getTodayDateBR();
     setEditingOrder(null);
     setFormData({ 
-      customerName: '', phoneNumber: '', address: '', deviceBrand: '', deviceModel: '', 
-      defect: '', status: 'Recebido', photos: [], finishedPhotos: [], 
-      partsCost: 0, serviceCost: 0, total: 0, 
+      customerName: '', 
+      phoneNumber: '+55 ', 
+      address: '', 
+      deviceBrand: '', 
+      deviceModel: '', 
+      defect: '', 
+      status: 'Recebido', 
+      photos: [], 
+      finishedPhotos: [], 
+      partsCost: 0, 
+      serviceCost: 0, 
+      total: 0, 
       entryDate: today, 
-      exitDate: '',
+      exitDate: today,
       checklist: [],
       signature: '',
       paymentMethod: undefined,
@@ -776,28 +992,102 @@ const ServiceOrderTab: React.FC<Props> = ({
         ctx.fillText(`DATA DE SAÍDA: ${order.exitDate || '-'}`, 25 * scale, currentY);
         currentY += 14 * scale;
       }
-      
-      currentY += 8 * scale;
-      ctx.font = `900 ${9 * scale}px "Inter", sans-serif`;
-      ctx.fillText("Defeito informado:", 25 * scale, currentY);
-      currentY += 14 * scale;
-      // -- numero de caracteres por quebra de linha 60
-      currentY = wrapTextByChars(order.defect, 25 * scale, currentY, 60, 12 * scale);
-      currentY += 10 * scale;
+      currentY += 6 * scale;
       currentY = drawSeparator(currentY);
 
-      // 3.5 Checklist
-      if (order.checklist && order.checklist.length > 0) {
+      // 3.4 Checklist de Defeitos na Entrada (apenas se selecionado manualmente na criação/edição da O.S.)
+      const cleanChecklist = (order.checklist || []).filter(c => {
+        if (typeof c !== 'string') return false;
+        const trimmed = c.trim();
+        if (!trimmed || trimmed.startsWith('__DIAG_JSON__:') || trimmed.startsWith('🔍 [TESTE]')) return false;
+        if (trimmed.startsWith('📱') || trimmed.startsWith('✌️') || trimmed.startsWith('🎤') || trimmed.startsWith('🔊') || trimmed.startsWith('📞') || trimmed.startsWith('📶') || trimmed.startsWith('👁️') || trimmed.startsWith('🔐')) return false;
+        return COMMON_DEFECTS.some(cd => cd.toLowerCase() === trimmed.toLowerCase());
+      });
+      if (cleanChecklist.length > 0) {
         ctx.font = `900 ${10 * scale}px "Inter", sans-serif`;
         ctx.textAlign = 'left';
-        ctx.fillText("CHECKLIST DE DEFEITOS", 25 * scale, currentY);
-        currentY += 18 * scale;
-        ctx.font = `500 ${9 * scale}px "Inter", sans-serif`;
-        const checklistText = order.checklist.join(', ');
-        currentY = wrapTextByChars(checklistText, 25 * scale, currentY, 60, 12 * scale);
-        currentY += 10 * scale;
+        ctx.fillStyle = '#000000';
+        ctx.fillText("CHECKLIST DE DEFEITOS NA ENTRADA", 25 * scale, currentY);
+        currentY += 16 * scale;
+
+        const colWidth = (width - 60 * scale) / 2;
+        const startY = currentY;
+        let maxHeight = 0;
+
+        cleanChecklist.forEach((item, idx) => {
+          const col = idx % 2;
+          const row = Math.floor(idx / 2);
+          const itemX = 25 * scale + col * (colWidth + 10 * scale);
+          const itemY = startY + row * 16 * scale;
+
+          ctx.font = `900 ${8 * scale}px "Inter", sans-serif`;
+          ctx.fillStyle = '#DC2626';
+          ctx.fillText("[!]", itemX, itemY);
+
+          ctx.font = `600 ${8.5 * scale}px "Inter", sans-serif`;
+          ctx.fillStyle = '#111827';
+          const itemTrimmed = item.length > 18 ? item.substring(0, 17) + '…' : item;
+          ctx.fillText(itemTrimmed, itemX + 18 * scale, itemY);
+
+          if ((row + 1) * 16 * scale > maxHeight) {
+            maxHeight = (row + 1) * 16 * scale;
+          }
+        });
+
+        currentY = startY + maxHeight + 10 * scale;
         currentY = drawSeparator(currentY);
       }
+
+      // 3.5 Testes Realizados na Entrega/Saída (testes de hardware de fato)
+      const diagResults = getOrderDiagnostics(order);
+      const diagTests = diagResults?.tests ? Object.values(diagResults.tests) : [];
+      const executedHardwareTests = diagTests.filter(t => t.status === 'passed' || t.status === 'failed');
+
+      if (executedHardwareTests.length > 0) {
+        ctx.font = `900 ${10 * scale}px "Inter", sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#000000';
+        ctx.fillText("TESTES REALIZADOS NA ENTREGA/SAÍDA", 25 * scale, currentY);
+        currentY += 16 * scale;
+
+        const colWidth = (width - 60 * scale) / 2;
+        const startY = currentY;
+        let maxHeight = 0;
+
+        executedHardwareTests.forEach((t, idx) => {
+          const col = idx % 2;
+          const row = Math.floor(idx / 2);
+          const itemX = 25 * scale + col * (colWidth + 10 * scale);
+          const itemY = startY + row * 16 * scale;
+
+          ctx.font = `900 ${8 * scale}px "Inter", sans-serif`;
+          ctx.fillStyle = t.status === 'failed' ? '#DC2626' : '#16A34A';
+          const badgeText = t.status === 'failed' ? 'OFF' : 'ON';
+          ctx.fillText(badgeText, itemX, itemY);
+
+          ctx.font = `500 ${8.5 * scale}px "Inter", sans-serif`;
+          ctx.fillStyle = '#111827';
+          const nameTrimmed = t.name.length > 17 ? t.name.substring(0, 16) + '…' : t.name;
+          ctx.fillText(nameTrimmed, itemX + 26 * scale, itemY);
+
+          if ((row + 1) * 16 * scale > maxHeight) {
+            maxHeight = (row + 1) * 16 * scale;
+          }
+        });
+
+        currentY = startY + maxHeight + 10 * scale;
+        currentY = drawSeparator(currentY);
+      }
+
+      // 3.6 Defeito Informado (em baixo do bloco de testes realizados)
+      ctx.font = `900 ${9 * scale}px "Inter", sans-serif`;
+      ctx.fillStyle = '#000000';
+      ctx.fillText("DEFEITO INFORMADO:", 25 * scale, currentY);
+      currentY += 14 * scale;
+      // -- numero de caracteres por quebra de linha 60
+      currentY = wrapTextByChars(order.defect || 'Nenhum defeito detalhado', 25 * scale, currentY, 60, 12 * scale);
+      currentY += 10 * scale;
+      currentY = drawSeparator(currentY);
 
       // 4. Reparo Efetuado
       ctx.font = `900 ${10 * scale}px "Inter", sans-serif`;
@@ -1204,6 +1494,9 @@ const ServiceOrderTab: React.FC<Props> = ({
               <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0 cursor-pointer" onClick={() => { 
                 const orderToEdit: ServiceOrder = {
                   ...order,
+                  phoneNumber: order.phoneNumber ? formatPhoneWithDDI(order.phoneNumber) : '+55 ',
+                  entryDate: order.entryDate || (order.date ? (order.date.includes('/') ? order.date : new Date(order.date).toLocaleDateString('pt-BR')) : getTodayDateBR()),
+                  exitDate: order.exitDate || getTodayDateBR(),
                   trackingToken: order.trackingToken || (Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)),
                   isTrackingEnabled: order.isTrackingEnabled !== false
                 };
@@ -1251,6 +1544,27 @@ const ServiceOrderTab: React.FC<Props> = ({
                        <Calendar size={osLayout === 'small' ? 8 : 10} className="shrink-0 text-slate-400" />
                        Entrada: {entryDateDisplay}
                      </span>
+                     {(() => {
+                       const orderDiag = getOrderDiagnostics(order);
+                       if (!orderDiag) return null;
+                       return (
+                         <button
+                           type="button"
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             setSelectedOrderForDiagnostic(order);
+                           }}
+                           className={`font-black text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 transition-all cursor-pointer shadow-xs active:scale-95
+                             ${osLayout === 'small' ? 'text-[6px] sm:text-[7px]' : osLayout === 'medium' ? 'text-[7px] sm:text-[8px]' : 'text-[8px] sm:text-[9px]'}
+                           `}
+                           title="Clique para ver o Laudo de Testes de Hardware"
+                         >
+                           <QrCode size={osLayout === 'small' ? 8 : 10} className="shrink-0 text-indigo-600" />
+                           <span>{orderDiag.summary || 'Hardware Testado'}</span>
+                           <Eye size={osLayout === 'small' ? 8 : 10} className="shrink-0 text-indigo-400 ml-0.5" />
+                         </button>
+                       );
+                     })()}
                      {expired && (
                        <span className={`font-black px-2 py-0.5 rounded-full bg-red-600 text-white uppercase animate-pulse shrink-0
                          ${osLayout === 'small' ? 'text-[6px] sm:text-[7px]' : osLayout === 'medium' ? 'text-[7px] sm:text-[8px]' : 'text-[8px] sm:text-[9px]'}
@@ -1260,6 +1574,14 @@ const ServiceOrderTab: React.FC<Props> = ({
                 </div>
               </div>
               <div className="flex items-center gap-1.5 sm:gap-2">
+                <button onClick={(e) => { 
+                  e.stopPropagation(); 
+                  setSavedOrderShareModal({ order, isNew: false });
+                }} className={`bg-indigo-600 text-white rounded-lg sm:rounded-xl shadow-md active:scale-90 flex items-center justify-center hover:bg-indigo-500 transition-colors
+                  ${osLayout === 'small' ? 'p-1 sm:p-1.5' : osLayout === 'medium' ? 'p-1.5 sm:p-2.5' : 'p-2.5 sm:p-3.5'}
+                `} title="Testes de Hardware (QR Code)">
+                  <QrCode size={14} className={osLayout === 'large' ? 'sm:w-[20px] sm:h-[20px]' : 'sm:w-[18px] sm:h-[18px]'} />
+                </button>
                 <button onClick={(e) => { 
                   e.stopPropagation(); 
                   setOrderToPrint(order);
@@ -1308,7 +1630,14 @@ const ServiceOrderTab: React.FC<Props> = ({
           <div className="bg-white w-full max-w-md mx-auto rounded-[2.5rem] overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 flex flex-col max-h-[90vh]">
             <div className="p-6 border-b border-slate-50 flex justify-between items-center bg-white shrink-0">
               <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">{editingOrder ? 'Editar O.S.' : 'Nova O.S.'}</h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 bg-slate-50 rounded-full"><X size={20} /></button>
+              <button 
+                type="button"
+                onClick={handleRequestCloseModal} 
+                className="p-2 text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-full transition-colors active:scale-95"
+                title="Fechar formulário"
+              >
+                <X size={20} />
+              </button>
             </div>
             
             <div className="p-4 space-y-4 overflow-y-auto pb-10 flex-1">
@@ -1377,17 +1706,28 @@ const ServiceOrderTab: React.FC<Props> = ({
 
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
-                      <input 
-                        name="phoneNumber" 
-                        value={formData.phoneNumber || ''} 
-                        onChange={(e) => {
-                          handleInputChange(e);
-                          setShowCustomerSuggestions(true);
-                        }} 
-                        placeholder="(00) 00000-0000" 
-                        className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100 focus:border-blue-500 transition-all" 
-                      />
+                      <div className="flex items-center justify-between">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
+                        <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 px-1 py-0.2 rounded">+55 BR</span>
+                      </div>
+                      <div className="relative flex items-center">
+                        <input 
+                          name="phoneNumber" 
+                          value={formData.phoneNumber || '+55 '} 
+                          onChange={(e) => {
+                            handleInputChange(e);
+                            setShowCustomerSuggestions(true);
+                          }} 
+                          onFocus={() => {
+                            if (!formData.phoneNumber) {
+                              setFormData(prev => ({ ...prev, phoneNumber: '+55 ' }));
+                            }
+                            setShowCustomerSuggestions(true);
+                          }}
+                          placeholder="+55 (00) 00000-0000" 
+                          className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100 focus:border-blue-500 transition-all font-mono" 
+                        />
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Endereço</label>
@@ -1416,13 +1756,120 @@ const ServiceOrderTab: React.FC<Props> = ({
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
+                    {/* DATA DE ENTRADA */}
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1"><Calendar size={10}/> Entrada</label>
-                      <input name="entryDate" value={formData.entryDate} onChange={handleInputChange} placeholder="DD/MM/AAAA" className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100" />
+                      <div className="flex items-center justify-between">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1">
+                          <Calendar size={10}/> Entrada
+                        </label>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, entryDate: getTodayDateBR() }))}
+                            className="text-[8px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded transition-colors"
+                            title="Definir para data de hoje"
+                          >
+                            Hoje
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, entryDate: getDateOffsetBR(-1) }))}
+                            className="text-[8px] font-bold text-slate-500 bg-slate-200 hover:bg-slate-300 px-1.5 py-0.5 rounded transition-colors"
+                            title="Definir para ontem"
+                          >
+                            Ontem
+                          </button>
+                        </div>
+                      </div>
+                      <div className="relative flex items-center">
+                        <input 
+                          name="entryDate" 
+                          value={formData.entryDate || ''} 
+                          onChange={handleInputChange} 
+                          placeholder="DD/MM/AAAA" 
+                          maxLength={10}
+                          className="w-full p-3 pr-8 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100 focus:border-blue-500 transition-all font-mono" 
+                        />
+                        <label className="absolute right-2 text-slate-400 hover:text-blue-600 p-1 rounded-lg cursor-pointer transition-colors" title="Escolher no calendário">
+                          <Calendar size={15} />
+                          <input
+                            type="date"
+                            value={toISODate(formData.entryDate)}
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                setFormData(prev => ({ ...prev, entryDate: toBRDate(e.target.value) }));
+                              }
+                            }}
+                            className="sr-only"
+                          />
+                        </label>
+                      </div>
                     </div>
+
+                    {/* DATA DE SAÍDA / PREVISÃO */}
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1"><Calendar size={10}/> Saída</label>
-                      <input name="exitDate" value={formData.exitDate} onChange={handleInputChange} placeholder="DD/MM/AAAA" className={`w-full p-3 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100 ${!(formData.status === 'Concluído' || formData.status === 'Entregue') ? 'opacity-50' : ''}`} />
+                      <div className="flex items-center justify-between">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1">
+                          <Calendar size={10}/> Saída / Prev.
+                        </label>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, exitDate: getTodayDateBR() }))}
+                            className="text-[8px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-1 py-0.5 rounded transition-colors"
+                            title="Definir para hoje"
+                          >
+                            Hoje
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, exitDate: getDateOffsetBR(1) }))}
+                            className="text-[8px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-1 py-0.5 rounded transition-colors"
+                            title="Definir para amanhã (+1 dia)"
+                          >
+                            +1d
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, exitDate: getDateOffsetBR(3) }))}
+                            className="text-[8px] font-bold text-slate-600 bg-slate-200 hover:bg-slate-300 px-1 py-0.5 rounded transition-colors"
+                            title="+3 dias"
+                          >
+                            +3d
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, exitDate: getDateOffsetBR(7) }))}
+                            className="text-[8px] font-bold text-slate-600 bg-slate-200 hover:bg-slate-300 px-1 py-0.5 rounded transition-colors"
+                            title="+7 dias"
+                          >
+                            +7d
+                          </button>
+                        </div>
+                      </div>
+                      <div className="relative flex items-center">
+                        <input 
+                          name="exitDate" 
+                          value={formData.exitDate || ''} 
+                          onChange={handleInputChange} 
+                          placeholder="DD/MM/AAAA" 
+                          maxLength={10}
+                          className="w-full p-3 pr-8 bg-white rounded-xl outline-none font-bold text-xs border border-slate-100 focus:border-blue-500 transition-all font-mono" 
+                        />
+                        <label className="absolute right-2 text-slate-400 hover:text-blue-600 p-1 rounded-lg cursor-pointer transition-colors" title="Escolher no calendário">
+                          <Calendar size={15} />
+                          <input
+                            type="date"
+                            value={toISODate(formData.exitDate)}
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                setFormData(prev => ({ ...prev, exitDate: toBRDate(e.target.value) }));
+                              }
+                            }}
+                            className="sr-only"
+                          />
+                        </label>
+                      </div>
                     </div>
                   </div>
                   <div className="space-y-1">
@@ -1432,7 +1879,7 @@ const ServiceOrderTab: React.FC<Props> = ({
                       value={formData.status} 
                       onChange={(e) => {
                         const val = e.target.value as ServiceOrder['status'];
-                        const today = new Date().toLocaleDateString('pt-BR');
+                        const today = getTodayDateBR();
                         setFormData(prev => ({
                           ...prev,
                           status: val,
@@ -1473,6 +1920,101 @@ const ServiceOrderTab: React.FC<Props> = ({
                   )}
                   <textarea name="publicNotes" value={formData.publicNotes || ''} onChange={handleInputChange} placeholder="Observações públicas para o cliente..." className="w-full p-3 bg-white rounded-xl outline-none font-bold text-xs h-16 resize-none border border-orange-100" />
                 </div>
+
+                {/* LAUDO DE TESTES DE HARDWARE DO CELULAR */}
+                {(() => {
+                  const formDiag = getOrderDiagnostics(formData as ServiceOrder);
+                  return (
+                    <div className="bg-gradient-to-br from-indigo-50/80 via-blue-50/40 to-slate-50 p-4 rounded-3xl space-y-3 border border-indigo-100 shadow-xs">
+                      <div className="flex items-center justify-between border-b border-indigo-200/60 pb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs shadow-xs">
+                            <QrCode size={13} />
+                          </div>
+                          <h4 className="text-[10px] font-black text-indigo-950 uppercase tracking-widest">
+                            Laudo de Testes de Hardware
+                          </h4>
+                        </div>
+                        {formDiag ? (
+                          <span className="text-[9px] font-black text-emerald-800 bg-emerald-100/90 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                            <CheckCircle2 size={11} /> {formDiag.summary || 'Hardware Testado'}
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-bold text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded-full">
+                            Pendente
+                          </span>
+                        )}
+                      </div>
+
+                      {formDiag ? (
+                        <div className="space-y-2.5">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                            {Object.values(formDiag.tests || {}).map((t) => (
+                              <div 
+                                key={t.id} 
+                                className={`p-2 rounded-xl border flex items-center justify-between gap-1 text-[9px] font-bold ${
+                                  t.status === 'passed' 
+                                    ? 'bg-white border-emerald-200 text-emerald-950' 
+                                    : t.status === 'failed'
+                                    ? 'bg-rose-50 border-rose-200 text-rose-950'
+                                    : 'bg-white border-slate-100 text-slate-500'
+                                }`}
+                              >
+                                <span className="truncate">{t.name}</span>
+                                <span className={`px-1.5 py-0.5 rounded-md font-black text-[8px] uppercase shrink-0 ${
+                                  t.status === 'passed' ? 'bg-emerald-100 text-emerald-800' : t.status === 'failed' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-500'
+                                }`}>
+                                  {t.status === 'passed' ? 'OK' : t.status === 'failed' ? 'Falha' : '-'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="flex gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedOrderForDiagnostic(formData as ServiceOrder);
+                              }}
+                              className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                            >
+                              <ShieldCheck size={14} />
+                              <span>Ver Laudo Completo</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSavedOrderShareModal({ order: formData as ServiceOrder, isNew: false });
+                              }}
+                              className="bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 py-2.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer shadow-xs"
+                              title="Abrir QR Code para refazer testes"
+                            >
+                              <QrCode size={14} />
+                              <span>QR Code</span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-white rounded-2xl border border-indigo-100/70 text-center space-y-2">
+                          <p className="text-xs text-slate-600">
+                            Nenhum teste de hardware gravado para este aparelho ainda.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSavedOrderShareModal({ order: formData as ServiceOrder, isNew: false });
+                            }}
+                            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                          >
+                            <QrCode size={14} />
+                            <span>Gerar QR Code / Iniciar Testes de Hardware</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* CHECKLIST DE DEFEITOS */}
                 <div className="bg-slate-50 p-4 rounded-3xl space-y-3">
@@ -1679,9 +2221,50 @@ const ServiceOrderTab: React.FC<Props> = ({
 
             {/* BOTÕES DE AÇÃO DO MODAL */}
             <div className="p-6 border-t border-slate-50 bg-slate-50 flex gap-3 shrink-0">
-              <button onClick={() => setIsModalOpen(false)} className="flex-1 py-4 font-black text-slate-400 uppercase text-[10px]">Sair</button>
-              <button onClick={handleSave} disabled={isSaving} className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] shadow-xl active:scale-95">
+              <button 
+                type="button"
+                onClick={handleRequestCloseModal} 
+                className="flex-1 py-4 font-black text-slate-400 hover:text-slate-700 uppercase text-[10px] transition-colors rounded-2xl active:scale-95"
+              >
+                Sair
+              </button>
+              <button onClick={handleSave} disabled={isSaving} className="flex-[2] py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-[10px] shadow-xl active:scale-95 transition-all">
                 {isSaving ? <Loader2 className="animate-spin" size={20} /> : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CONFIRMAÇÃO DE SAÍDA COM DADOS PREENCHIDOS */}
+      {showExitConfirmModal && (
+        <div className="fixed inset-0 bg-slate-950/85 z-[100] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-6 shadow-2xl space-y-4 border border-slate-100 animate-in zoom-in-95">
+            <div className="w-14 h-14 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
+              <AlertTriangle size={28} />
+            </div>
+            <div className="text-center space-y-1.5">
+              <h3 className="text-base font-black text-slate-800 uppercase tracking-tight">
+                Descartar Alterações?
+              </h3>
+              <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                Você possui informações preenchidas nesta Ordem de Serviço. Se sair agora, todos os dados digitados serão perdidos.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowExitConfirmModal(false)}
+                className="w-full py-3.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-black rounded-2xl text-xs uppercase tracking-wide shadow-md transition-all active:scale-95"
+              >
+                Continuar Editando
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmExit}
+                className="w-full py-3 px-4 bg-red-50 hover:bg-red-100 text-red-600 font-black rounded-2xl text-xs uppercase tracking-wide transition-all active:scale-95"
+              >
+                Descartar e Sair
               </button>
             </div>
           </div>
@@ -2282,7 +2865,7 @@ const ServiceOrderTab: React.FC<Props> = ({
       <SavedOrderShareModal
         isOpen={!!savedOrderShareModal}
         onClose={() => setSavedOrderShareModal(null)}
-        order={savedOrderShareModal?.order || null}
+        order={savedOrderShareModal ? (orders.find(o => o.id === savedOrderShareModal.order.id) || savedOrderShareModal.order) : null}
         isNew={savedOrderShareModal?.isNew}
         settings={settings}
         onPrint={(order) => {
@@ -2293,99 +2876,321 @@ const ServiceOrderTab: React.FC<Props> = ({
         }}
       />
 
+      {/* MODAL DE LAUDO TÉCNICO DE TESTES DE HARDWARE */}
+      <DiagnosticReportModal
+        isOpen={!!selectedOrderForDiagnostic}
+        onClose={() => setSelectedOrderForDiagnostic(null)}
+        order={selectedOrderForDiagnostic ? (orders.find(o => o.id === selectedOrderForDiagnostic.id) || selectedOrderForDiagnostic) : null}
+        settings={settings}
+      />
+
       {/* PORTAL PARA IMPRESSÃO DIRETA DA O.S. */}
       {document.getElementById('print-section') && orderToPrint && createPortal(
-        <div 
-          style={{ 
-            width: Number(settings.printerSize) === 80 ? '80mm' : '58mm', 
-            padding: Number(settings.printerSize) === 80 ? '4mm' : '2mm', 
-            backgroundColor: 'white', 
-            color: 'black', 
-            fontFamily: 'monospace',
-            fontSize: Number(settings.printerSize) === 80 ? '11px' : '10px',
-            lineHeight: '1.2'
-          }}
-        >
-          <div style={{ textAlign: 'center', marginBottom: '4mm' }}>
-            <p style={{ fontWeight: 'bold', fontSize: '14px', textTransform: 'uppercase', margin: '0 0 1mm 0' }}>{settings.storeName}</p>
-            <p style={{ margin: '1px 0', fontSize: '9px' }}>{settings.storeAddress}</p>
-            <p style={{ margin: '1px 0', fontSize: '9px' }}>{settings.storePhone}</p>
-            <div style={{ margin: '3mm 0', borderTop: '1px solid black', borderBottom: '1px solid black', padding: '1mm 0' }}>
-              <p style={{ fontWeight: 'bold', margin: '0', fontSize: '11px' }}>ORDEM DE SERVIÇO</p>
-              <p style={{ margin: '0', fontSize: '8px' }}>{orderToPrint.status === 'Pendente' ? 'COMPROVANTE DE ENTRADA' : 'RECIBO DE ENTREGA'}</p>
-              <p style={{ margin: '1mm 0 0 0', fontSize: '7px' }}>NÃO É DOCUMENTO FISCAL</p>
-            </div>
-          </div>
+        (() => {
+          const is80mm = Number(settings.printerSize) === 80;
+          const printDiag = getOrderDiagnostics(orderToPrint);
+          // Checklist de Defeitos na Entrada (apenas se selecionado manualmente na criação/edição da O.S.)
+          const cleanChecklist = (orderToPrint.checklist || []).filter(c => {
+            if (typeof c !== 'string') return false;
+            const trimmed = c.trim();
+            if (!trimmed || trimmed.startsWith('__DIAG_JSON__:') || trimmed.startsWith('🔍 [TESTE]')) return false;
+            if (trimmed.startsWith('📱') || trimmed.startsWith('✌️') || trimmed.startsWith('🎤') || trimmed.startsWith('🔊') || trimmed.startsWith('📞') || trimmed.startsWith('📶') || trimmed.startsWith('👁️') || trimmed.startsWith('🔐')) return false;
+            return COMMON_DEFECTS.some(cd => cd.toLowerCase() === trimmed.toLowerCase());
+          });
+          const diagTests = printDiag?.tests ? Object.values(printDiag.tests) : [];
+          const executedHardwareTests = diagTests.filter(t => t.status === 'passed' || t.status === 'failed');
 
-          <div style={{ marginBottom: '3mm', fontSize: '9px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>PROTOCOLO:</span>
-              <span style={{ fontWeight: 'bold' }}>#{orderToPrint.id}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>DATA:</span>
-              <span>{formatDateTime(orderToPrint.date)}</span>
-            </div>
-          </div>
-
-          <div style={{ borderTop: '1px dashed black', padding: '2mm 0', marginBottom: '2mm' }}>
-            <p style={{ fontWeight: 'bold', fontSize: '9px', marginBottom: '1mm', textTransform: 'uppercase' }}>Cliente:</p>
-            <p style={{ margin: '0', fontSize: '9px' }}>{orderToPrint.customerName}</p>
-            <p style={{ margin: '0', fontSize: '9px' }}>{orderToPrint.phoneNumber}</p>
-          </div>
-
-          <div style={{ borderTop: '1px dashed black', padding: '2mm 0', marginBottom: '2mm' }}>
-            <p style={{ fontWeight: 'bold', fontSize: '9px', marginBottom: '1mm', textTransform: 'uppercase' }}>Aparelho:</p>
-            <p style={{ margin: '0', fontSize: '9px' }}>{orderToPrint.deviceBrand} {orderToPrint.deviceModel}</p>
-            <p style={{ fontWeight: 'bold', fontSize: '9px', marginTop: '2mm', textTransform: 'uppercase' }}>Defeito Relatado:</p>
-            <p style={{ margin: '0', fontSize: '9px' }}>{orderToPrint.defect}</p>
-          </div>
-
-          {orderToPrint.checklist && orderToPrint.checklist.length > 0 && (
-            <div style={{ borderTop: '1px dashed black', padding: '2mm 0', marginBottom: '2mm' }}>
-              <p style={{ fontWeight: 'bold', fontSize: '9px', marginBottom: '1mm', textTransform: 'uppercase' }}>Checklist:</p>
-              <p style={{ margin: '0', fontSize: '8px' }}>{orderToPrint.checklist.join(', ')}</p>
-            </div>
-          )}
-
-          {(orderToPrint.status === 'Concluído' || orderToPrint.status === 'Entregue') && orderToPrint.repairDetails && (
-            <div style={{ borderTop: '1px dashed black', padding: '2mm 0', marginBottom: '2mm' }}>
-              <p style={{ fontWeight: 'bold', fontSize: '9px', marginBottom: '1mm', textTransform: 'uppercase' }}>Reparo Efetuado:</p>
-              <p style={{ margin: '0', fontSize: '9px' }}>{orderToPrint.repairDetails}</p>
-            </div>
-          )}
-
-          <div style={{ borderTop: '1px solid black', padding: '2mm 0', marginTop: '2mm' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '11px' }}>
-              <span>TOTAL:</span>
-              <span>{formatCurrency(orderToPrint.total)}</span>
-            </div>
-          </div>
-
-          {settings.pdfWarrantyText && (
-            <div style={{ borderTop: '1px dashed black', padding: '2mm 0', marginTop: '2mm' }}>
-              <p style={{ fontWeight: 'bold', fontSize: '9px', marginBottom: '1mm', textTransform: 'uppercase' }}>Garantia:</p>
-              <p style={{ margin: '0', fontSize: '8px', textAlign: 'justify' }}>
-                {settings.pdfWarrantyText.replace(/\[\/?(B|C|J|COLOR.*?|U)\]/g, '')}
-              </p>
-            </div>
-          )}
-
-          <div style={{ marginTop: '6mm', borderTop: '1px solid black', paddingTop: '4mm', textAlign: 'center' }}>
-            {orderToPrint.signature ? (
-              <div style={{ marginBottom: '2mm' }}>
-                <img src={orderToPrint.signature} style={{ width: '40mm', height: 'auto', display: 'block', margin: '0 auto' }} />
+          return (
+            <div 
+              style={{ 
+                width: is80mm ? '80mm' : '58mm', 
+                padding: is80mm ? '4mm 3mm' : '3mm 2mm', 
+                backgroundColor: '#ffffff', 
+                color: '#000000', 
+                fontFamily: '"Courier New", Courier, monospace, sans-serif',
+                fontSize: is80mm ? '10px' : '9px',
+                lineHeight: '1.25',
+                boxSizing: 'border-box'
+              }}
+            >
+              {/* CABEÇALHO DA LOJA */}
+              <div style={{ textAlign: 'center', marginBottom: '3mm' }}>
+                <h1 style={{ fontWeight: '900', fontSize: is80mm ? '14px' : '12px', textTransform: 'uppercase', margin: '0 0 1mm 0', letterSpacing: '0.5px' }}>
+                  {settings.storeName || 'ASSISTÊNCIA TÉCNICA'}
+                </h1>
+                {settings.storeAddress && (
+                  <p style={{ margin: '0.5mm 0', fontSize: is80mm ? '8.5px' : '7.5px', color: '#222' }}>
+                    {settings.storeAddress}
+                  </p>
+                )}
+                {settings.storePhone && (
+                  <p style={{ margin: '0.5mm 0', fontSize: is80mm ? '8.5px' : '7.5px', fontWeight: 'bold' }}>
+                    TEL/WHATSAPP: {settings.storePhone}
+                  </p>
+                )}
+                
+                {/* FAIXA DO TIPO DE DOCUMENTO */}
+                <div style={{ margin: '2.5mm 0', borderTop: '1.5px solid #000', borderBottom: '1.5px solid #000', padding: '1.5mm 0' }}>
+                  <p style={{ fontWeight: '900', margin: '0', fontSize: is80mm ? '12px' : '10.5px', letterSpacing: '1px' }}>
+                    ORDEM DE SERVIÇO
+                  </p>
+                  <p style={{ fontWeight: 'bold', margin: '0.5mm 0 0 0', fontSize: is80mm ? '8.5px' : '7.5px' }}>
+                    {orderToPrint.status === 'Pendente' || orderToPrint.status === 'Recebido'
+                      ? '● COMPROVANTE DE ENTRADA'
+                      : orderToPrint.status === 'Concluído' || orderToPrint.status === 'Entregue'
+                      ? '● COMPROVANTE DE ENTREGA'
+                      : `● STATUS: ${orderToPrint.status.toUpperCase()}`}
+                  </p>
+                  <p style={{ margin: '0.5mm 0 0 0', fontSize: '6.5px', color: '#333' }}>
+                    DOCUMENTO NÃO FISCAL
+                  </p>
+                </div>
               </div>
-            ) : (
-              <div style={{ height: '10mm' }}></div>
-            )}
-            <p style={{ borderTop: '0.5px solid black', display: 'inline-block', width: '80%', fontSize: '8px', paddingTop: '1mm' }}>ASSINATURA DO CLIENTE</p>
-          </div>
 
-          <div style={{ textAlign: 'center', fontSize: '8px', marginTop: '4mm' }}>
-            <p style={{ margin: '0', fontWeight: 'bold' }}>OBRIGADO PELA PREFERÊNCIA!</p>
-          </div>
-        </div>,
+              {/* IDENTIFICAÇÃO */}
+              <div style={{ marginBottom: '2.5mm', fontSize: is80mm ? '9px' : '8px', borderBottom: '1px dashed #000', paddingBottom: '2mm' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8mm' }}>
+                  <span style={{ fontWeight: 'bold' }}>PROTOCOLO / O.S.:</span>
+                  <span style={{ fontWeight: '900', fontSize: is80mm ? '11px' : '10px' }}>#{orderToPrint.id}</span>
+                </div>
+                {currentUser?.name && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>ATENDENTE:</span>
+                    <span style={{ fontWeight: 'bold' }}>{currentUser.name.toUpperCase()}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* DADOS DO CLIENTE */}
+              <div style={{ borderBottom: '1px dashed #000', paddingBottom: '2mm', marginBottom: '2mm' }}>
+                <p style={{ fontWeight: '900', fontSize: '8px', marginBottom: '0.8mm', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  CLIENTE:
+                </p>
+                <p style={{ margin: '0', fontSize: is80mm ? '10.5px' : '9.5px', fontWeight: 'bold' }}>
+                  {orderToPrint.customerName || 'Consumidor'}
+                </p>
+                <p style={{ margin: '0.5mm 0 0 0', fontSize: is80mm ? '9px' : '8px' }}>
+                  TEL: {orderToPrint.phoneNumber || 'Não informado'}
+                </p>
+                {orderToPrint.address && (
+                  <p style={{ margin: '0.5mm 0 0 0', fontSize: '7.5px', color: '#333' }}>
+                    END: {orderToPrint.address}
+                  </p>
+                )}
+              </div>
+
+              {/* DADOS DO APARELHO E DATAS */}
+              <div style={{ borderBottom: '1px dashed #000', paddingBottom: '2mm', marginBottom: '2mm' }}>
+                <p style={{ fontWeight: '900', fontSize: '8px', marginBottom: '0.8mm', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  APARELHO:
+                </p>
+                <p style={{ margin: '0', fontSize: is80mm ? '11px' : '10px', fontWeight: '900', textTransform: 'uppercase' }}>
+                  {orderToPrint.deviceBrand} {orderToPrint.deviceModel}
+                </p>
+
+                <div style={{ marginTop: '1.5mm', fontSize: is80mm ? '9px' : '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.6mm' }}>
+                    <span style={{ fontWeight: 'bold' }}>DATA DE ENTRADA:</span>
+                    <span>{orderToPrint.entryDate || formatDateTime(orderToPrint.date)}</span>
+                  </div>
+                  {orderToPrint.exitDate && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontWeight: 'bold' }}>DATA DE SAÍDA:</span>
+                      <span>{orderToPrint.exitDate}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* CHECKLIST DE DEFEITOS NA ENTRADA (SELECIONADOS NA CRIAÇÃO DA O.S.) */}
+              {cleanChecklist.length > 0 && (
+                <div style={{ borderBottom: '1px dashed #000', paddingBottom: '2.5mm', marginBottom: '2.5mm' }}>
+                  <p style={{ fontWeight: '900', fontSize: is80mm ? '9px' : '8px', margin: '0 0 1.5mm 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    CHECKLIST DE DEFEITOS NA ENTRADA:
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.2mm 2mm' }}>
+                    {cleanChecklist.map((item, idx) => (
+                      <div 
+                        key={idx} 
+                        style={{ 
+                          fontSize: is80mm ? '8px' : '7.5px', 
+                          fontWeight: 'bold',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '1mm',
+                          borderBottom: '0.5px dotted #ccc',
+                          paddingBottom: '0.5mm'
+                        }}
+                      >
+                        <span style={{ color: '#DC2626', fontWeight: '900', fontSize: '8px' }}>[!]</span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* TESTES REALIZADOS NA ENTREGA/SAÍDA */}
+              {executedHardwareTests.length > 0 && (
+                <div style={{ borderBottom: '1px dashed #000', paddingBottom: '2.5mm', marginBottom: '2.5mm' }}>
+                  <p style={{ fontWeight: '900', fontSize: is80mm ? '9px' : '8px', margin: '0 0 1.5mm 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    TESTES REALIZADOS NA ENTREGA/SAÍDA:
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1mm 2mm' }}>
+                    {executedHardwareTests.map((t, idx) => (
+                      <div 
+                        key={idx} 
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'space-between', 
+                          fontSize: is80mm ? '8px' : '7.5px', 
+                          borderBottom: '0.5px dotted #aaa', 
+                          paddingBottom: '0.6mm' 
+                        }}
+                      >
+                        <span style={{ 
+                          overflow: 'hidden', 
+                          textOverflow: 'ellipsis', 
+                          whiteSpace: 'nowrap', 
+                          maxWidth: is80mm ? '28mm' : '18mm',
+                          fontWeight: 'bold'
+                        }}>
+                          {t.name}
+                        </span>
+                        <span style={{ 
+                          fontWeight: '900', 
+                          fontSize: is80mm ? '8px' : '7px',
+                          marginLeft: '1mm',
+                          color: t.status === 'failed' ? '#DC2626' : '#16A34A'
+                        }}>
+                          {t.status === 'failed' ? 'OFF' : 'ON'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* DEFEITO INFORMADO (EM BAIXO DO BLOCO DE TESTES REALIZADOS) */}
+              <div style={{ borderBottom: '1px dashed #000', paddingBottom: '2mm', marginBottom: '2.5mm' }}>
+                <p style={{ fontWeight: '900', fontSize: '8px', marginBottom: '0.8mm', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  DEFEITO INFORMADO:
+                </p>
+                <p style={{ 
+                  margin: '0', 
+                  fontSize: is80mm ? '9px' : '8px', 
+                  fontStyle: 'italic', 
+                  paddingLeft: '2mm', 
+                  borderLeft: '2px solid #000',
+                  lineHeight: '1.3'
+                }}>
+                  "{orderToPrint.defect || 'Nenhum defeito detalhado'}"
+                </p>
+              </div>
+
+              {/* REPARO EFETUADO (SE HOUVER) */}
+              {(orderToPrint.status === 'Concluído' || orderToPrint.status === 'Entregue') && orderToPrint.repairDetails && (
+                <div style={{ borderBottom: '1px dashed #000', paddingBottom: '2mm', marginBottom: '2.5mm' }}>
+                  <p style={{ fontWeight: '900', fontSize: '8px', marginBottom: '1mm', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    SERVIÇO / REPARO REALIZADO:
+                  </p>
+                  <p style={{ 
+                    margin: '0', 
+                    fontSize: is80mm ? '9px' : '8px', 
+                    paddingLeft: '2mm', 
+                    borderLeft: '2px solid #000', 
+                    lineHeight: '1.3' 
+                  }}>
+                    {orderToPrint.repairDetails}
+                  </p>
+                </div>
+              )}
+
+              {/* VALOR TOTAL E FORMA DE PAGAMENTO */}
+              <div style={{ 
+                border: '1.5px solid #000', 
+                padding: '2mm 2.5mm', 
+                marginBottom: '2.5mm', 
+                backgroundColor: '#fff' 
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: '900', fontSize: is80mm ? '11px' : '10px' }}>TOTAL:</span>
+                  <span style={{ fontWeight: '900', fontSize: is80mm ? '14px' : '12.5px' }}>
+                    {formatCurrency(orderToPrint.total || 0)}
+                  </span>
+                </div>
+                {orderToPrint.paymentMethod && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '7.5px', marginTop: '1.2mm', borderTop: '0.5px dotted #000', paddingTop: '1mm' }}>
+                    <span>FORMA DE PAGAMENTO:</span>
+                    <span style={{ fontWeight: 'bold' }}>
+                      {orderToPrint.paymentMethod.toUpperCase()}
+                      {orderToPrint.paymentInstallments && orderToPrint.paymentInstallments > 1 ? ` (${orderToPrint.paymentInstallments}X)` : ''}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* QR CODE DE ACOMPANHAMENTO ONLINE */}
+              {printQrCodeUrl && (
+                <div style={{ textAlign: 'center', borderBottom: '1px dashed #000', paddingBottom: '2.5mm', marginBottom: '2.5mm' }}>
+                  <p style={{ fontWeight: '900', fontSize: '7.5px', margin: '0 0 1mm 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    ACOMPANHAMENTO ONLINE DA O.S.
+                  </p>
+                  <img 
+                    src={printQrCodeUrl} 
+                    style={{ width: is80mm ? '24mm' : '20mm', height: is80mm ? '24mm' : '20mm', display: 'block', margin: '0 auto' }} 
+                    alt="QR Code" 
+                  />
+                  <p style={{ margin: '1mm 0 0 0', fontSize: '6.5px', color: '#333', lineHeight: '1.2' }}>
+                    Aponte a câmera do seu celular para acompanhar o status e fotos
+                  </p>
+                </div>
+              )}
+
+              {/* TERMO DE GARANTIA */}
+              {settings.pdfWarrantyText && (
+                <div style={{ borderBottom: '1px dashed #000', paddingBottom: '2mm', marginBottom: '2.5mm' }}>
+                  <p style={{ fontWeight: '900', fontSize: '7.5px', marginBottom: '0.8mm', textTransform: 'uppercase' }}>
+                    TERMO DE GARANTIA:
+                  </p>
+                  <p style={{ margin: '0', fontSize: '6.8px', textAlign: 'justify', lineHeight: '1.2' }}>
+                    {settings.pdfWarrantyText.replace(/\[\/?(B|C|J|COLOR.*?|U)\]/g, '')}
+                  </p>
+                </div>
+              )}
+
+              {/* ASSINATURA DO CLIENTE */}
+              <div style={{ marginTop: '4mm', textAlign: 'center' }}>
+                {orderToPrint.signature ? (
+                  <div style={{ marginBottom: '1mm' }}>
+                    <img 
+                      src={orderToPrint.signature} 
+                      style={{ width: '35mm', height: 'auto', display: 'block', margin: '0 auto' }} 
+                      alt="Assinatura" 
+                    />
+                  </div>
+                ) : (
+                  <div style={{ height: '9mm' }}></div>
+                )}
+                <div style={{ borderTop: '0.8px solid #000', display: 'inline-block', width: '85%', paddingTop: '1mm' }}>
+                  <p style={{ margin: '0', fontWeight: 'bold', fontSize: '7.5px', textTransform: 'uppercase' }}>
+                    {orderToPrint.customerName || 'ASSINATURA DO CLIENTE'}
+                  </p>
+                  <p style={{ margin: '0', fontSize: '6.5px', color: '#444' }}>CLIENTE / RESPONSÁVEL</p>
+                </div>
+              </div>
+
+              {/* RODAPÉ */}
+              <div style={{ textAlign: 'center', fontSize: '7.5px', marginTop: '3mm', borderTop: '0.5px dotted #666', paddingTop: '1.5mm' }}>
+                <p style={{ margin: '0', fontWeight: '900', letterSpacing: '0.5px' }}>OBRIGADO PELA PREFERÊNCIA!</p>
+                <p style={{ margin: '0.5mm 0 0 0', fontSize: '6.5px', color: '#555' }}>Sistema TICCELL Assistência Técnica</p>
+              </div>
+            </div>
+          );
+        })(),
         document.getElementById('print-section')!
       )}
     </div>

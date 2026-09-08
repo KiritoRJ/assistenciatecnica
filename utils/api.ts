@@ -503,35 +503,52 @@ export class OnlineDB {
       
       if (error) throw error;
       
-      return (data || []).map(d => ({
-        id: d.id,
-        customerName: d.customer_name,
-        phoneNumber: d.phone_number,
-        address: d.address,
-        deviceBrand: d.device_brand,
-        deviceModel: d.device_model,
-        defect: d.defect,
-        repairDetails: d.repair_details || '', 
-        partsCost: Number(d.parts_cost || 0),
-        serviceCost: Number(d.service_cost || 0),
-        total: Number(d.total || 0),
-        status: d.status,
-        photos: d.photos || [],
-        finishedPhotos: d.finished_photos || [], 
-        date: d.created_at,
-        // MAPEAMENTO DAS NOVAS DATAS DO SQL PARA O APP
-        entryDate: d.entry_date || '',
-        exitDate: d.exit_date || '',
-        isDeleted: d.is_deleted || false,
-        signature: d.signature || '',
-        checklist: d.checklist || [],
-        partSupplierId: d.part_supplier_id || '',
-        partSupplierWarranty: d.part_supplier_warranty || '',
-        customerId: d.customer_id || '',
-        trackingToken: d.tracking_token || '',
-        publicNotes: d.public_notes || '',
-        isTrackingEnabled: d.is_tracking_enabled !== false
-      }));
+      return (data || []).map(d => {
+        let diagnosticTests: any = undefined;
+        let cleanChecklist: string[] = [];
+        if (Array.isArray(d.checklist)) {
+          for (const item of d.checklist) {
+            if (typeof item === 'string' && item.startsWith('__DIAG_JSON__:')) {
+              try {
+                diagnosticTests = JSON.parse(item.substring(14));
+              } catch (e) {}
+            } else {
+              cleanChecklist.push(item);
+            }
+          }
+        }
+
+        return {
+          id: d.id,
+          customerName: d.customer_name,
+          phoneNumber: d.phone_number,
+          address: d.address,
+          deviceBrand: d.device_brand,
+          deviceModel: d.device_model,
+          defect: d.defect,
+          repairDetails: d.repair_details || '', 
+          partsCost: Number(d.parts_cost || 0),
+          serviceCost: Number(d.service_cost || 0),
+          total: Number(d.total || 0),
+          status: d.status,
+          photos: d.photos || [],
+          finishedPhotos: d.finished_photos || [], 
+          date: d.created_at,
+          // MAPEAMENTO DAS NOVAS DATAS DO SQL PARA O APP
+          entryDate: d.entry_date || '',
+          exitDate: d.exit_date || '',
+          isDeleted: d.is_deleted || false,
+          signature: d.signature || '',
+          checklist: cleanChecklist,
+          diagnosticTests: diagnosticTests,
+          partSupplierId: d.part_supplier_id || '',
+          partSupplierWarranty: d.part_supplier_warranty || '',
+          customerId: d.customer_id || '',
+          trackingToken: d.tracking_token || '',
+          publicNotes: d.public_notes || '',
+          isTrackingEnabled: d.is_tracking_enabled !== false
+        };
+      });
     } catch (e) { 
       console.error("Erro ao buscar ordens do Supabase:", e);
       return []; 
@@ -719,36 +736,44 @@ export class OnlineDB {
   static async upsertOrders(tenantId: string, orders: any[]) {
     if (!tenantId || !orders.length) return { success: true };
     try {
-      const payload = orders.map(os => ({
-        id: os.id,
-        tenant_id: tenantId,
-        customer_name: os.customerName,
-        phone_number: os.phoneNumber,
-        address: os.address,
-        device_brand: os.deviceBrand,
-        device_model: os.deviceModel,
-        defect: os.defect,
-        repair_details: os.repairDetails, 
-        parts_cost: os.partsCost,
-        service_cost: os.serviceCost,
-        total: os.total,
-        status: os.status,
-        photos: os.photos,
-        finished_photos: os.finishedPhotos || [], 
-        created_at: os.date || new Date().toISOString(),
-        // ENVIO DAS NOVAS DATAS PARA O SQL
-        entry_date: os.entryDate,
-        exit_date: os.exitDate,
-        is_deleted: os.isDeleted || false,
-        signature: os.signature || '',
-        checklist: os.checklist || [],
-        part_supplier_id: os.partSupplierId || '',
-        part_supplier_warranty: os.partSupplierWarranty || '',
-        customer_id: os.customerId || null,
-        tracking_token: os.trackingToken || null,
-        public_notes: os.publicNotes || null,
-        is_tracking_enabled: os.isTrackingEnabled !== false
-      }));
+      const payload = orders.map(os => {
+        let checklistArr = Array.isArray(os.checklist) ? [...os.checklist] : [];
+        if (os.diagnosticTests) {
+          checklistArr = checklistArr.filter((item: string) => typeof item === 'string' && !item.startsWith('__DIAG_JSON__:'));
+          checklistArr.push(`__DIAG_JSON__:${JSON.stringify(os.diagnosticTests)}`);
+        }
+
+        return {
+          id: os.id,
+          tenant_id: tenantId,
+          customer_name: os.customerName,
+          phone_number: os.phoneNumber,
+          address: os.address,
+          device_brand: os.deviceBrand,
+          device_model: os.deviceModel,
+          defect: os.defect,
+          repair_details: os.repairDetails, 
+          parts_cost: os.partsCost,
+          service_cost: os.serviceCost,
+          total: os.total,
+          status: os.status,
+          photos: os.photos,
+          finished_photos: os.finishedPhotos || [], 
+          created_at: os.date || new Date().toISOString(),
+          // ENVIO DAS NOVAS DATAS PARA O SQL
+          entry_date: os.entryDate,
+          exit_date: os.exitDate,
+          is_deleted: os.isDeleted || false,
+          signature: os.signature || '',
+          checklist: checklistArr,
+          part_supplier_id: os.partSupplierId || '',
+          part_supplier_warranty: os.partSupplierWarranty || '',
+          customer_id: os.customerId || null,
+          tracking_token: os.trackingToken || null,
+          public_notes: os.publicNotes || null,
+          is_tracking_enabled: os.isTrackingEnabled !== false
+        };
+      });
       const { error } = await supabase.from('service_orders').upsert(payload, { onConflict: 'id' });
       if (error) throw error;
       return { success: true };

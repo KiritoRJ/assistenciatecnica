@@ -1,5 +1,26 @@
-import { ServiceOrder, AppSettings } from '../types';
+import { ServiceOrder, AppSettings, DeviceDiagnosticResults } from '../types';
 import { formatCurrency, formatDate } from '../utils';
+import { COMMON_DEFECTS } from '../components/ServiceOrderTab';
+
+function getOrderDiagnostics(os?: ServiceOrder | null): DeviceDiagnosticResults | null {
+  if (!os) return null;
+  if (os.diagnosticTests) return os.diagnosticTests;
+  if (Array.isArray(os.checklist)) {
+    for (const item of os.checklist) {
+      if (typeof item === 'string' && item.startsWith('__DIAG_JSON__:')) {
+        try {
+          return JSON.parse(item.substring(14));
+        } catch (e) {}
+      }
+    }
+  }
+  try {
+    const targetToken = os.trackingToken || os.id;
+    const cached = localStorage.getItem(`os_diag_${targetToken}`) || localStorage.getItem(`os_diag_${os.id}`);
+    if (cached) return JSON.parse(cached);
+  } catch (e) {}
+  return null;
+}
 
 export interface GeneratedReceipt {
   dataUrl: string;
@@ -154,27 +175,101 @@ export async function generateReceiptCanvasImage(
     ctx.fillText(`DATA DE SAÍDA: ${order.exitDate || '-'}`, 25 * scale, currentY);
     currentY += 14 * scale;
   }
-
-  currentY += 8 * scale;
-  ctx.font = `900 ${9 * scale}px "Inter", sans-serif`;
-  ctx.fillText("Defeito informado:", 25 * scale, currentY);
-  currentY += 14 * scale;
-  currentY = wrapTextByChars(order.defect || '-', 25 * scale, currentY, 60, 12 * scale);
-  currentY += 10 * scale;
+  currentY += 6 * scale;
   currentY = drawSeparator(currentY);
 
-  // 3.5 Checklist
-  if (order.checklist && order.checklist.length > 0) {
+  // 3.4 Checklist de Defeitos na Entrada (apenas se selecionado manualmente na criação/edição da O.S.)
+  const cleanChecklist = (order.checklist || []).filter(c => {
+    if (typeof c !== 'string') return false;
+    const trimmed = c.trim();
+    if (!trimmed || trimmed.startsWith('__DIAG_JSON__:') || trimmed.startsWith('🔍 [TESTE]')) return false;
+    if (trimmed.startsWith('📱') || trimmed.startsWith('✌️') || trimmed.startsWith('🎤') || trimmed.startsWith('🔊') || trimmed.startsWith('📞') || trimmed.startsWith('📶') || trimmed.startsWith('👁️') || trimmed.startsWith('🔐')) return false;
+    return COMMON_DEFECTS.some(cd => cd.toLowerCase() === trimmed.toLowerCase());
+  });
+  if (cleanChecklist.length > 0) {
     ctx.font = `900 ${10 * scale}px "Inter", sans-serif`;
     ctx.textAlign = 'left';
-    ctx.fillText("CHECKLIST DE DEFEITOS", 25 * scale, currentY);
-    currentY += 18 * scale;
-    ctx.font = `500 ${9 * scale}px "Inter", sans-serif`;
-    const checklistText = order.checklist.join(', ');
-    currentY = wrapTextByChars(checklistText, 25 * scale, currentY, 60, 12 * scale);
-    currentY += 10 * scale;
+    ctx.fillStyle = '#000000';
+    ctx.fillText("CHECKLIST DE DEFEITOS NA ENTRADA", 25 * scale, currentY);
+    currentY += 16 * scale;
+
+    const colWidth = (width - 60 * scale) / 2;
+    const startY = currentY;
+    let maxHeight = 0;
+
+    cleanChecklist.forEach((item, idx) => {
+      const col = idx % 2;
+      const row = Math.floor(idx / 2);
+      const itemX = 25 * scale + col * (colWidth + 10 * scale);
+      const itemY = startY + row * 16 * scale;
+
+      ctx.font = `900 ${8 * scale}px "Inter", sans-serif`;
+      ctx.fillStyle = '#DC2626';
+      ctx.fillText("[!]", itemX, itemY);
+
+      ctx.font = `600 ${8.5 * scale}px "Inter", sans-serif`;
+      ctx.fillStyle = '#111827';
+      const itemTrimmed = item.length > 18 ? item.substring(0, 17) + '…' : item;
+      ctx.fillText(itemTrimmed, itemX + 18 * scale, itemY);
+
+      if ((row + 1) * 16 * scale > maxHeight) {
+        maxHeight = (row + 1) * 16 * scale;
+      }
+    });
+
+    currentY = startY + maxHeight + 10 * scale;
     currentY = drawSeparator(currentY);
   }
+
+  // 3.5 Testes Realizados na Entrega/Saída (testes de hardware de fato)
+  const diagResults = getOrderDiagnostics(order);
+  const diagTests = diagResults?.tests ? Object.values(diagResults.tests) : [];
+  const executedHardwareTests = diagTests.filter(t => t.status === 'passed' || t.status === 'failed');
+
+  if (executedHardwareTests.length > 0) {
+    ctx.font = `900 ${10 * scale}px "Inter", sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#000000';
+    ctx.fillText("TESTES REALIZADOS NA ENTREGA/SAÍDA", 25 * scale, currentY);
+    currentY += 16 * scale;
+
+    const colWidth = (width - 60 * scale) / 2;
+    const startY = currentY;
+    let maxHeight = 0;
+
+    executedHardwareTests.forEach((t, idx) => {
+      const col = idx % 2;
+      const row = Math.floor(idx / 2);
+      const itemX = 25 * scale + col * (colWidth + 10 * scale);
+      const itemY = startY + row * 16 * scale;
+
+      ctx.font = `900 ${8 * scale}px "Inter", sans-serif`;
+      ctx.fillStyle = t.status === 'failed' ? '#DC2626' : '#16A34A';
+      const badgeText = t.status === 'failed' ? 'OFF' : 'ON';
+      ctx.fillText(badgeText, itemX, itemY);
+
+      ctx.font = `500 ${8.5 * scale}px "Inter", sans-serif`;
+      ctx.fillStyle = '#111827';
+      const nameTrimmed = t.name.length > 17 ? t.name.substring(0, 16) + '…' : t.name;
+      ctx.fillText(nameTrimmed, itemX + 26 * scale, itemY);
+
+      if ((row + 1) * 16 * scale > maxHeight) {
+        maxHeight = (row + 1) * 16 * scale;
+      }
+    });
+
+    currentY = startY + maxHeight + 10 * scale;
+    currentY = drawSeparator(currentY);
+  }
+
+  // 3.6 Defeito Informado (em baixo do bloco de testes realizados)
+  ctx.font = `900 ${9 * scale}px "Inter", sans-serif`;
+  ctx.fillStyle = '#000000';
+  ctx.fillText("DEFEITO INFORMADO:", 25 * scale, currentY);
+  currentY += 14 * scale;
+  currentY = wrapTextByChars(order.defect || 'Nenhum defeito detalhado', 25 * scale, currentY, 60, 12 * scale);
+  currentY += 10 * scale;
+  currentY = drawSeparator(currentY);
 
   // 4. Reparo Efetuado
   ctx.font = `900 ${10 * scale}px "Inter", sans-serif`;

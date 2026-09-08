@@ -11,17 +11,19 @@ import {
   MessageCircle, 
   ShieldCheck, 
   ChevronRight, 
-  RotateCw,
-  Sparkles,
-  Image as ImageIcon,
-  Radio,
-  BellRing,
-  CheckCircle,
-  X,
-  Gamepad2
+  RotateCw, 
+  Sparkles, 
+  Image as ImageIcon, 
+  Radio, 
+  BellRing, 
+  CheckCircle, 
+  X, 
+  Gamepad2, 
+  QrCode 
 } from 'lucide-react';
 import { supabase } from '../utils/api';
 import { SnakeGameModal } from './SnakeGameModal';
+import { DeviceDiagnosticResults } from '../types';
 
 interface Props {
   token: string;
@@ -43,6 +45,7 @@ interface TrackingData {
   total?: number;
   photos?: string[];
   finishedPhotos?: string[];
+  diagnosticTests?: DeviceDiagnosticResults;
   store?: {
     name: string;
     phone?: string;
@@ -567,6 +570,65 @@ const PublicTrackingPage: React.FC<Props> = ({ token }) => {
             })}
           </div>
         </div>
+
+        {/* LAUDO DE TESTES DE HARDWARE REALIZADOS */}
+        {order.diagnosticTests && (
+          <div className="bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-800 shadow-xl space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs">
+                  <ShieldCheck size={16} />
+                </div>
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-200">
+                    Laudo de Testes de Hardware
+                  </h3>
+                  <p className="text-[10px] text-slate-400">Verificação técnica dos componentes do celular</p>
+                </div>
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 flex items-center gap-1">
+                <CheckCircle2 size={12} /> {order.diagnosticTests.summary || 'Aprovado'}
+              </span>
+            </div>
+
+            {order.diagnosticTests.tests && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {Object.values(order.diagnosticTests.tests).map((t) => (
+                  <div
+                    key={t.id}
+                    className={`p-3 rounded-2xl border flex flex-col justify-between gap-1.5 ${
+                      t.status === 'passed'
+                        ? 'bg-emerald-950/20 border-emerald-800/40 text-emerald-300'
+                        : t.status === 'failed'
+                        ? 'bg-rose-950/20 border-rose-800/40 text-rose-300'
+                        : 'bg-slate-950/40 border-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <span className="text-[11px] font-bold truncate text-slate-200">{t.name}</span>
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
+                        t.status === 'passed'
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                          : t.status === 'failed'
+                          ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                          : 'bg-slate-800 text-slate-400'
+                      }`}>
+                        {t.status === 'passed' ? 'Aprovado' : t.status === 'failed' ? 'Reprovado' : 'Pendente'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {order.diagnosticTests.technicianNotes && (
+              <div className="p-3 bg-slate-950/50 rounded-2xl border border-slate-800/80">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Observações do Técnico</p>
+                <p className="text-xs text-slate-300">{order.diagnosticTests.technicianNotes}</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* FOTOS DO APARELHO (SE HOUVER) */}
         {((order.photos && order.photos.length > 0) || (order.finishedPhotos && order.finishedPhotos.length > 0)) && (

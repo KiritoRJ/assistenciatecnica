@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { 
   X, Check, Copy, ExternalLink, Printer, 
   Smartphone, User, Eye, Send, Image as ImageIcon, Loader2, Download,
-  Sparkles, CheckCircle2
+  Sparkles, CheckCircle2, QrCode, Wrench, Layers, ShieldCheck
 } from 'lucide-react';
-import { ServiceOrder, AppSettings } from '../types';
+import QRCode from 'qrcode';
+import { ServiceOrder, AppSettings, DeviceDiagnosticResults } from '../types';
 import { formatCurrency } from '../utils';
 import { generateReceiptCanvasImage, shareReceiptDirectly } from '../utils/receiptGenerator';
+import { DiagnosticReportModal } from './DiagnosticReportModal';
 
 interface SavedOrderShareModalProps {
   isOpen: boolean;
@@ -26,9 +28,32 @@ export const SavedOrderShareModal: React.FC<SavedOrderShareModalProps> = ({
   onPrint
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedTestLink, setCopiedTestLink] = useState(false);
   const [isGeneratingPhoto, setIsGeneratingPhoto] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [photoSentFeedback, setPhotoSentFeedback] = useState<string | null>(null);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
+  const [showDiagnosticReport, setShowDiagnosticReport] = useState(false);
+
+  const getOrderDiagnostics = (): DeviceDiagnosticResults | null => {
+    if (!order) return null;
+    if (order.diagnosticTests) return order.diagnosticTests;
+    if (Array.isArray(order.checklist)) {
+      for (const item of order.checklist) {
+        if (typeof item === 'string' && item.startsWith('__DIAG_JSON__:')) {
+          try {
+            return JSON.parse(item.substring(14));
+          } catch (e) {}
+        }
+      }
+    }
+    try {
+      const targetToken = order.trackingToken || order.id;
+      const cached = localStorage.getItem(`os_diag_${targetToken}`) || localStorage.getItem(`os_diag_${order.id}`);
+      if (cached) return JSON.parse(cached);
+    } catch (e) {}
+    return null;
+  };
 
   useEffect(() => {
     if (isOpen && order) {
@@ -36,10 +61,26 @@ export const SavedOrderShareModal: React.FC<SavedOrderShareModalProps> = ({
       generateReceiptCanvasImage(order, settings)
         .then(res => setPreviewImageUrl(res.dataUrl))
         .catch(err => console.warn('Erro ao pré-carregar imagem:', err));
+
+      // Gera o QR Code para a página externa de testes de hardware do celular
+      const targetToken = order.trackingToken || order.id;
+      const hardwareTestUrl = `${window.location.origin}/teste-hardware/${targetToken}`;
+      QRCode.toDataURL(hardwareTestUrl, {
+        width: 280,
+        margin: 1,
+        color: {
+          dark: '#0f172a',
+          light: '#ffffff'
+        }
+      })
+        .then(url => setQrCodeDataUrl(url))
+        .catch(err => console.error('Erro ao gerar QR Code de testes:', err));
     } else {
       setPreviewImageUrl(null);
       setPhotoSentFeedback(null);
       setCopiedLink(false);
+      setCopiedTestLink(false);
+      setQrCodeDataUrl(null);
     }
   }, [isOpen, order, settings]);
 
@@ -51,6 +92,25 @@ export const SavedOrderShareModal: React.FC<SavedOrderShareModalProps> = ({
   const phoneWithCountry = cleanPhone.length <= 11 && !cleanPhone.startsWith('55') ? `55${cleanPhone}` : cleanPhone;
   const trackingToken = order.trackingToken || order.id;
   const trackingUrl = `${window.location.origin}/acompanhamento/${trackingToken}`;
+  const hardwareTestUrl = `${window.location.origin}/teste-hardware/${trackingToken}`;
+
+  const handleCopyTestLink = () => {
+    navigator.clipboard.writeText(hardwareTestUrl);
+    setCopiedTestLink(true);
+    setTimeout(() => setCopiedTestLink(false), 3000);
+  };
+
+  const handleShareTestWhatsApp = () => {
+    const text = encodeURIComponent(
+      `*${storeName}* - Teste de Hardware do Celular\n\n` +
+      `Olá, *${order.customerName}*!\n` +
+      `Criamos os testes de funções do seu aparelho (*${order.deviceBrand} ${order.deviceModel}*) referente à O.S. *${osCode}*.\n\n` +
+      `Para testar Touch, Microfone, Alto-falante, Wi-Fi, Sensores e Biometria, acesse o link:\n` +
+      `${hardwareTestUrl}\n\n` +
+      `_Os resultados dos testes serão gravados diretamente na sua Ordem de Serviço._`
+    );
+    window.open(`https://wa.me/${phoneWithCountry}?text=${text}`, '_blank');
+  };
 
   // Envia o arquivo de imagem do comprovante direto para o WhatsApp / Compartilhamento nativo
   const handleShareReceiptPhoto = async () => {
@@ -179,6 +239,127 @@ export const SavedOrderShareModal: React.FC<SavedOrderShareModalProps> = ({
               <span>{photoSentFeedback}</span>
             </div>
           )}
+
+          {/* NOVO: TESTES DE FUNÇÕES E HARDWARE DO CELULAR (QR CODE) */}
+          <div className="border-2 border-indigo-500/30 bg-indigo-50/50 rounded-2xl p-4 sm:p-5 space-y-3 relative overflow-hidden">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-600/30 shrink-0">
+                  <QrCode size={22} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h4 className="text-xs sm:text-sm font-black uppercase tracking-wide text-slate-900">
+                      Testes de Hardware do Celular
+                    </h4>
+                    <span className="bg-indigo-600 text-white text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md">
+                      QR Code
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-tight mt-0.5">
+                    Escaneie para testar Touch, Multi-touch, Microfone, Alto-falante, Auricular, Wi-Fi, Sensor e Biometria.
+                  </p>
+                </div>
+              </div>
+
+              {order.diagnosticTests && (
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0 flex items-center gap-1">
+                  <CheckCircle2 size={12} /> {order.diagnosticTests.summary || 'Testado'}
+                </span>
+              )}
+            </div>
+
+            {(() => {
+              const diagResults = getOrderDiagnostics();
+              if (!diagResults) return null;
+              return (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between gap-2 shadow-xs">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+                    <div>
+                      <p className="text-xs font-black text-emerald-950">
+                        Hardware Já Testado ({diagResults.summary || 'Aprovado'})
+                      </p>
+                      <p className="text-[10px] text-emerald-700">
+                        Os resultados dos testes já estão gravados no sistema.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowDiagnosticReport(true)}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs cursor-pointer shrink-0 active:scale-95 transition-all"
+                  >
+                    <ShieldCheck size={13} />
+                    <span>Ver Laudo</span>
+                  </button>
+                </div>
+              );
+            })()}
+
+            {/* Visual do QR Code Centralizado */}
+            <div className="bg-white border border-indigo-100 rounded-2xl p-4 flex flex-col items-center justify-center text-center shadow-sm">
+              {qrCodeDataUrl ? (
+                <div className="relative group">
+                  <div className="p-2 bg-white rounded-xl border border-slate-200 shadow-sm inline-block">
+                    <img 
+                      src={qrCodeDataUrl} 
+                      alt="QR Code de Teste de Hardware"
+                      className="w-36 h-36 sm:w-40 sm:h-40 object-contain rounded-lg"
+                    />
+                  </div>
+                  <div className="mt-2 flex items-center justify-center gap-1.5 text-[11px] font-bold text-slate-600">
+                    <Smartphone size={13} className="text-indigo-600" />
+                    <span>Aponte a câmera do celular para iniciar</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-36 h-36 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400">
+                  <Loader2 size={24} className="animate-spin text-indigo-500" />
+                </div>
+              )}
+
+              {/* Link Input de Teste */}
+              <div className="w-full mt-3 flex items-center gap-1.5 bg-slate-50 border border-indigo-200/80 rounded-xl p-1.5 pl-3">
+                <input 
+                  type="text" 
+                  readOnly 
+                  value={hardwareTestUrl}
+                  className="w-full text-[11px] text-slate-600 font-mono bg-transparent outline-none select-all"
+                />
+                <button
+                  type="button"
+                  onClick={handleCopyTestLink}
+                  className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
+                >
+                  {copiedTestLink ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
+                  <span>{copiedTestLink ? 'Copiado!' : 'Copiar'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Ações Rápidas dos Testes */}
+            <div className="flex flex-col sm:flex-row items-stretch gap-2 pt-1">
+              <a
+                href={hardwareTestUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white py-3 px-4 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md shadow-indigo-600/30 transition-all text-center"
+              >
+                <ExternalLink size={15} />
+                <span>Abrir Testes no Aparelho</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={handleShareTestWhatsApp}
+                className="bg-white hover:bg-slate-100 active:scale-[0.98] border border-indigo-200 text-indigo-700 py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Send size={15} />
+                <span>Mandar no WhatsApp</span>
+              </button>
+            </div>
+          </div>
 
           {/* OPÇÃO 1: ENVIAR FOTO DO COMPROVANTE (IMAGEM DIRETO) */}
           <div className="border-2 border-emerald-500/30 bg-emerald-50/50 rounded-2xl p-4 sm:p-5 space-y-3 relative overflow-hidden">
@@ -321,6 +502,14 @@ export const SavedOrderShareModal: React.FC<SavedOrderShareModalProps> = ({
           </button>
         </div>
       </div>
+
+      {/* MODAL DE LAUDO TÉCNICO DE HARDWARE */}
+      <DiagnosticReportModal
+        isOpen={showDiagnosticReport}
+        onClose={() => setShowDiagnosticReport(false)}
+        order={order}
+        settings={settings}
+      />
     </div>
   );
 };

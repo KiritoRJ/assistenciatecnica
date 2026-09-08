@@ -14,6 +14,7 @@ import SuperAdminDashboard from './components/SuperAdminDashboard';
 import SubscriptionView from './components/SubscriptionView';
 import CustomerCatalog from './components/CustomerCatalog';
 import PublicTrackingPage from './components/PublicTrackingPage';
+import { DeviceHardwareTestPage } from './components/DeviceHardwareTestPage';
 import { OnlineDB, supabase } from './utils/api';
 import { OfflineSync } from './utils/offlineSync';
 import { db } from './utils/localDb';
@@ -103,6 +104,7 @@ const App: React.FC = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
 
   const currentUser = useMemo(() => {
     if (!settings?.users) return session?.user || null;
@@ -123,7 +125,14 @@ const App: React.FC = () => {
   
   if (pathname.startsWith('/catalogo/')) {
     catalogTenantId = pathname.split('/catalogo/')[1].replace(/\/$/, '');
-  } else if (pathname.length > 1 && !pathname.startsWith('/api/') && !pathname.startsWith('/auth/') && !pathname.startsWith('/acompanhamento/')) {
+  } else if (
+    pathname.length > 1 && 
+    !pathname.startsWith('/api/') && 
+    !pathname.startsWith('/auth/') && 
+    !pathname.startsWith('/acompanhamento/') &&
+    !pathname.startsWith('/teste-hardware/') &&
+    !pathname.startsWith('/test/')
+  ) {
     catalogSlug = pathname.substring(1).replace(/\/$/, '');
   }
 
@@ -317,54 +326,85 @@ const App: React.FC = () => {
     }
   }, [session?.isLoggedIn, session?.tenantId, loadData]);
 
-  // Real-time listener for data updates
+  // Real-time listener for data updates + instant hardware test broadcast sync
   useEffect(() => {
     if (!session?.isLoggedIn || !session.tenantId) return;
 
     const tenantId = session.tenantId;
     let timeout: any;
 
-    const debouncedLoad = () => {
+    const debouncedLoad = (delay = 200) => {
       clearTimeout(timeout);
-      timeout = setTimeout(() => loadData(tenantId), 1000);
+      timeout = setTimeout(() => loadData(tenantId), delay);
     };
     
+    // 1. Supabase Postgres Real-time Channel
     const channel = supabase
       .channel(`tenant-${tenantId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'service_orders', filter: `tenant_id=eq.${tenantId}` },
-        debouncedLoad
+        () => debouncedLoad(100)
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'customers', filter: `tenant_id=eq.${tenantId}` },
-        debouncedLoad
+        () => debouncedLoad(200)
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'sales', filter: `tenant_id=eq.${tenantId}` },
-        debouncedLoad
+        () => debouncedLoad(200)
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'products', filter: `tenant_id=eq.${tenantId}` },
-        debouncedLoad
+        () => debouncedLoad(200)
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'transactions', filter: `tenant_id=eq.${tenantId}` },
-        debouncedLoad
+        () => debouncedLoad(200)
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tenants', filter: `id=eq.${tenantId}` },
-        debouncedLoad
+        () => debouncedLoad(200)
       )
       .subscribe();
 
+    // 2. BroadcastChannel para sincronização instantânea de testes de hardware entre abas
+    let bc: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      bc = new BroadcastChannel('os_hardware_test_sync');
+      bc.onmessage = (event) => {
+        const { token, diagnosticResults } = event.data || {};
+        if (token && diagnosticResults) {
+          setOrders(prev => prev.map(o => {
+            if (o.trackingToken === token || o.id === token) {
+              return {
+                ...o,
+                diagnosticTests: diagnosticResults
+              };
+            }
+            return o;
+          }));
+          debouncedLoad(300);
+        }
+      };
+    }
+
+    // 3. Polling de segurança em tempo real a cada 4 segundos quando a aba estiver ativa
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible' && navigator.onLine) {
+        debouncedLoad(0);
+      }
+    }, 4000);
+
     return () => {
       clearTimeout(timeout);
+      clearInterval(interval);
+      if (bc) bc.close();
       supabase.removeChannel(channel);
     };
   }, [session?.isLoggedIn, session?.tenantId, loadData]);
@@ -654,6 +694,14 @@ const App: React.FC = () => {
   if (pathname.startsWith('/acompanhamento/')) {
     const token = pathname.split('/acompanhamento/')[1];
     return <PublicTrackingPage token={token} />;
+  }
+
+  // Teste de hardware de celular (acesso via QR Code gerado na O.S.)
+  if (pathname.startsWith('/teste-hardware/') || pathname.startsWith('/test/')) {
+    const osIdOrToken = pathname.startsWith('/teste-hardware/')
+      ? pathname.split('/teste-hardware/')[1]?.split('/')[0]?.split('?')[0]
+      : pathname.split('/test/')[1]?.split('/')[0]?.split('?')[0];
+    return <DeviceHardwareTestPage osIdOrToken={osIdOrToken} />;
   }
 
   if (isInitializing) {
@@ -1046,25 +1094,33 @@ const App: React.FC = () => {
 
   const handleTouchStart = (e: React.TouchEvent) => {
     const touch = e.touches[0];
-    if (touch.clientX < 90) {
+    // Permitir início do gesto até 180px da borda esquerda para contornar o gesto nativo de 'voltar' da borda infinita
+    if (touch.clientX < 180) {
       setTouchStartX(touch.clientX);
+      setTouchStartY(touch.clientY);
     } else {
       setTouchStartX(null);
+      setTouchStartY(null);
     }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchStartX === null) return;
+    if (touchStartX === null || touchStartY === null) return;
     const touch = e.touches[0];
-    const diff = touch.clientX - touchStartX;
-    if (diff > 40) {
+    const diffX = touch.clientX - touchStartX;
+    const diffY = Math.abs(touch.clientY - touchStartY);
+    
+    // Se arrastou para a direita mais de 35px e o movimento é predominantemente horizontal
+    if (diffX > 35 && diffX > diffY * 0.8) {
       setIsSidebarOpen(true);
       setTouchStartX(null);
+      setTouchStartY(null);
     }
   };
 
   const handleTouchEnd = () => {
     setTouchStartX(null);
+    setTouchStartY(null);
   };
 
   return (
@@ -1113,32 +1169,52 @@ const App: React.FC = () => {
 
       <main className="flex-1 flex flex-col h-[100dvh] overflow-hidden relative">
         {/* Mobile Top Header */}
-        <div className="md:hidden flex items-center justify-between bg-white border-b border-slate-100 px-4 py-3 shrink-0 z-20 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <div 
-                onClick={() => setIsSidebarOpen(true)}
-                className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow-md cursor-pointer active:scale-95 transition-all overflow-hidden"
-              >
-                {settings.logoUrl ? <img src={settings.logoUrl} className="w-full h-full object-cover rounded-lg" /> : <Smartphone size={16} />}
-              </div>
-              <span className="font-black text-xs uppercase tracking-tight text-slate-900 truncate max-w-[180px]">{settings.storeName}</span>
+        <div className="md:hidden flex items-center justify-between bg-white border-b border-slate-100 px-4 py-2.5 shrink-0 z-20 shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setIsSidebarOpen(true)}
+              className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-xs shadow-md shadow-blue-500/20 active:scale-95 transition-all overflow-hidden border-2 border-white ring-2 ring-blue-500/30 cursor-pointer shrink-0"
+              title="Toque na foto para abrir o menu lateral"
+            >
+              {settings.logoUrl ? (
+                <img src={settings.logoUrl} className="w-full h-full object-cover rounded-lg" alt={settings.storeName} />
+              ) : (
+                <Smartphone size={18} />
+              )}
+            </button>
+            <div 
+              onClick={() => setIsSidebarOpen(true)} 
+              className="cursor-pointer flex flex-col justify-center select-none"
+            >
+              <span className="font-black text-xs uppercase tracking-tight text-slate-900 truncate max-w-[170px] leading-tight">
+                {settings.storeName}
+              </span>
+              <span className="text-[9px] font-bold text-blue-600 tracking-wider flex items-center gap-0.5 leading-tight mt-0.5">
+                Abrir Menu ▾
+              </span>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg">
+            <span className="text-[10px] font-black uppercase tracking-widest text-blue-700 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-lg shadow-xs">
               {visibleNavItems.find(i => i.id === activeTab)?.label || 'Menu'}
             </span>
           </div>
         </div>
 
-        {/* Subtle Edge Handle for Mobile Swipe/Tap */}
+        {/* Alça Lateral Ergonômica para Celulares com Borda Infinita / Gestos */}
         <div 
           onClick={() => setIsSidebarOpen(true)}
-          className="md:hidden fixed left-0 top-1/2 -translate-y-1/2 w-1.5 h-16 bg-blue-600/40 hover:bg-blue-600 rounded-r-md z-30 shadow cursor-pointer flex items-center justify-center transition-all opacity-70 hover:opacity-100"
-          title="Abrir Menu"
+          onTouchStart={(e) => {
+            e.stopPropagation();
+            setIsSidebarOpen(true);
+          }}
+          className="md:hidden fixed left-0 top-1/2 -translate-y-1/2 z-30 cursor-pointer group select-none py-2 pr-2"
+          title="Deslize ou toque para abrir o menu"
         >
-          <div className="w-0.5 h-6 bg-white/90 rounded-full"></div>
+          <div className="w-2.5 h-16 bg-blue-600/70 hover:bg-blue-600 active:bg-blue-700 rounded-r-xl shadow-md shadow-blue-600/30 flex items-center justify-center transition-all">
+            <div className="w-0.5 h-6 bg-white/90 rounded-full"></div>
+          </div>
         </div>
 
         {/* Botão de Menu Flutuante (Desktop quando fechado) */}
@@ -1205,22 +1281,22 @@ const App: React.FC = () => {
       </main>
 
       {isSidebarOpen && (
-        <div className="fixed inset-0 bg-transparent z-50 flex justify-start">
-          <div className="absolute inset-0 bg-slate-900/10" onClick={() => setIsSidebarOpen(false)}></div>
-          <div className="relative w-[85vw] max-w-[280px] h-full bg-white text-slate-900 p-5 flex flex-col shadow-2xl animate-in slide-in-from-left duration-300 border-r border-slate-200 overflow-hidden">
-            <div className="flex justify-between items-center mb-6 shrink-0">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Menu Principal</span>
-              <button onClick={() => setIsSidebarOpen(false)} className="p-2 text-slate-500 hover:text-slate-900 transition-colors bg-slate-100 rounded-full active:scale-90">
-                <X size={20} />
+        <div className="fixed inset-0 bg-transparent z-50 flex justify-start md:hidden">
+          <div className="absolute inset-0 bg-slate-900/25 backdrop-blur-[2px]" onClick={() => setIsSidebarOpen(false)}></div>
+          <div className="relative w-[78vw] max-w-[260px] h-full bg-slate-50 text-slate-900 p-4 sm:p-5 flex flex-col shadow-2xl animate-in slide-in-from-left duration-300 border-r border-slate-200/90 rounded-r-3xl overflow-hidden">
+            <div className="flex justify-between items-center mb-4 shrink-0">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Navegação</span>
+              <button onClick={() => setIsSidebarOpen(false)} className="p-1.5 text-slate-500 hover:text-slate-900 transition-colors bg-white border border-slate-200 rounded-full active:scale-90 shadow-xs">
+                <X size={18} />
               </button>
             </div>
 
-            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl mb-6 border border-slate-100 shrink-0">
-              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shrink-0">
-                {settings.logoUrl ? <img src={settings.logoUrl} className="w-full h-full object-cover rounded-xl" /> : <Smartphone size={20} />}
+            <div className="flex items-center gap-3 p-3 bg-white rounded-2xl mb-4 border border-slate-200/80 shadow-xs shrink-0">
+              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-blue-600/20 shrink-0 overflow-hidden">
+                {settings.logoUrl ? <img src={settings.logoUrl} className="w-full h-full object-cover rounded-xl" alt="Logo" /> : <Smartphone size={20} />}
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-tight truncate">{settings.storeName}</h3>
+                <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-tight truncate">{settings.storeName}</h3>
                 <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest truncate">
                   {currentUser.role === 'admin' ? 'Administrador' : 'Colaborador'}
                 </p>
@@ -1232,22 +1308,22 @@ const App: React.FC = () => {
                 <button 
                   key={`nav-mobile-sidebar-${item.id}-${idx}`} 
                   onClick={() => { setActiveTab(item.id as Tab); setIsSidebarOpen(false); }} 
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                  className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
                     activeTab === item.id 
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30' 
+                      : 'text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200/60'
                   }`}
                 >
-                  <item.icon size={18} className={activeTab === item.id ? 'animate-pulse' : ''} />
-                  {item.label}
+                  <item.icon size={17} className={activeTab === item.id ? 'animate-pulse' : 'text-slate-400'} />
+                  <span>{item.label}</span>
                 </button>
               ))}
             </nav>
 
-            <div className="mt-4 pt-4 border-t border-slate-100 shrink-0">
+            <div className="mt-3 pt-3 border-t border-slate-200/80 shrink-0">
               <button 
                 onClick={() => setIsLogoutModalOpen(true)} 
-                className="w-full flex items-center justify-center gap-2 px-6 py-3.5 text-red-600 font-black text-[10px] uppercase tracking-widest border border-red-500/10 rounded-xl bg-red-50 hover:bg-red-100 transition-all active:scale-95"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 text-red-600 font-black text-[10px] uppercase tracking-widest border border-red-200 rounded-xl bg-red-50 hover:bg-red-100 transition-all active:scale-95"
               >
                 <LogOut size={16} /> 
                 Sair

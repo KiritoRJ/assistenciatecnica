@@ -41,6 +41,34 @@ export interface User {
   tenantId?: string;
 }
 
+export type DeviceHardwareTestType = 
+  | 'touch'
+  | 'multitouch'
+  | 'mic'
+  | 'speaker'
+  | 'earpiece'
+  | 'wifi'
+  | 'proximity'
+  | 'biometrics';
+
+export type DiagnosticTestStatus = 'passed' | 'failed' | 'untested' | 'skipped';
+
+export interface DeviceHardwareTestItem {
+  id: DeviceHardwareTestType;
+  name: string;
+  status: DiagnosticTestStatus;
+  testedAt?: string;
+  details?: string;
+}
+
+export interface DeviceDiagnosticResults {
+  testedAt: string;
+  overallStatus: 'passed' | 'partial' | 'failed';
+  summary?: string;
+  technicianNotes?: string;
+  tests: Record<string, DeviceHardwareTestItem>;
+}
+
 // Interface que define a estrutura de uma Ordem de Serviço
 export interface ServiceOrder {
   id: string;
@@ -73,6 +101,7 @@ export interface ServiceOrder {
   trackingToken?: string;
   publicNotes?: string;
   isTrackingEnabled?: boolean;
+  diagnosticTests?: DeviceDiagnosticResults;
 }
 
 export interface CustomerNote {
