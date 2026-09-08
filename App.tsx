@@ -144,18 +144,24 @@ const App: React.FC = () => {
   useAppNotifications(transactions, products, orders, sales, settings, currentUser);
 
   const pathname = window.location.pathname;
-  let catalogTenantId = new URLSearchParams(window.location.search).get('catalog');
+  const lowerPath = pathname.toLowerCase();
+  const currentHash = (typeof window !== 'undefined' ? window.location.hash : '').toLowerCase();
+  const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+
+  let catalogTenantId = searchParams.get('catalog');
   let catalogSlug = null;
   
-  if (pathname.startsWith('/catalogo/')) {
+  if (lowerPath.startsWith('/catalogo/')) {
     catalogTenantId = pathname.split('/catalogo/')[1].replace(/\/$/, '');
   } else if (
     pathname.length > 1 && 
-    !pathname.startsWith('/api/') && 
-    !pathname.startsWith('/auth/') && 
-    !pathname.startsWith('/acompanhamento/') &&
-    !pathname.startsWith('/teste-hardware/') &&
-    !pathname.startsWith('/test/')
+    !lowerPath.startsWith('/api') && 
+    !lowerPath.startsWith('/auth') && 
+    !lowerPath.startsWith('/acompanhamento') &&
+    !lowerPath.startsWith('/teste-hardware') &&
+    !lowerPath.startsWith('/test') &&
+    !lowerPath.startsWith('/hardware') &&
+    !lowerPath.startsWith('/ipad')
   ) {
     catalogSlug = pathname.substring(1).replace(/\/$/, '');
   }
@@ -719,22 +725,59 @@ const App: React.FC = () => {
     }
   };
 
-  if (catalogTenantId || catalogSlug) {
-    return <CustomerCatalog tenantId={catalogTenantId} catalogSlug={catalogSlug} />;
+  // Teste de hardware de celular (acesso via QR Code gerado na O.S. ou link direto em qualquer servidor)
+  const isHardwareTestRoute = 
+    lowerPath.startsWith('/teste-hardware') || 
+    lowerPath.startsWith('/test/') || 
+    lowerPath.startsWith('/hardware') ||
+    currentHash.includes('teste-hardware') ||
+    currentHash.includes('test/') ||
+    searchParams.has('teste-hardware');
+
+  if (isHardwareTestRoute) {
+    let osIdOrToken = '';
+
+    // 1. Extrair de query string (?token=xxx ou ?id=xxx ou ?teste-hardware=xxx)
+    if (searchParams.get('token')) {
+      osIdOrToken = searchParams.get('token')!;
+    } else if (searchParams.get('id')) {
+      osIdOrToken = searchParams.get('id')!;
+    } else if (searchParams.get('teste-hardware')) {
+      osIdOrToken = searchParams.get('teste-hardware')!;
+    }
+
+    // 2. Extrair do pathname se não veio na query
+    if (!osIdOrToken) {
+      if (lowerPath.includes('/teste-hardware/')) {
+        osIdOrToken = pathname.split(/\/teste-hardware\//i)[1]?.split('/')[0]?.split('?')[0];
+      } else if (lowerPath.includes('/test/')) {
+        osIdOrToken = pathname.split(/\/test\//i)[1]?.split('/')[0]?.split('?')[0];
+      } else if (lowerPath.includes('/hardware/')) {
+        osIdOrToken = pathname.split(/\/hardware\//i)[1]?.split('/')[0]?.split('?')[0];
+      }
+    }
+
+    // 3. Fallback: extrair de hash (#/teste-hardware/xxx)
+    if (!osIdOrToken && currentHash) {
+      const cleanHash = window.location.hash.replace(/^#\/?/, '');
+      if (cleanHash.toLowerCase().includes('teste-hardware/')) {
+        osIdOrToken = cleanHash.split(/teste-hardware\//i)[1]?.split('/')[0]?.split('?')[0];
+      } else if (cleanHash.toLowerCase().includes('test/')) {
+        osIdOrToken = cleanHash.split(/test\//i)[1]?.split('/')[0]?.split('?')[0];
+      }
+    }
+
+    return <DeviceHardwareTestPage osIdOrToken={osIdOrToken} />;
   }
 
   // Acompanhamento público de O.S.
-  if (pathname.startsWith('/acompanhamento/')) {
-    const token = pathname.split('/acompanhamento/')[1];
+  if (lowerPath.startsWith('/acompanhamento/') || lowerPath.startsWith('/acompanhamento')) {
+    const token = pathname.split(/\/acompanhamento\/?/i)[1]?.split('/')[0]?.split('?')[0] || searchParams.get('token') || '';
     return <PublicTrackingPage token={token} />;
   }
 
-  // Teste de hardware de celular (acesso via QR Code gerado na O.S.)
-  if (pathname.startsWith('/teste-hardware/') || pathname.startsWith('/test/')) {
-    const osIdOrToken = pathname.startsWith('/teste-hardware/')
-      ? pathname.split('/teste-hardware/')[1]?.split('/')[0]?.split('?')[0]
-      : pathname.split('/test/')[1]?.split('/')[0]?.split('?')[0];
-    return <DeviceHardwareTestPage osIdOrToken={osIdOrToken} />;
+  if (catalogTenantId || catalogSlug) {
+    return <CustomerCatalog tenantId={catalogTenantId} catalogSlug={catalogSlug} />;
   }
 
   if (isInitializing) {
