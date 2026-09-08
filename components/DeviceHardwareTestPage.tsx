@@ -26,6 +26,8 @@ import {
   Zap
 } from 'lucide-react';
 import { DeviceDiagnosticResults, DeviceHardwareTestItem, DeviceHardwareTestType } from '../types';
+import { supabase } from '../utils/api';
+import { db } from '../utils/localDb';
 
 interface Props {
   osIdOrToken: string;
@@ -41,6 +43,7 @@ interface OrderInfo {
   defect: string;
   status: string;
   entryDate?: string;
+  createdAt?: string;
   checklist?: string[];
   diagnosticTests?: DeviceDiagnosticResults;
   storeName?: string;
@@ -159,22 +162,174 @@ export const DeviceHardwareTestPage: React.FC<Props> = ({ osIdOrToken }) => {
   const fetchOrderData = async () => {
     setLoading(true);
     setError(null);
-    try {
-      const response = await fetch(`/api/device-test/${encodeURIComponent(osIdOrToken)}`);
-      const data = await response.json();
+    const cleanParam = (osIdOrToken || '').trim();
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Ordem de Serviço não encontrada.');
+    if (!cleanParam) {
+      setError('Identificador da Ordem de Serviço não informado.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      let loadedOrder: OrderInfo | null = null;
+
+      // 1. Tenta buscar via API /api/device-test/:idOrToken
+      try {
+        const response = await fetch(`/api/device-test/${encodeURIComponent(cleanParam)}`);
+        const contentType = response.headers.get('content-type') || '';
+        
+        // Verifica se a resposta é JSON válido e não página HTML de erro (ex: 404 Vercel)
+        if (contentType.includes('application/json')) {
+          const data = await response.json();
+          if (response.ok && data.success && data.order) {
+            loadedOrder = data.order;
+          }
+        }
+      } catch (apiErr) {
+        console.warn('API /api/device-test fetch error, falling back to direct query:', apiErr);
       }
 
-      setOrder(data.order);
-      if (data.order.diagnosticTests?.tests) {
+      // 2. Se a API retornou HTML ou não encontrou, busca diretamente no Supabase
+      if (!loadedOrder) {
+        try {
+          let { data: orderData } = await supabase
+            .from('service_orders')
+            .select('id, tenant_id, customer_name, phone_number, device_brand, device_model, defect, repair_details, status, checklist, public_notes, created_at, entry_date, tracking_token')
+            .eq('tracking_token', cleanParam)
+            .maybeSingle();
+
+          if (!orderData) {
+            const { data: fallbackOrder } = await supabase
+              .from('service_orders')
+              .select('id, tenant_id, customer_name, phone_number, device_brand, device_model, defect, repair_details, status, checklist, public_notes, created_at, entry_date, tracking_token')
+              .eq('id', cleanParam)
+              .maybeSingle();
+            if (fallbackOrder) orderData = fallbackOrder;
+          }
+
+          if (orderData) {
+            let existingDiagnostics = null;
+            let cleanChecklist: string[] = [];
+            if (Array.isArray(orderData.checklist)) {
+              for (const item of orderData.checklist) {
+                if (typeof item === 'string' && item.startsWith('__DIAG_JSON__:')) {
+                  try {
+                    existingDiagnostics = JSON.parse(item.substring(14));
+                  } catch (e) {}
+                } else {
+                  cleanChecklist.push(item);
+                }
+              }
+            }
+
+            let storeName = 'Assistência Técnica';
+            if (orderData.tenant_id) {
+              try {
+                const [tenantRes, settingsRes] = await Promise.all([
+                  supabase.from('tenants').select('name, username').eq('id', orderData.tenant_id).maybeSingle(),
+                  supabase.from('cloud_data').select('data_json').eq('tenant_id', orderData.tenant_id).eq('store_key', 'settings').maybeSingle()
+                ]);
+                if (tenantRes.data) {
+                  storeName = tenantRes.data.name || tenantRes.data.username || storeName;
+                }
+                if (settingsRes.data?.data_json?.storeName) {
+                  storeName = settingsRes.data.data_json.storeName;
+                }
+              } catch (e) {}
+            }
+
+            loadedOrder = {
+              id: orderData.id,
+              tenantId: orderData.tenant_id,
+              customerName: orderData.customer_name,
+              phoneNumber: orderData.phone_number,
+              deviceBrand: orderData.device_brand,
+              deviceModel: orderData.device_model,
+              defect: orderData.defect,
+              status: orderData.status,
+              entryDate: orderData.entry_date,
+              createdAt: orderData.created_at,
+              checklist: cleanChecklist,
+              diagnosticTests: existingDiagnostics,
+              storeName
+            };
+          }
+        } catch (dbErr) {
+          console.warn('Direct Supabase query failed:', dbErr);
+        }
+      }
+
+      // 3. Fallback: busca no IndexedDB local (Dexie)
+      if (!loadedOrder) {
+        try {
+          const allLocalOrders = await db.orders.toArray();
+          const localOrder = allLocalOrders.find(o => 
+            o.id === cleanParam || 
+            o.trackingToken === cleanParam || 
+            (cleanParam.length >= 6 && o.id?.startsWith(cleanParam))
+          );
+
+          if (localOrder) {
+            let existingDiagnostics = localOrder.diagnosticTests || null;
+            let cleanChecklist: string[] = [];
+            if (Array.isArray(localOrder.checklist)) {
+              for (const item of localOrder.checklist) {
+                if (typeof item === 'string' && item.startsWith('__DIAG_JSON__:')) {
+                  try {
+                    existingDiagnostics = JSON.parse(item.substring(14));
+                  } catch (e) {}
+                } else {
+                  cleanChecklist.push(item);
+                }
+              }
+            }
+
+            loadedOrder = {
+              id: localOrder.id,
+              tenantId: localOrder.tenantId,
+              customerName: localOrder.customerName,
+              phoneNumber: localOrder.phoneNumber,
+              deviceBrand: localOrder.deviceBrand,
+              deviceModel: localOrder.deviceModel,
+              defect: localOrder.defect,
+              status: localOrder.status,
+              entryDate: localOrder.entryDate,
+              createdAt: localOrder.date,
+              checklist: cleanChecklist,
+              diagnosticTests: existingDiagnostics,
+              storeName: 'Assistência Técnica'
+            };
+          }
+        } catch (dexieErr) {
+          console.warn('Dexie local query failed:', dexieErr);
+        }
+      }
+
+      if (!loadedOrder) {
+        throw new Error('Ordem de Serviço não encontrada. Verifique se o código ou link da O.S. está correto.');
+      }
+
+      setOrder(loadedOrder);
+
+      // Restaura diagnósticos se houver salvos
+      let diag = loadedOrder.diagnosticTests;
+      try {
+        const cached = localStorage.getItem(`os_diag_${cleanParam}`) || localStorage.getItem(`os_diag_${loadedOrder.id}`);
+        if (cached) {
+          const parsedCache = JSON.parse(cached);
+          if (!diag || (parsedCache.testedAt && new Date(parsedCache.testedAt) > new Date(diag.testedAt || 0))) {
+            diag = parsedCache;
+          }
+        }
+      } catch (e) {}
+
+      if (diag?.tests) {
         setTestResults(prev => ({
           ...prev,
-          ...data.order.diagnosticTests.tests
+          ...diag.tests
         }));
-        if (data.order.diagnosticTests.technicianNotes) {
-          setTechnicianNotes(data.order.diagnosticTests.technicianNotes);
+        if (diag.technicianNotes) {
+          setTechnicianNotes(diag.technicianNotes);
         }
       }
     } catch (err: any) {
@@ -213,27 +368,93 @@ export const DeviceHardwareTestPage: React.FC<Props> = ({ osIdOrToken }) => {
       tests: latestTests
     };
 
+    const cleanParam = (osIdOrToken || '').trim();
+
     try {
       // 1. Salva cópia local e notifica abas abertas no mesmo navegador
       try {
-        localStorage.setItem(`os_diag_${osIdOrToken}`, JSON.stringify(payload));
+        localStorage.setItem(`os_diag_${cleanParam}`, JSON.stringify(payload));
+        if (order?.id) {
+          localStorage.setItem(`os_diag_${order.id}`, JSON.stringify(payload));
+        }
         if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
           const bc = new BroadcastChannel('os_hardware_test_sync');
-          bc.postMessage({ token: osIdOrToken, diagnosticResults: payload });
+          bc.postMessage({ token: cleanParam, orderId: order?.id, diagnosticResults: payload });
           bc.close();
         }
       } catch (e) {}
 
-      // 2. Envia para o servidor em tempo real
-      const resp = await fetch(`/api/device-test/${encodeURIComponent(osIdOrToken)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ diagnosticResults: payload })
-      });
+      let savedOk = false;
 
-      const resData = await resp.json();
-      if (!resp.ok || !resData.success) {
-        throw new Error(resData.error || 'Erro ao sincronizar com o servidor');
+      // 2. Envia para a API se disponível
+      try {
+        const resp = await fetch(`/api/device-test/${encodeURIComponent(cleanParam)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ diagnosticResults: payload })
+        });
+        const contentType = resp.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const resData = await resp.json();
+          if (resp.ok && resData.success) {
+            savedOk = true;
+          }
+        }
+      } catch (apiErr) {
+        console.warn('API save failed, falling back to direct DB update:', apiErr);
+      }
+
+      // 3. Fallback direto no Supabase caso a API falhe ou retorne HTML
+      if (!savedOk && order?.id) {
+        try {
+          let currentChecklist: string[] = Array.isArray(order.checklist) ? [...order.checklist] : [];
+          currentChecklist = currentChecklist.filter(item => {
+            if (typeof item !== 'string') return false;
+            if (item.startsWith('__DIAG_JSON__:')) return false;
+            if (item.startsWith('🔍 [TESTE]')) return false;
+            if (item.startsWith('📱 Touch:') || item.startsWith('✌️ Multi-touch:') || item.startsWith('🎤 Microfone:')) return false;
+            if (item.startsWith('🔊 Alto-falante:') || item.startsWith('📞 Fone Auricular:') || item.startsWith('📶 Wi-Fi:')) return false;
+            if (item.startsWith('👁️ Sensor de Presença:') || item.startsWith('🔐 Biometria:')) return false;
+            return true;
+          });
+
+          const tests = latestTests;
+          const testChecklistItems: string[] = [];
+          const getStatusLabel = (s: string) => s === 'passed' ? 'Aprovado' : s === 'failed' ? 'Reprovado' : 'Não Testado';
+
+          if (tests.touch) testChecklistItems.push(`📱 Touch: ${getStatusLabel(tests.touch.status)} (${tests.touch.details || '100% grade'})`);
+          if (tests.multitouch) testChecklistItems.push(`✌️ Multi-touch: ${getStatusLabel(tests.multitouch.status)} (${tests.multitouch.details || 'Múltiplos toques'})`);
+          if (tests.mic) testChecklistItems.push(`🎤 Microfone: ${getStatusLabel(tests.mic.status)}`);
+          if (tests.speaker) testChecklistItems.push(`🔊 Alto-falante: ${getStatusLabel(tests.speaker.status)}`);
+          if (tests.earpiece) testChecklistItems.push(`📞 Fone Auricular: ${getStatusLabel(tests.earpiece.status)}`);
+          if (tests.wifi) testChecklistItems.push(`📶 Wi-Fi / Rede: ${getStatusLabel(tests.wifi.status)} (${tests.wifi.details || 'Conectado'})`);
+          if (tests.proximity) testChecklistItems.push(`👁️ Sensor de Presença: ${getStatusLabel(tests.proximity.status)}`);
+          if (tests.biometrics) testChecklistItems.push(`🔐 Biometria: ${getStatusLabel(tests.biometrics.status)} (${tests.biometrics.details || 'Sensor biométrico'})`);
+
+          const updatedChecklist = [
+            ...currentChecklist,
+            ...testChecklistItems,
+            `__DIAG_JSON__:${JSON.stringify(payload)}`
+          ];
+
+          await supabase
+            .from('service_orders')
+            .update({ checklist: updatedChecklist })
+            .eq('id', order.id);
+
+          savedOk = true;
+        } catch (dbErr) {
+          console.warn('Direct Supabase update failed:', dbErr);
+        }
+      }
+
+      // 4. Salva no banco local Dexie se disponível
+      if (order?.id) {
+        try {
+          await db.orders.update(order.id, {
+            diagnosticTests: payload
+          });
+        } catch (e) {}
       }
 
       setSyncStatus('saved');
@@ -242,7 +463,7 @@ export const DeviceHardwareTestPage: React.FC<Props> = ({ osIdOrToken }) => {
         setTimeout(() => setSaveSuccess(false), 4000);
       }
     } catch (err: any) {
-      console.warn('Erro ao auto-salvar teste em tempo real:', err);
+      console.warn('Erro ao salvar teste:', err);
       setSyncStatus('error');
       if (isManualClick) {
         alert(`Erro ao salvar diagnóstico na O.S.: ${err.message}`);

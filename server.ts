@@ -439,9 +439,10 @@ app.get('/api/os-tracking/:token', async (req, res) => {
 });
 
 // Endpoint para buscar dados e testes de hardware da O.S. (via QR Code / link externo)
-app.get('/api/device-test/:idOrToken', async (req, res) => {
-  const { idOrToken } = req.params;
-  const cleanParam = (idOrToken || '').trim();
+app.get(['/api/device-test/:idOrToken', '/api/device-test'], async (req, res) => {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  const rawParam = req.params.idOrToken || req.query.idOrToken || req.query.token || req.query.id;
+  const cleanParam = String(rawParam || '').trim();
 
   try {
     let { data: order, error } = await supabase
@@ -512,10 +513,11 @@ app.get('/api/device-test/:idOrToken', async (req, res) => {
 });
 
 // Endpoint para salvar resultados dos testes de hardware diretamente na O.S. do cliente
-app.post('/api/device-test/:idOrToken', async (req, res) => {
-  const { idOrToken } = req.params;
+app.post(['/api/device-test/:idOrToken', '/api/device-test'], async (req, res) => {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  const rawParam = req.params.idOrToken || req.query.idOrToken || req.query.token || req.query.id || req.body?.idOrToken || req.body?.token;
+  const cleanParam = String(rawParam || '').trim();
   const { diagnosticResults } = req.body;
-  const cleanParam = (idOrToken || '').trim();
 
   if (!diagnosticResults || !diagnosticResults.tests) {
     return res.status(400).json({ success: false, error: 'Resultados dos testes são obrigatórios.' });

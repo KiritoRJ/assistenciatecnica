@@ -95,9 +95,12 @@ export const DiagnosticReportModal: React.FC<DiagnosticReportModalProps> = ({
       try {
         setIsLiveSyncing(true);
         const resp = await fetch(`/api/device-test/${encodeURIComponent(targetToken)}`);
-        const data = await resp.json();
-        if (resp.ok && data.success && data.order?.diagnosticTests) {
-          setLiveDiagnostics(data.order.diagnosticTests);
+        const contentType = resp.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const data = await resp.json();
+          if (resp.ok && data.success && data.order?.diagnosticTests) {
+            setLiveDiagnostics(data.order.diagnosticTests);
+          }
         }
       } catch (e) {
         // Silencioso em caso de oscilação momentânea
