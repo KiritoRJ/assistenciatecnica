@@ -730,11 +730,14 @@ const App: React.FC = () => {
   }
 
   // Teste de hardware de celular (acesso via QR Code gerado na O.S.)
-  if (pathname.startsWith('/teste-hardware/') || pathname.startsWith('/test/')) {
-    const osIdOrToken = pathname.startsWith('/teste-hardware/')
-      ? pathname.split('/teste-hardware/')[1]?.split('/')[0]?.split('?')[0]
-      : pathname.split('/test/')[1]?.split('/')[0]?.split('?')[0];
-    return <DeviceHardwareTestPage osIdOrToken={osIdOrToken} />;
+  if (pathname.startsWith('/teste-hardware') || pathname.startsWith('/test')) {
+    const osIdOrToken = pathname.startsWith('/teste-hardware')
+      ? pathname.split('/teste-hardware')[1]?.replace(/^\//, '')?.split('/')[0]?.split('?')[0]
+      : pathname.split('/test')[1]?.replace(/^\//, '')?.split('/')[0]?.split('?')[0];
+    
+    if (osIdOrToken) {
+        return <DeviceHardwareTestPage osIdOrToken={osIdOrToken} />;
+    }
   }
 
   if (isInitializing) {
