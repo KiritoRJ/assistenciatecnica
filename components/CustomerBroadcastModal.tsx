@@ -4,7 +4,7 @@ import {
   Flame, Gift, CheckCircle, Copy, ExternalLink, Wrench, Check
 } from 'lucide-react';
 import { Customer, ServiceOrder, AppSettings } from '../types';
-import { formatCurrency } from '../utils';
+import { formatCurrency, getTrackingUrl } from '../utils';
 
 interface Props {
   isOpen: boolean;
@@ -164,7 +164,7 @@ export const CustomerBroadcastModal: React.FC<Props> = ({
   const repair = order?.repairDetails || '';
   const totalFormatted = order?.total ? formatCurrency(order.total) : '';
   const trackingToken = order?.trackingToken || order?.id || '';
-  const trackingUrl = trackingToken ? `${window.location.origin}/?track=${trackingToken}` : '';
+  const trackingUrl = trackingToken ? getTrackingUrl(trackingToken, settings) : '';
 
   const rawPhone = customer?.phoneNumber || order?.phoneNumber || '';
   const cleanDigits = rawPhone.replace(/\D/g, '');

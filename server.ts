@@ -439,9 +439,20 @@ app.get('/api/os-tracking/:token', async (req, res) => {
 });
 
 // Endpoint para buscar dados e testes de hardware da O.S. (via QR Code / link externo)
+app.options('/api/device-test/:idOrToken', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  return res.status(200).end();
+});
+
 app.get('/api/device-test/:idOrToken', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
   const { idOrToken } = req.params;
-  const cleanParam = (idOrToken || '').trim();
+  const cleanParam = decodeURIComponent(idOrToken || '').trim().replace(/^#/, '');
 
   try {
     let { data: order, error } = await supabase
@@ -513,9 +524,13 @@ app.get('/api/device-test/:idOrToken', async (req, res) => {
 
 // Endpoint para salvar resultados dos testes de hardware diretamente na O.S. do cliente
 app.post('/api/device-test/:idOrToken', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
   const { idOrToken } = req.params;
   const { diagnosticResults } = req.body;
-  const cleanParam = (idOrToken || '').trim();
+  const cleanParam = decodeURIComponent(idOrToken || '').trim().replace(/^#/, '');
 
   if (!diagnosticResults || !diagnosticResults.tests) {
     return res.status(400).json({ success: false, error: 'Resultados dos testes são obrigatórios.' });

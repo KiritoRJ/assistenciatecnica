@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Image as ImageIcon, Camera, FileText, Palette, MoveHorizontal, MoreVertical, ArrowLeft, Check, Layout, Pipette, X, AlertCircle, Users, Shield, ShieldAlert, UserPlus, Trash2, User as UserIcon, Loader2, Lock, MapPin, Phone, KeyRound, Briefcase, Smartphone, Download, Upload, LogOut, Bell, Package, DollarSign, Percent, Save, Edit2, ChevronRight } from 'lucide-react';
+import { Image as ImageIcon, Camera, FileText, Palette, MoveHorizontal, MoreVertical, ArrowLeft, Check, Layout, Pipette, X, AlertCircle, Users, Shield, ShieldAlert, UserPlus, Trash2, User as UserIcon, Loader2, Lock, MapPin, Phone, KeyRound, Briefcase, Smartphone, Download, Upload, LogOut, Bell, Package, DollarSign, Percent, Save, Edit2, ChevronRight, Globe } from 'lucide-react';
 import { AppSettings, User, ServiceOrder, Product, Sale, Transaction, Employee } from '../types';
 import { OnlineDB } from '../utils/api';
 import { OfflineSync } from '../utils/offlineSync';
@@ -1829,6 +1829,47 @@ const SettingsTab: React.FC<Props> = ({ products, setProducts, settings, setSett
                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Phone size={10}/> Telefone</label>
                  <input readOnly={!isAdmin} type="text" value={settings.storePhone || ''} onChange={(e) => updateSetting('storePhone', e.target.value)} className="w-full px-4 py-3 bg-slate-50 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all" placeholder="(00) 00000-0000" />
               </div>
+           </div>
+
+           {/* DOMÍNIO BASE DOS LINKS EXTERNOS E QR CODE */}
+           <div className="space-y-1.5 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-between">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <Globe size={11} className="text-blue-500" /> Domínio Base (Links Externos & QR Codes)
+                </label>
+                {isAdmin && typeof window !== 'undefined' && (
+                  <button
+                    type="button"
+                    onClick={() => updateSetting('customDomain', window.location.origin)}
+                    className="text-[9px] font-bold text-blue-600 hover:text-blue-700 active:scale-95 transition-all cursor-pointer underline"
+                  >
+                    Usar domínio atual
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <input 
+                  readOnly={!isAdmin} 
+                  type="text" 
+                  value={settings.customDomain || ''} 
+                  onChange={(e) => updateSetting('customDomain', e.target.value.trim())} 
+                  className="flex-1 px-4 py-2.5 bg-slate-50 rounded-xl text-xs font-bold font-mono text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all" 
+                  placeholder={typeof window !== 'undefined' ? `${window.location.origin} (automático)` : 'https://seusistema.com'} 
+                />
+                {settings.customDomain && isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => updateSetting('customDomain', '')}
+                    className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-[10px] font-bold active:scale-95 transition-all cursor-pointer shrink-0"
+                    title="Limpar e usar detecção automática"
+                  >
+                    Resetar
+                  </button>
+                )}
+              </div>
+              <p className="text-[10px] text-slate-400 leading-tight">
+                Usado como base para gerar os links externos e QR Codes de <strong>Teste de Hardware</strong> e <strong>Acompanhamento de O.S.</strong> Se deixar em branco, o sistema detecta e usa o domínio atual automaticamente, mantendo todos os links funcionando mesmo se você trocar de domínio ou hospedar em outro servidor.
+              </p>
            </div>
         </div>
 

@@ -238,6 +238,7 @@ export interface AppSettings {
   enableNewOSNotifications?: boolean;
   enableNewSaleNotifications?: boolean;
   salesBannerUrl?: string | null;
+  customDomain?: string;
 }
 
 export interface Employee {

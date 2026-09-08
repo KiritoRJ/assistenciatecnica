@@ -26,6 +26,7 @@ import {
   Zap
 } from 'lucide-react';
 import { DeviceDiagnosticResults, DeviceHardwareTestItem, DeviceHardwareTestType } from '../types';
+import { supabase } from '../utils/api';
 
 interface Props {
   osIdOrToken: string;
@@ -159,12 +160,87 @@ export const DeviceHardwareTestPage: React.FC<Props> = ({ osIdOrToken }) => {
   const fetchOrderData = async () => {
     setLoading(true);
     setError(null);
-    try {
-      const response = await fetch(`/api/device-test/${encodeURIComponent(osIdOrToken)}`);
-      const data = await response.json();
+    const cleanParam = decodeURIComponent(osIdOrToken || '').trim().replace(/^#/, '');
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Ordem de Serviço não encontrada.');
+    try {
+      // 1. Tenta buscar via API do servidor primeiro
+      let data: any = null;
+      try {
+        const response = await fetch(`/api/device-test/${encodeURIComponent(cleanParam)}`);
+        if (response.ok) {
+          const json = await response.json();
+          if (json.success && json.order) {
+            data = json;
+          }
+        }
+      } catch (apiErr) {
+        console.warn('API /api/device-test indisponível, usando fallback Supabase:', apiErr);
+      }
+
+      // 2. Se a API não respondeu ou não encontrou, busca diretamente no Supabase (resiliente em qualquer domínio)
+      if (!data) {
+        let { data: dbOrder } = await supabase
+          .from('service_orders')
+          .select('id, tenant_id, customer_name, phone_number, device_brand, device_model, defect, repair_details, status, checklist, public_notes, created_at, entry_date, tracking_token')
+          .eq('tracking_token', cleanParam)
+          .maybeSingle();
+
+        if (!dbOrder) {
+          const { data: fallbackOrder } = await supabase
+            .from('service_orders')
+            .select('id, tenant_id, customer_name, phone_number, device_brand, device_model, defect, repair_details, status, checklist, public_notes, created_at, entry_date, tracking_token')
+            .eq('id', cleanParam)
+            .maybeSingle();
+          if (fallbackOrder) dbOrder = fallbackOrder;
+        }
+
+        if (dbOrder) {
+          let storeName = 'Assistência Técnica';
+          if (dbOrder.tenant_id) {
+            try {
+              const { data: tenant } = await supabase
+                .from('tenants')
+                .select('name')
+                .eq('tenant_id', dbOrder.tenant_id)
+                .maybeSingle();
+              if (tenant?.name) storeName = tenant.name;
+            } catch (tErr) {}
+          }
+
+          let diagnosticTests: DeviceDiagnosticResults | undefined = undefined;
+          if (Array.isArray(dbOrder.checklist)) {
+            for (const item of dbOrder.checklist) {
+              if (typeof item === 'string' && item.startsWith('__DIAG_JSON__:')) {
+                try {
+                  diagnosticTests = JSON.parse(item.substring(14));
+                  break;
+                } catch (e) {}
+              }
+            }
+          }
+
+          data = {
+            success: true,
+            order: {
+              id: dbOrder.id,
+              tenantId: dbOrder.tenant_id,
+              customerName: dbOrder.customer_name || 'Cliente',
+              phoneNumber: dbOrder.phone_number,
+              deviceBrand: dbOrder.device_brand || 'Smartphone',
+              deviceModel: dbOrder.device_model || '',
+              defect: dbOrder.defect || '',
+              status: dbOrder.status || 'Recebido',
+              entryDate: dbOrder.entry_date || dbOrder.created_at,
+              storeName,
+              checklist: Array.isArray(dbOrder.checklist) ? dbOrder.checklist : [],
+              diagnosticTests
+            }
+          };
+        }
+      }
+
+      if (!data || !data.order) {
+        throw new Error('Ordem de Serviço não encontrada. Verifique o link ou o QR Code.');
       }
 
       setOrder(data.order);
@@ -196,6 +272,7 @@ export const DeviceHardwareTestPage: React.FC<Props> = ({ osIdOrToken }) => {
       setSaveSuccess(false);
     }
     setSyncStatus('saving');
+    const cleanParam = decodeURIComponent(osIdOrToken || '').trim().replace(/^#/, '');
 
     const passedCount = Object.values(latestTests).filter(t => t.status === 'passed').length;
     const failedCount = Object.values(latestTests).filter(t => t.status === 'failed').length;
@@ -216,24 +293,66 @@ export const DeviceHardwareTestPage: React.FC<Props> = ({ osIdOrToken }) => {
     try {
       // 1. Salva cópia local e notifica abas abertas no mesmo navegador
       try {
-        localStorage.setItem(`os_diag_${osIdOrToken}`, JSON.stringify(payload));
+        localStorage.setItem(`os_diag_${cleanParam}`, JSON.stringify(payload));
         if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
           const bc = new BroadcastChannel('os_hardware_test_sync');
-          bc.postMessage({ token: osIdOrToken, diagnosticResults: payload });
+          bc.postMessage({ token: cleanParam, diagnosticResults: payload });
           bc.close();
         }
       } catch (e) {}
 
-      // 2. Envia para o servidor em tempo real
-      const resp = await fetch(`/api/device-test/${encodeURIComponent(osIdOrToken)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ diagnosticResults: payload })
-      });
+      // 2. Envia para o servidor se disponível
+      let serverSaved = false;
+      try {
+        const resp = await fetch(`/api/device-test/${encodeURIComponent(cleanParam)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ diagnosticResults: payload })
+        });
+        if (resp.ok) {
+          const resData = await resp.json();
+          if (resData.success) {
+            serverSaved = true;
+          }
+        }
+      } catch (apiErr) {
+        console.warn('API /api/device-test não disponível para salvar, usando fallback Supabase:', apiErr);
+      }
 
-      const resData = await resp.json();
-      if (!resp.ok || !resData.success) {
-        throw new Error(resData.error || 'Erro ao sincronizar com o servidor');
+      // 3. Se a API do servidor não salvou (ex.: hospedagem estática, serverless ou erro de rede), salva diretamente no Supabase
+      if (!serverSaved) {
+        let { data: currentOrder } = await supabase
+          .from('service_orders')
+          .select('id, checklist')
+          .eq('tracking_token', cleanParam)
+          .maybeSingle();
+
+        if (!currentOrder) {
+          const { data: fbOrder } = await supabase
+            .from('service_orders')
+            .select('id, checklist')
+            .eq('id', cleanParam)
+            .maybeSingle();
+          if (fbOrder) currentOrder = fbOrder;
+        }
+
+        if (currentOrder) {
+          let checklist: string[] = Array.isArray(currentOrder.checklist) ? [...currentOrder.checklist] : [];
+          checklist = checklist.filter(item => typeof item === 'string' && !item.startsWith('__DIAG_JSON__:') && !item.startsWith('🔍 [TESTE]'));
+          checklist.push(`__DIAG_JSON__:${JSON.stringify(payload)}`);
+          checklist.push(`🔍 [TESTE] ${payload.summary} (${new Date().toLocaleDateString('pt-BR')})`);
+
+          const { error: updateErr } = await supabase
+            .from('service_orders')
+            .update({ checklist })
+            .eq('id', currentOrder.id);
+
+          if (updateErr) {
+            console.error('Erro ao atualizar Supabase diretamente:', updateErr);
+            throw updateErr;
+          }
+          serverSaved = true;
+        }
       }
 
       setSyncStatus('saved');

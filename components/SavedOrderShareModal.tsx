@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { ServiceOrder, AppSettings, DeviceDiagnosticResults } from '../types';
-import { formatCurrency } from '../utils';
+import { formatCurrency, getHardwareTestUrl, getTrackingUrl } from '../utils';
 import { generateReceiptCanvasImage, shareReceiptDirectly } from '../utils/receiptGenerator';
 import { DiagnosticReportModal } from './DiagnosticReportModal';
 
@@ -64,7 +64,7 @@ export const SavedOrderShareModal: React.FC<SavedOrderShareModalProps> = ({
 
       // Gera o QR Code para a página externa de testes de hardware do celular
       const targetToken = order.trackingToken || order.id;
-      const hardwareTestUrl = `${window.location.origin}/teste-hardware/${targetToken}`;
+      const hardwareTestUrl = getHardwareTestUrl(targetToken, settings);
       QRCode.toDataURL(hardwareTestUrl, {
         width: 280,
         margin: 1,
@@ -91,8 +91,8 @@ export const SavedOrderShareModal: React.FC<SavedOrderShareModalProps> = ({
   const cleanPhone = (order.phoneNumber || '').replace(/\D/g, '');
   const phoneWithCountry = cleanPhone.length <= 11 && !cleanPhone.startsWith('55') ? `55${cleanPhone}` : cleanPhone;
   const trackingToken = order.trackingToken || order.id;
-  const trackingUrl = `${window.location.origin}/acompanhamento/${trackingToken}`;
-  const hardwareTestUrl = `${window.location.origin}/teste-hardware/${trackingToken}`;
+  const trackingUrl = getTrackingUrl(trackingToken, settings);
+  const hardwareTestUrl = getHardwareTestUrl(trackingToken, settings);
 
   const handleCopyTestLink = () => {
     navigator.clipboard.writeText(hardwareTestUrl);

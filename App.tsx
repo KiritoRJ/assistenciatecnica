@@ -144,8 +144,52 @@ const App: React.FC = () => {
   useAppNotifications(transactions, products, orders, sales, settings, currentUser);
 
   const pathname = window.location.pathname;
-  let catalogTenantId = new URLSearchParams(window.location.search).get('catalog');
-  let catalogSlug = null;
+  const searchParams = new URLSearchParams(window.location.search);
+  const hash = window.location.hash || '';
+
+  // 1. Extração universal do Token de Teste de Hardware
+  let hardwareTestToken: string | null = null;
+  if (pathname.startsWith('/teste-hardware/') || pathname.startsWith('/test/')) {
+    const raw = pathname.startsWith('/teste-hardware/')
+      ? pathname.split('/teste-hardware/')[1]
+      : pathname.split('/test/')[1];
+    hardwareTestToken = raw?.split('/')[0]?.split('?')[0]?.split('#')[0] || null;
+  } else if (pathname === '/teste-hardware' || pathname === '/test') {
+    hardwareTestToken = searchParams.get('token') || searchParams.get('id') || searchParams.get('os') || null;
+  }
+  if (!hardwareTestToken) {
+    hardwareTestToken = searchParams.get('teste-hardware') || searchParams.get('test') || searchParams.get('hardware-test') || searchParams.get('hardware_test') || null;
+  }
+  if (!hardwareTestToken && hash) {
+    const cleanHash = hash.replace(/^#\/?/, '');
+    if (cleanHash.startsWith('teste-hardware/') || cleanHash.startsWith('test/')) {
+      const raw = cleanHash.startsWith('teste-hardware/')
+        ? cleanHash.split('teste-hardware/')[1]
+        : cleanHash.split('test/')[1];
+      hardwareTestToken = raw?.split('/')[0]?.split('?')[0] || null;
+    }
+  }
+
+  // 2. Extração universal do Token de Acompanhamento Público
+  let publicTrackingToken: string | null = null;
+  if (pathname.startsWith('/acompanhamento/')) {
+    publicTrackingToken = pathname.split('/acompanhamento/')[1]?.split('/')[0]?.split('?')[0]?.split('#')[0] || null;
+  } else if (pathname === '/acompanhamento') {
+    publicTrackingToken = searchParams.get('token') || searchParams.get('id') || null;
+  }
+  if (!publicTrackingToken) {
+    publicTrackingToken = searchParams.get('track') || searchParams.get('acompanhamento') || null;
+  }
+  if (!publicTrackingToken && hash) {
+    const cleanHash = hash.replace(/^#\/?/, '');
+    if (cleanHash.startsWith('acompanhamento/')) {
+      publicTrackingToken = cleanHash.split('acompanhamento/')[1]?.split('/')[0]?.split('?')[0] || null;
+    }
+  }
+
+  // 3. Catálogo público
+  let catalogTenantId = searchParams.get('catalog');
+  let catalogSlug: string | null = null;
   
   if (pathname.startsWith('/catalogo/')) {
     catalogTenantId = pathname.split('/catalogo/')[1].replace(/\/$/, '');
@@ -153,9 +197,11 @@ const App: React.FC = () => {
     pathname.length > 1 && 
     !pathname.startsWith('/api/') && 
     !pathname.startsWith('/auth/') && 
-    !pathname.startsWith('/acompanhamento/') &&
-    !pathname.startsWith('/teste-hardware/') &&
-    !pathname.startsWith('/test/')
+    !pathname.startsWith('/acompanhamento') &&
+    !pathname.startsWith('/teste-hardware') &&
+    !pathname.startsWith('/test') &&
+    !hardwareTestToken &&
+    !publicTrackingToken
   ) {
     catalogSlug = pathname.substring(1).replace(/\/$/, '');
   }
@@ -719,22 +765,18 @@ const App: React.FC = () => {
     }
   };
 
+  // Teste de hardware de celular (acesso externo via QR Code ou link direto)
+  if (hardwareTestToken) {
+    return <DeviceHardwareTestPage osIdOrToken={hardwareTestToken} />;
+  }
+
+  // Acompanhamento público de O.S. (acesso externo cliente)
+  if (publicTrackingToken) {
+    return <PublicTrackingPage token={publicTrackingToken} />;
+  }
+
   if (catalogTenantId || catalogSlug) {
     return <CustomerCatalog tenantId={catalogTenantId} catalogSlug={catalogSlug} />;
-  }
-
-  // Acompanhamento público de O.S.
-  if (pathname.startsWith('/acompanhamento/')) {
-    const token = pathname.split('/acompanhamento/')[1];
-    return <PublicTrackingPage token={token} />;
-  }
-
-  // Teste de hardware de celular (acesso via QR Code gerado na O.S.)
-  if (pathname.startsWith('/teste-hardware/') || pathname.startsWith('/test/')) {
-    const osIdOrToken = pathname.startsWith('/teste-hardware/')
-      ? pathname.split('/teste-hardware/')[1]?.split('/')[0]?.split('?')[0]
-      : pathname.split('/test/')[1]?.split('/')[0]?.split('?')[0];
-    return <DeviceHardwareTestPage osIdOrToken={osIdOrToken} />;
   }
 
   if (isInitializing) {

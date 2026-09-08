@@ -3,6 +3,7 @@
   "description": "sua loja nas nuvens",
   "requestFramePermissions": [
     "camera",
+    "microphone",
     "usb"
   ],
   "majorCapabilities": [

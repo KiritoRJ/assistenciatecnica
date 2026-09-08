@@ -6,7 +6,7 @@ import {
   ExternalLink, QrCode, ShieldCheck, Sparkles, Layers, Zap, Loader2
 } from 'lucide-react';
 import { ServiceOrder, AppSettings, DeviceDiagnosticResults } from '../types';
-import { formatDateTime } from '../utils';
+import { formatDateTime, getHardwareTestUrl } from '../utils';
 
 interface DiagnosticReportModalProps {
   isOpen: boolean;
@@ -124,7 +124,7 @@ export const DiagnosticReportModal: React.FC<DiagnosticReportModalProps> = ({
   const cleanPhone = (order.phoneNumber || '').replace(/\D/g, '');
   const phoneWithCountry = cleanPhone.length <= 11 && !cleanPhone.startsWith('55') ? `55${cleanPhone}` : cleanPhone;
   const trackingToken = order.trackingToken || order.id;
-  const hardwareTestUrl = `${window.location.origin}/teste-hardware/${trackingToken}`;
+  const hardwareTestUrl = getHardwareTestUrl(trackingToken, settings);
 
   // Monta texto formatado do laudo para copiar ou mandar no WhatsApp
   const generateReportText = () => {

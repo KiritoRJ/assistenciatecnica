@@ -9,7 +9,7 @@ import {
   Wrench, CheckCircle2, Sparkles, QrCode, TrendingUp, MessageSquare, Send, Zap
 } from 'lucide-react';
 import { ServiceOrder, AppSettings, User, Customer, DeviceDiagnosticResults } from '../types';
-import { formatCurrency, parseCurrencyString, formatDate, formatDateTime, generateRandomNumericCode } from '../utils';
+import { formatCurrency, parseCurrencyString, formatDate, formatDateTime, generateRandomNumericCode, getTrackingUrl, getHardwareTestUrl } from '../utils';
 import { OnlineDB } from '../utils/api';
 import { SavedOrderShareModal } from './SavedOrderShareModal';
 import { DiagnosticReportModal } from './DiagnosticReportModal';
@@ -135,7 +135,7 @@ const ServiceOrderTab: React.FC<Props> = ({
   useEffect(() => {
     if (orderToPrint) {
       const trackingToken = orderToPrint.trackingToken || orderToPrint.id;
-      const url = `${window.location.origin}/?track=${trackingToken}`;
+      const url = getTrackingUrl(trackingToken, settings);
       QRCode.toDataURL(url, { width: 140, margin: 1, errorCorrectionLevel: 'M' })
         .then(dataUrl => setPrintQrCodeUrl(dataUrl))
         .catch(() => setPrintQrCodeUrl(null));
@@ -874,7 +874,7 @@ const ServiceOrderTab: React.FC<Props> = ({
       token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
       setFormData(prev => ({ ...prev, trackingToken: token }));
     }
-    const link = `${window.location.origin}/acompanhamento/${token}`;
+    const link = getTrackingUrl(token, settings);
     try {
       await navigator.clipboard.writeText(link);
       alert('Link copiado com sucesso! Lembre-se de salvar a O.S.');
@@ -889,7 +889,7 @@ const ServiceOrderTab: React.FC<Props> = ({
        token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
        setFormData(prev => ({ ...prev, trackingToken: token }));
      }
-     const link = `${window.location.origin}/acompanhamento/${token}`;
+     const link = getTrackingUrl(token, settings);
      const storeName = settings?.storeName || 'TICCELL';
      const cleanPhone = (formData.phoneNumber || '').replace(/\D/g, '');
      const phoneWithCountry = cleanPhone.length <= 11 && !cleanPhone.startsWith('55') ? `55${cleanPhone}` : cleanPhone;
@@ -2015,7 +2015,7 @@ const ServiceOrderTab: React.FC<Props> = ({
                   </div>
                   {formData.trackingToken ? (
                     <div className="space-y-2">
-                       <input readOnly value={`${window.location.origin}/acompanhamento/${formData.trackingToken}`} className="w-full p-2 text-[10px] font-mono bg-white rounded-lg border border-orange-100" />
+                       <input readOnly value={getTrackingUrl(formData.trackingToken, settings)} className="w-full p-2 text-[10px] font-mono bg-white rounded-lg border border-orange-100" />
                        <div className="flex gap-2">
                          <button onClick={copyLink} className="flex-1 bg-white border border-orange-200 text-orange-900 py-2 rounded-xl text-[10px] font-black uppercase">Copiar Link</button>
                          <button onClick={sendWhatsApp} className="flex-1 bg-green-500 text-white py-2 rounded-xl text-[10px] font-black uppercase">WhatsApp</button>

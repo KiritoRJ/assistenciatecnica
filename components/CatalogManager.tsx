@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ArrowLeft, Plus, Image as ImageIcon, Trash2, Save, Loader2, ExternalLink, Tag, Package, Settings, ChevronDown, ChevronUp, Video } from 'lucide-react';
 import { Product, AppSettings } from '../types';
 import { OnlineDB } from '../utils/api';
+import { getAppBaseUrl } from '../utils';
 
 interface CatalogManagerProps {
   products: Product[];
@@ -88,9 +89,10 @@ const CatalogManager: React.FC<CatalogManagerProps> = ({ products, setProducts, 
     });
   };
 
+  const baseUrl = getAppBaseUrl(settings);
   const catalogUrl = settings.catalogSlug 
-    ? `${window.location.origin}/${settings.catalogSlug}`
-    : `${window.location.origin}/catalogo/${tenantId}`;
+    ? `${baseUrl}/${settings.catalogSlug}`
+    : `${baseUrl}/catalogo/${tenantId}`;
 
   if (editingProduct) {
     return (
